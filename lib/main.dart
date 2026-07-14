@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() => runApp(const AzzortiApp());
 
@@ -17,12 +20,34 @@ class AppColors {
   static const visor = Color(0xFF0B1526);
 }
 
+// ====================== CÁMARA ======================
+final ImagePicker _picker = ImagePicker();
+
+Future<Uint8List?> tomarFotoReal(BuildContext context) async {
+  try {
+    final XFile? foto = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (foto == null) return null; // la usuaria canceló
+    return await foto.readAsBytes();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'No se pudo abrir la cámara. Revisa el permiso de cámara de la app.')));
+    }
+    return null;
+  }
+}
+
 // ====================== MODELO ======================
 enum Estado { borrador, porSincronizar, sincronizada }
 
 class Captura {
-  bool fotoEtiqueta;
-  bool fotoProducto;
+  Uint8List? fotoEtiqueta; // bytes de la foto real (null = omitida)
+  Uint8List? fotoProducto;
   String competidor;
   String precioTienda; // precio opcional digitado en tienda (Momento 1)
   final DateTime creada;
@@ -63,7 +88,8 @@ class Captura {
 
   String get hora =>
       '${creada.hour.toString().padLeft(2, '0')}:${creada.minute.toString().padLeft(2, '0')}';
-  int get numFotos => (fotoEtiqueta ? 1 : 0) + (fotoProducto ? 1 : 0);
+  int get numFotos =>
+      (fotoEtiqueta != null ? 1 : 0) + (fotoProducto != null ? 1 : 0);
 }
 
 // ====================== APP ======================
@@ -73,7 +99,7 @@ class AzzortiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Azzorti Captura V2',
+      title: 'Azzorti Captura V2.1',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -139,7 +165,8 @@ class _HomeShellState extends State<HomeShell> {
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Registros sincronizados con la base de datos (simulado)')));
+        content:
+            Text('Registros sincronizados con la base de datos (simulado)')));
   }
 
   @override
@@ -207,7 +234,7 @@ class CapturarTab extends StatelessWidget {
           children: [
             Text('Captura en campo',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-            Text('Módulo M1 · V2 · fotos primero',
+            Text('Módulo M1 · V2.1 · cámara real',
                 style: TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
           ],
         ),
@@ -231,8 +258,7 @@ class CapturarTab extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'En la tienda solo tomas las fotos, marcas el competidor y, si lo ves, el precio. Todo lo demás lo completas después desde Pendientes.',
-                      style:
-                          TextStyle(fontSize: 12.5, color: AppColors.muted),
+                      style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                     ),
                   ),
                 ],
@@ -267,18 +293,30 @@ class CapturarTab extends StatelessWidget {
 }
 
 // ====================== MOMENTO 1 · FOTO ETIQUETA ======================
-class FotoEtiquetaScreen extends StatelessWidget {
+class FotoEtiquetaScreen extends StatefulWidget {
   final String competidorInicial;
   final ValueChanged<Captura> onGuardar;
   const FotoEtiquetaScreen(
       {super.key, required this.competidorInicial, required this.onGuardar});
 
-  void _continuar(BuildContext context, bool tomoEtiqueta) {
+  @override
+  State<FotoEtiquetaScreen> createState() => _FotoEtiquetaScreenState();
+}
+
+class _FotoEtiquetaScreenState extends State<FotoEtiquetaScreen> {
+  Uint8List? foto;
+
+  Future<void> _tomar() async {
+    final bytes = await tomarFotoReal(context);
+    if (bytes != null) setState(() => foto = bytes);
+  }
+
+  void _continuar(Uint8List? fotoEtiqueta) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => FotoProductoScreen(
-        tieneEtiqueta: tomoEtiqueta,
-        competidorInicial: competidorInicial,
-        onGuardar: onGuardar,
+        fotoEtiqueta: fotoEtiqueta,
+        competidorInicial: widget.competidorInicial,
+        onGuardar: widget.onGuardar,
       ),
     ));
   }
@@ -301,14 +339,31 @@ class FotoEtiquetaScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            VisorCamara(texto: 'Encuadra la etiqueta de composición / precio'),
-            const SizedBox(height: 18),
-            Obturador(onTap: () => _continuar(context, true)),
-            const SizedBox(height: 18),
-            OutlinedButton(
-              onPressed: () => _continuar(context, false),
-              child: const Text('Omitir etiqueta'),
+            VisorFoto(
+              bytes: foto,
+              textoVacio:
+                  'Toca el botón de la cámara para\nfotografiar la etiqueta de composición / precio',
             ),
+            const SizedBox(height: 18),
+            if (foto == null) ...[
+              Obturador(onTap: _tomar),
+              const SizedBox(height: 18),
+              OutlinedButton(
+                onPressed: () => _continuar(null),
+                child: const Text('Omitir etiqueta'),
+              ),
+            ] else ...[
+              FilledButton(
+                onPressed: () => _continuar(foto),
+                child: const Text('Usar esta foto',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: _tomar,
+                child: const Text('Repetir foto'),
+              ),
+            ],
             const Spacer(),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -323,15 +378,27 @@ class FotoEtiquetaScreen extends StatelessWidget {
 }
 
 // ====================== MOMENTO 1 · FOTO PRODUCTO ======================
-class FotoProductoScreen extends StatelessWidget {
-  final bool tieneEtiqueta;
+class FotoProductoScreen extends StatefulWidget {
+  final Uint8List? fotoEtiqueta;
   final String competidorInicial;
   final ValueChanged<Captura> onGuardar;
   const FotoProductoScreen(
       {super.key,
-      required this.tieneEtiqueta,
+      required this.fotoEtiqueta,
       required this.competidorInicial,
       required this.onGuardar});
+
+  @override
+  State<FotoProductoScreen> createState() => _FotoProductoScreenState();
+}
+
+class _FotoProductoScreenState extends State<FotoProductoScreen> {
+  Uint8List? foto;
+
+  Future<void> _tomar() async {
+    final bytes = await tomarFotoReal(context);
+    if (bytes != null) setState(() => foto = bytes);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -351,17 +418,35 @@ class FotoProductoScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            VisorCamara(texto: 'Encuadra la prenda completa'),
+            VisorFoto(
+              bytes: foto,
+              textoVacio:
+                  'Toca el botón de la cámara para\nfotografiar la prenda completa',
+            ),
             const SizedBox(height: 18),
-            Obturador(onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => GuardadoRapidoScreen(
-                  tieneEtiqueta: tieneEtiqueta,
-                  competidorInicial: competidorInicial,
-                  onGuardar: onGuardar,
-                ),
-              ));
-            }),
+            if (foto == null)
+              Obturador(onTap: _tomar)
+            else ...[
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => GuardadoRapidoScreen(
+                      fotoEtiqueta: widget.fotoEtiqueta,
+                      fotoProducto: foto!,
+                      competidorInicial: widget.competidorInicial,
+                      onGuardar: widget.onGuardar,
+                    ),
+                  ));
+                },
+                child: const Text('Usar esta foto',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: _tomar,
+                child: const Text('Repetir foto'),
+              ),
+            ],
             const Spacer(),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -377,12 +462,14 @@ class FotoProductoScreen extends StatelessWidget {
 
 // ====================== MOMENTO 1 · GUARDADO RÁPIDO ======================
 class GuardadoRapidoScreen extends StatefulWidget {
-  final bool tieneEtiqueta;
+  final Uint8List? fotoEtiqueta;
+  final Uint8List fotoProducto;
   final String competidorInicial;
   final ValueChanged<Captura> onGuardar;
   const GuardadoRapidoScreen(
       {super.key,
-      required this.tieneEtiqueta,
+      required this.fotoEtiqueta,
+      required this.fotoProducto,
       required this.competidorInicial,
       required this.onGuardar});
 
@@ -391,7 +478,13 @@ class GuardadoRapidoScreen extends StatefulWidget {
 }
 
 class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
-  static const competidores = ['Lilipink', 'Forever', 'Índigo', 'Éxito', 'Otro'];
+  static const competidores = [
+    'Lilipink',
+    'Forever',
+    'Índigo',
+    'Éxito',
+    'Otro'
+  ];
   late String competidor;
   final precioCtrl = TextEditingController();
 
@@ -402,8 +495,8 @@ class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
   }
 
   Captura _crear() => Captura(
-        fotoEtiqueta: widget.tieneEtiqueta,
-        fotoProducto: true,
+        fotoEtiqueta: widget.fotoEtiqueta,
+        fotoProducto: widget.fotoProducto,
         competidor: competidor,
         precioTienda: precioCtrl.text.trim(),
         creada: DateTime.now(),
@@ -417,7 +510,6 @@ class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
     }
     widget.onGuardar(_crear());
     if (otraCaptura) {
-      // Vuelve directo a la cámara, manteniendo el competidor "pegado".
       Navigator.of(context).popUntil((r) => r.isFirst);
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => FotoEtiquetaScreen(
@@ -450,9 +542,9 @@ class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Row(children: [
-            MiniFoto(etiqueta: 'Etiqueta', existe: widget.tieneEtiqueta),
+            MiniFoto(etiqueta: 'Etiqueta', bytes: widget.fotoEtiqueta),
             const SizedBox(width: 10),
-            const MiniFoto(etiqueta: 'Producto', existe: true),
+            MiniFoto(etiqueta: 'Producto', bytes: widget.fotoProducto),
           ]),
           const SizedBox(height: 20),
           const Etiqueta('COMPETIDOR (SE MANTIENE EN LA TIENDA)'),
@@ -467,9 +559,8 @@ class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
                       selectedColor: const Color(0xFFEFF6FF),
                       labelStyle: TextStyle(
                         fontSize: 12.5,
-                        fontWeight: competidor == c
-                            ? FontWeight.w700
-                            : FontWeight.w400,
+                        fontWeight:
+                            competidor == c ? FontWeight.w700 : FontWeight.w400,
                         color: competidor == c
                             ? const Color(0xFF1D4ED8)
                             : AppColors.ink,
@@ -544,8 +635,7 @@ class PendientesTab extends StatelessWidget {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             Text(
                 '${borradores.length} borrador(es) · ${completos.length} por sincronizar',
-                style:
-                    const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
           ],
         ),
       ),
@@ -605,10 +695,11 @@ class TarjetaCaptura extends StatelessWidget {
       sub = '${c.hora} · ${c.numFotos} foto(s)';
     } else {
       titulo = '${c.categoria} · ${c.puntoPrecio}';
-      sub = '${c.competidor} · ${c.sku}';
+      sub = '${c.competidor} · ${c.sku.isEmpty ? "sin SKU" : c.sku}';
     }
     final chip = switch (c.estado) {
-      Estado.borrador => const _Chip('BORRADOR', AppColors.amberBg, AppColors.amberTxt),
+      Estado.borrador =>
+        const _Chip('BORRADOR', AppColors.amberBg, AppColors.amberTxt),
       Estado.porSincronizar =>
         const _Chip('POR SINCRONIZAR', AppColors.greenBg, Color(0xFF116932)),
       Estado.sincronizada =>
@@ -623,16 +714,22 @@ class TarjetaCaptura extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.image_outlined,
-              size: 20, color: AppColors.muted),
-        ),
+        leading: c.fotoProducto != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(c.fotoProducto!,
+                    width: 40, height: 40, fit: BoxFit.cover),
+              )
+            : Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.image_outlined,
+                    size: 20, color: AppColors.muted),
+              ),
         title: Text(titulo,
             style:
                 const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
@@ -701,8 +798,7 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             Text(
                 '${c.competidor} · ${c.hora}${c.precioTienda.isEmpty ? "" : " · Bs ${c.precioTienda}"}',
-                style:
-                    const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
           ],
         ),
       ),
@@ -710,9 +806,9 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Row(children: [
-            MiniFoto(etiqueta: 'Etiqueta', existe: c.fotoEtiqueta),
+            MiniFoto(etiqueta: 'Etiqueta', bytes: c.fotoEtiqueta),
             const SizedBox(width: 10),
-            MiniFoto(etiqueta: 'Producto', existe: c.fotoProducto),
+            MiniFoto(etiqueta: 'Producto', bytes: c.fotoProducto),
           ]),
           const SizedBox(height: 20),
           const Etiqueta('CANAL'),
@@ -779,8 +875,8 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
                     c.categoria = categoria!;
                     c.puntoPrecio = punto;
                     Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => FichaPrecioScreen(
-                          captura: c, onFin: widget.onFin),
+                      builder: (_) =>
+                          FichaPrecioScreen(captura: c, onFin: widget.onFin),
                     ));
                   },
             child: const Text('Continuar',
@@ -838,8 +934,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             const Text('Ficha del producto',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             Text('${c.categoria} · ${c.puntoPrecio}',
-                style:
-                    const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9DB2D6))),
           ],
         ),
       ),
@@ -847,9 +942,9 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Row(children: [
-            MiniFoto(etiqueta: 'Etiqueta', existe: c.fotoEtiqueta),
+            MiniFoto(etiqueta: 'Etiqueta', bytes: c.fotoEtiqueta),
             const SizedBox(width: 10),
-            MiniFoto(etiqueta: 'Producto', existe: c.fotoProducto),
+            MiniFoto(etiqueta: 'Producto', bytes: c.fotoProducto),
           ]),
           const SizedBox(height: 20),
           const Etiqueta('SILUETA / CORTE'),
@@ -888,10 +983,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               ? 'PRECIO (BS) — PRE-CARGADO DE LA TIENDA'
               : 'PRECIO (BS)'),
           const SizedBox(height: 8),
-          CampoTexto(
-              controller: precioCtrl,
-              hint: 'ej. 219',
-              numerico: true),
+          CampoTexto(controller: precioCtrl, hint: 'ej. 219', numerico: true),
           if (vinoDeTienda)
             const Padding(
               padding: EdgeInsets.only(top: 6),
@@ -922,8 +1014,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               c.precioFinal = precioCtrl.text.trim();
               c.sku = skuCtrl.text.trim();
               Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) =>
-                    RevisarScreen(captura: c, onFin: widget.onFin),
+                builder: (_) => RevisarScreen(captura: c, onFin: widget.onFin),
               ));
             },
             child: const Text('Continuar',
@@ -1040,8 +1131,7 @@ class ConfirmacionScreen extends StatelessWidget {
               height: 72,
               decoration: const BoxDecoration(
                   color: AppColors.greenBg, shape: BoxShape.circle),
-              child:
-                  const Icon(Icons.check, color: AppColors.green, size: 38),
+              child: const Icon(Icons.check, color: AppColors.green, size: 38),
             ),
             const SizedBox(height: 16),
             const Text('¡Guardado!',
@@ -1061,21 +1151,18 @@ class ConfirmacionScreen extends StatelessWidget {
               ),
               child: const Text(
                 'Si no hubiera señal: queda "pendiente" y se sincroniza solo más tarde.',
-                style:
-                    TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
+                style: TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
               ),
             ),
             const Spacer(),
             FilledButton(
-              onPressed: () =>
-                  Navigator.of(context).popUntil((r) => r.isFirst),
+              onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
               child: const Text('Completar otro borrador',
                   style: TextStyle(fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 10),
             OutlinedButton(
-              onPressed: () =>
-                  Navigator.of(context).popUntil((r) => r.isFirst),
+              onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
               child: const Text('Ver mis pendientes'),
             ),
           ],
@@ -1121,7 +1208,7 @@ class PerfilTab extends StatelessWidget {
           FilaResumen('Capturas de hoy', '$total'),
           FilaResumen('Borradores por completar', '$borradores'),
           FilaResumen('Sincronizadas', '$sincronizadas'),
-          FilaResumen('Versión del prototipo', 'V2 · fotos primero'),
+          FilaResumen('Versión del prototipo', 'V2.1 · cámara real'),
         ],
       ),
     );
@@ -1167,8 +1254,7 @@ class Selector extends StatelessWidget {
           value: valor,
           isExpanded: true,
           hint: Text(hint,
-              style:
-                  const TextStyle(fontSize: 13.5, color: AppColors.muted)),
+              style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
           items: opciones
               .map((o) => DropdownMenuItem(
                   value: o,
@@ -1210,29 +1296,52 @@ class CampoTexto extends StatelessWidget {
 
 class MiniFoto extends StatelessWidget {
   final String etiqueta;
-  final bool existe;
-  const MiniFoto({super.key, required this.etiqueta, required this.existe});
+  final Uint8List? bytes;
+  const MiniFoto({super.key, required this.etiqueta, this.bytes});
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        height: 72,
+        height: 90,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: existe ? const Color(0xFFCBD5E1) : const Color(0xFFF1F5F9),
+          color: bytes != null
+              ? const Color(0xFFCBD5E1)
+              : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.line),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(existe ? Icons.image : Icons.hide_image_outlined,
-                size: 22, color: AppColors.muted),
-            const SizedBox(height: 4),
-            Text(existe ? etiqueta : '$etiqueta (omitida)',
-                style:
-                    const TextStyle(fontSize: 10, color: AppColors.muted)),
-          ],
-        ),
+        child: bytes != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.memory(bytes!, fit: BoxFit.cover),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      color: Colors.black45,
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(etiqueta,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 9, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.hide_image_outlined,
+                      size: 22, color: AppColors.muted),
+                  const SizedBox(height: 4),
+                  Text('$etiqueta (omitida)',
+                      style: const TextStyle(
+                          fontSize: 10, color: AppColors.muted)),
+                ],
+              ),
       ),
     );
   }
@@ -1251,9 +1360,7 @@ class FilaResumen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(k,
-              style:
-                  const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+          Text(k, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
           Flexible(
             child: Text(v.isEmpty ? '—' : v,
                 textAlign: TextAlign.end,
@@ -1266,43 +1373,46 @@ class FilaResumen extends StatelessWidget {
   }
 }
 
-class VisorCamara extends StatelessWidget {
-  final String texto;
-  const VisorCamara({super.key, required this.texto});
+class VisorFoto extends StatelessWidget {
+  final Uint8List? bytes;
+  final String textoVacio;
+  const VisorFoto({super.key, required this.bytes, required this.textoVacio});
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 300,
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.visor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                      color: const Color(0xFF3B4F75),
-                      width: 1.5,
-                      style: BorderStyle.solid),
-                  borderRadius: BorderRadius.circular(12),
+      child: bytes != null
+          ? Image.memory(bytes!, fit: BoxFit.cover)
+          : Stack(
+              children: [
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: const Color(0xFF3B4F75), width: 1.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                Center(
+                  child: Text(
+                    textoVacio,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Color(0xFF7D90B5), fontSize: 12.5),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Center(
-            child: Text(
-              '$texto\n(cámara simulada en el prototipo)',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(color: Color(0xFF7D90B5), fontSize: 12.5),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
