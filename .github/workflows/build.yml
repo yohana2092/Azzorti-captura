@@ -1,0 +1,38 @@
+name: Compilar APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Crear estructura del proyecto
+        run: |
+          mkdir -p /tmp/app
+          cd /tmp/app
+          flutter create --org com.azzorti --project-name azzorti_captura .
+          cp $GITHUB_WORKSPACE/pubspec.yaml .
+          cp $GITHUB_WORKSPACE/lib/main.dart lib/main.dart
+
+      - name: Compilar APK
+        run: |
+          cd /tmp/app
+          flutter pub get
+          flutter build apk --release
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: azzorti-captura-apk
+          path: /tmp/app/build/app/outputs/flutter-apk/app-release.apk
