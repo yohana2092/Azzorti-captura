@@ -1,38 +1,46 @@
 name: Compilar APK
-
+ 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+ 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Descargar el codigo
-        uses: actions/checkout@v4
-
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Crear estructura del proyecto
-        run: |
-          mkdir -p /tmp/app
-          cd /tmp/app
-          flutter create --org com.azzorti --project-name azzorti_captura .
-          cp $GITHUB_WORKSPACE/pubspec.yaml .
-          cp $GITHUB_WORKSPACE/lib/main.dart lib/main.dart
-
-      - name: Compilar APK
-        run: |
-          cd /tmp/app
-          flutter pub get
-          flutter build apk --release
-
-      - name: Publicar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: azzorti-captura-apk
-          path: /tmp/app/build/app/outputs/flutter-apk/app-release.apk
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+ 
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+ 
+      - name: Crear estructura del proyecto
+        run: |
+          mkdir -p /tmp/app
+          cd /tmp/app
+          flutter create --org com.azzorti --project-name azzorti_captura .
+          cp $GITHUB_WORKSPACE/pubspec.yaml .
+          cp $GITHUB_WORKSPACE/lib/main.dart lib/main.dart
+ 
+      - name: Habilitar permisos de camara en Android
+        run: |
+          cd /tmp/app
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest /a\    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>' $MANIFEST
+          sed -i '/<\/manifest>/i\    <queries>\n        <intent>\n            <action android:name="android.media.action.IMAGE_CAPTURE" />\n        </intent>\n    </queries>' $MANIFEST
+          cat $MANIFEST
+ 
+      - name: Compilar APK
+        run: |
+          cd /tmp/app
+          flutter pub get
+          flutter build apk --release
+ 
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: azzorti-captura-apk
+          path: /tmp/app/build/app/outputs/flutter-apk/app-release.apk
