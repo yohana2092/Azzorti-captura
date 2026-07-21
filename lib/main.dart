@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 
 void main() => runApp(const AzzortiApp());
 
@@ -42,6 +46,97 @@ Future<Uint8List?> tomarFotoReal(BuildContext context) async {
   }
 }
 
+// ====================== LECTURA AUTOMÁTICA (Gap G4 + G5) ======================
+
+Future<String> _guardarBytesTemp(Uint8List bytes, String nombre) async {
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/$nombre');
+  await file.writeAsBytes(bytes);
+  return file.path;
+}
+
+/// Lee la foto de la etiqueta con OCR (ML Kit, en el propio celular, sin costo)
+/// y separa hasta 2 componentes de composición + un color conocido.
+/// Si algo falla o no hay coincidencias, devuelve campos vacíos: el usuario
+/// llena a mano, nunca se inventa un dato.
+Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
+  final resultado = {'componente1': '', 'componente2': '', 'color': ''};
+  try {
+    final path = await _guardarBytesTemp(
+        bytes, 'etiqueta_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    final recognizedText =
+        await recognizer.processImage(InputImage.fromFilePath(path));
+    await recognizer.close();
+    final texto = recognizedText.text;
+
+    // Busca patrones tipo "97% POLIESTER" o "3% SPANDEX"
+    final regexComposicion = RegExp(r'(\d{1,3})\s?%\s?([A-Za-zÁÉÍÓÚáéíóúÑñ]+)');
+    final coincidencias = regexComposicion.allMatches(texto).toList();
+    if (coincidencias.isNotEmpty) {
+      final m = coincidencias[0];
+      resultado['componente1'] = '${m.group(1)}% ${_capitalizar(m.group(2)!)}';
+    }
+    if (coincidencias.length > 1) {
+      final m = coincidencias[1];
+      resultado['componente2'] = '${m.group(1)}% ${_capitalizar(m.group(2)!)}';
+    }
+
+    // Busca un color conocido dentro del texto de la etiqueta
+    const colores = [
+      'negro', 'blanco', 'celeste', 'azul', 'rojo', 'verde', 'amarillo',
+      'rosado', 'rosa', 'gris', 'beige', 'café', 'morado', 'naranja',
+      'vino', 'crema',
+    ];
+    final textoMin = texto.toLowerCase();
+    for (final c in colores) {
+      if (textoMin.contains(c)) {
+        resultado['color'] = _capitalizar(c);
+        break;
+      }
+    }
+  } catch (_) {
+    // Si la foto sale ilegible o algo falla, no se autocompleta nada.
+  }
+  return resultado;
+}
+
+/// Analiza la foto del producto con el modelo genérico de ML Kit (gratis,
+/// sin entrenar) y sugiere silueta/manga SOLO si hay una coincidencia clara.
+/// Es "mejor esfuerzo": si no encuentra nada confiable, se deja vacío para
+/// que la analista elija a mano — nunca se inventa un valor por defecto.
+Future<Map<String, String>> sugerirDesdeProducto(Uint8List bytes) async {
+  final resultado = {'silueta': '', 'manga': ''};
+  try {
+    final path = await _guardarBytesTemp(
+        bytes, 'producto_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final labeler =
+        ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.6));
+    final labels = await labeler.processImage(InputImage.fromFilePath(path));
+    await labeler.close();
+    final textos = labels.map((l) => l.label.toLowerCase()).toList();
+
+    for (final t in textos) {
+      if (t.contains('long sleeve')) resultado['manga'] = 'Manga larga';
+      if (t.contains('short sleeve')) resultado['manga'] = 'Manga corta';
+      if (t.contains('sleeveless') || t.contains('tank')) {
+        resultado['manga'] = 'Sin manga';
+      }
+      if (t.contains('outerwear') ||
+          t.contains('jacket') ||
+          t.contains('coat')) {
+        resultado['silueta'] = 'Oversize';
+      }
+    }
+  } catch (_) {
+    // Modelo genérico: si no reconoce nada útil, se deja vacío.
+  }
+  return resultado;
+}
+
+String _capitalizar(String s) =>
+    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
+
 // ====================== MODELO ======================
 enum Estado { borrador, porSincronizar, sincronizada }
 
@@ -58,10 +153,12 @@ class Captura {
   String categoria;
   String puntoPrecio;
   String silueta;
-  String tela;
+  String composicion1;
+  String composicion2;
   String manga;
   String colorPrenda;
   String detalle;
+  String caracteristicas; // texto libre, respaldo si no hay etiqueta
   String precioFinal;
   String sku;
   Estado estado;
@@ -77,10 +174,12 @@ class Captura {
     this.categoria = '',
     this.puntoPrecio = '',
     this.silueta = '',
-    this.tela = '',
+    this.composicion1 = '',
+    this.composicion2 = '',
     this.manga = '',
     this.colorPrenda = '',
     this.detalle = '',
+    this.caracteristicas = '',
     this.precioFinal = '',
     this.sku = '',
     this.estado = Estado.borrador,
@@ -900,32 +999,89 @@ class FichaPrecioScreen extends StatefulWidget {
 }
 
 class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
+  bool analizando = true;
+  bool etiquetaDioDatos = false; // true si el OCR sí llenó algo
+
   String? silueta;
-  String? tela;
   String? manga;
+  bool siluetaSugerida = false;
+  bool mangaSugerida = false;
+
+  late final TextEditingController comp1Ctrl;
+  late final TextEditingController comp2Ctrl;
   late final TextEditingController colorCtrl;
   late final TextEditingController detalleCtrl;
+  late final TextEditingController caracteristicasCtrl;
   late final TextEditingController precioCtrl;
   late final TextEditingController skuCtrl;
 
   static const siluetas = ['Suelta', 'Entallada', 'Oversize', 'Recta'];
-  static const telas = ['Poliéster 58%', 'Algodón 100%', 'Viscosa', 'Mezcla'];
   static const mangas = ['Sin manga', 'Manga corta', 'Manga larga', '3/4'];
 
   @override
   void initState() {
     super.initState();
+    comp1Ctrl = TextEditingController();
+    comp2Ctrl = TextEditingController();
     colorCtrl = TextEditingController();
     detalleCtrl = TextEditingController();
-    // El precio digitado en la tienda (Momento 1) llega ya cargado:
+    caracteristicasCtrl = TextEditingController();
     precioCtrl = TextEditingController(text: widget.captura.precioTienda);
     skuCtrl = TextEditingController();
+    _analizarFotos();
+  }
+
+  Future<void> _analizarFotos() async {
+    final c = widget.captura;
+
+    if (c.fotoEtiqueta != null) {
+      final r = await leerEtiqueta(c.fotoEtiqueta!);
+      comp1Ctrl.text = r['componente1'] ?? '';
+      comp2Ctrl.text = r['componente2'] ?? '';
+      colorCtrl.text = r['color'] ?? '';
+      etiquetaDioDatos = comp1Ctrl.text.isNotEmpty || colorCtrl.text.isNotEmpty;
+    }
+
+    if (c.fotoProducto != null) {
+      final s = await sugerirDesdeProducto(c.fotoProducto!);
+      if ((s['silueta'] ?? '').isNotEmpty) {
+        silueta = s['silueta'];
+        siluetaSugerida = true;
+      }
+      if ((s['manga'] ?? '').isNotEmpty) {
+        manga = s['manga'];
+        mangaSugerida = true;
+      }
+    }
+
+    if (mounted) setState(() => analizando = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.captura;
     final vinoDeTienda = c.precioTienda.isNotEmpty;
+
+    if (analizando) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Ficha del producto',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.blue),
+              SizedBox(height: 14),
+              Text('Analizando fotos…',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -946,22 +1102,58 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             const SizedBox(width: 10),
             MiniFoto(etiqueta: 'Producto', bytes: c.fotoProducto),
           ]),
+          const SizedBox(height: 16),
+          if (etiquetaDioDatos)
+            const LeyendaAuto('✓ Detectado de la etiqueta', AppColors.green)
+          else if (c.fotoEtiqueta != null)
+            const Text(
+              'La etiqueta no arrojó texto legible: llena estos campos a mano.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+            )
+          else
+            const Text(
+              'No se tomó foto de etiqueta: llena estos campos a mano.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+            ),
+          const SizedBox(height: 14),
+
+          const Etiqueta('COMPOSICIÓN — COMPONENTE 1'),
+          const SizedBox(height: 8),
+          CampoTexto(
+            controller: comp1Ctrl,
+            hint: 'ej. 97% Poliéster',
+            auto: comp1Ctrl.text.isNotEmpty,
+          ),
+          const SizedBox(height: 16),
+          const Etiqueta('COMPOSICIÓN — COMPONENTE 2 (SI APLICA)'),
+          const SizedBox(height: 8),
+          CampoTexto(
+            controller: comp2Ctrl,
+            hint: 'ej. 3% Spandex',
+            auto: comp2Ctrl.text.isNotEmpty,
+          ),
+          const SizedBox(height: 16),
+          const Etiqueta('COLOR'),
+          const SizedBox(height: 8),
+          CampoTexto(
+            controller: colorCtrl,
+            hint: 'ej. Celeste',
+            auto: colorCtrl.text.isNotEmpty,
+          ),
           const SizedBox(height: 20),
+
           const Etiqueta('SILUETA / CORTE'),
           const SizedBox(height: 8),
           Selector(
               valor: silueta,
               hint: 'Elige la silueta',
               opciones: siluetas,
-              onChanged: (v) => setState(() => silueta = v)),
-          const SizedBox(height: 16),
-          const Etiqueta('TELA / COMPOSICIÓN'),
-          const SizedBox(height: 8),
-          Selector(
-              valor: tela,
-              hint: 'Según la foto de etiqueta',
-              opciones: telas,
-              onChanged: (v) => setState(() => tela = v)),
+              onChanged: (v) => setState(() {
+                    silueta = v;
+                    siluetaSugerida = false;
+                  })),
+          if (siluetaSugerida)
+            const LeyendaAuto('🔎 Sugerido desde la foto — revisa', AppColors.amberTxt),
           const SizedBox(height: 16),
           const Etiqueta('MANGA'),
           const SizedBox(height: 8),
@@ -969,16 +1161,38 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               valor: manga,
               hint: 'Elige el tipo de manga',
               opciones: mangas,
-              onChanged: (v) => setState(() => manga = v)),
-          const SizedBox(height: 16),
-          const Etiqueta('COLOR'),
-          const SizedBox(height: 8),
-          CampoTexto(controller: colorCtrl, hint: 'ej. Celeste'),
+              onChanged: (v) => setState(() {
+                    manga = v;
+                    mangaSugerida = false;
+                  })),
+          if (mangaSugerida)
+            const LeyendaAuto('🔎 Sugerido desde la foto — revisa', AppColors.amberTxt),
           const SizedBox(height: 16),
           const Etiqueta('DETALLE'),
           const SizedBox(height: 8),
           CampoTexto(controller: detalleCtrl, hint: 'ej. Caído en el hombro'),
           const SizedBox(height: 16),
+
+          Etiqueta(etiquetaDioDatos
+              ? 'CARACTERÍSTICAS DEL PRODUCTO (opcional)'
+              : 'CARACTERÍSTICAS DEL PRODUCTO — DESCRÍBELO AQUÍ, NO HAY ETIQUETA'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: caracteristicasCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: etiquetaDioDatos
+                  ? 'Cualquier detalle extra que quieras anotar…'
+                  : 'ej. Blusa suelta, tela gruesa tipo lino, sin etiqueta legible…',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.line)),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           Etiqueta(vinoDeTienda
               ? 'PRECIO (BS) — PRE-CARGADO DE LA TIENDA'
               : 'PRECIO (BS)'),
@@ -1006,11 +1220,23 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                         Text('El precio es obligatorio y debe ser numérico')));
                 return;
               }
+              // Características libres solo es obligatorio si la etiqueta
+              // no aportó ni composición ni color (o no había foto de etiqueta).
+              final sinDatoEtiqueta =
+                  comp1Ctrl.text.trim().isEmpty && colorCtrl.text.trim().isEmpty;
+              if (sinDatoEtiqueta && caracteristicasCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        'Como no hay datos de la etiqueta, describe las características del producto')));
+                return;
+              }
               c.silueta = silueta ?? '';
-              c.tela = tela ?? '';
+              c.composicion1 = comp1Ctrl.text.trim();
+              c.composicion2 = comp2Ctrl.text.trim();
               c.manga = manga ?? '';
               c.colorPrenda = colorCtrl.text.trim();
               c.detalle = detalleCtrl.text.trim();
+              c.caracteristicas = caracteristicasCtrl.text.trim();
               c.precioFinal = precioCtrl.text.trim();
               c.sku = skuCtrl.text.trim();
               Navigator.of(context).push(MaterialPageRoute(
@@ -1024,6 +1250,19 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
       ),
     );
   }
+}
+
+class LeyendaAuto extends StatelessWidget {
+  final String texto;
+  final Color color;
+  const LeyendaAuto(this.texto, this.color, {super.key});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Text(texto,
+            style: TextStyle(
+                fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+      );
 }
 
 // ====================== MOMENTO 2 · REVISAR ======================
@@ -1061,7 +1300,17 @@ class RevisarScreen extends StatelessWidget {
               FilaResumen('Canal', '${c.canal} · ${c.campana}'),
               FilaResumen('Categoría', '${c.categoria} · ${c.puntoPrecio}'),
               FilaResumen('Silueta', c.silueta),
-              FilaResumen('Tela', c.tela),
+              FilaResumen('Composición',
+                  [c.composicion1, c.composicion2]
+                          .where((e) => e.isNotEmpty)
+                          .join(' + ')
+                          .isEmpty
+                      ? '—'
+                      : [c.composicion1, c.composicion2]
+                          .where((e) => e.isNotEmpty)
+                          .join(' + ')),
+              if (c.caracteristicas.isNotEmpty)
+                FilaResumen('Características', c.caracteristicas),
               FilaResumen('Precio', 'Bs ${c.precioFinal}'),
               FilaResumen('SKU', c.sku.isEmpty ? '—' : c.sku),
               FilaResumen('Fotos', '${c.numFotos} adjunta(s)'),
@@ -1271,11 +1520,13 @@ class CampoTexto extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final bool numerico;
+  final bool auto;
   const CampoTexto(
       {super.key,
       required this.controller,
       required this.hint,
-      this.numerico = false});
+      this.numerico = false,
+      this.auto = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1285,10 +1536,18 @@ class CampoTexto extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: auto ? const Color(0xFFF0FDF4) : Colors.white,
+        suffixIcon: auto
+            ? const Padding(
+                padding: EdgeInsets.only(right: 10),
+                child: Icon(Icons.check_circle, color: AppColors.green, size: 18),
+              )
+            : null,
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: AppColors.line)),
+            borderSide: BorderSide(
+                color: auto ? AppColors.green : AppColors.line,
+                width: auto ? 1.4 : 1)),
       ),
     );
   }
