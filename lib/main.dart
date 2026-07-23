@@ -1,13 +1,83 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:image/image.dart' as img;
+
+// ====================== SINCRONIZACIÓN EN VIVO CON EL DASHBOARD ======================
+// Prototipo de integración M1 -> M4: cada "Guardar y sincronizar" escribe el
+// registro en un archivo capturas.json dentro del mismo repositorio de GitHub,
+// usando la API de Contenidos. El dashboard M4 lee ese mismo archivo y se
+// actualiza solo. El token queda embebido aquí para esta prueba puntual.
+const String _ghOwner = 'yohana2092';
+const String _ghRepo = 'Azzorti-captura';
+const String _ghToken =
+    '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';
+const String _ghArchivo = 'capturas.json';
+
+/// Sube el registro al archivo capturas.json del repositorio. Best-effort:
+/// si falla (sin señal, token vencido, etc.) no bloquea el flujo local —
+/// el registro sigue guardado en el celular igual que siempre.
+Future<bool> sincronizarConGithub(Captura c) async {
+  final url = Uri.parse(
+      'https://api.github.com/repos/$_ghOwner/$_ghRepo/contents/$_ghArchivo');
+  final headers = {
+    'Authorization': 'Bearer $_ghToken',
+    'Accept': 'application/vnd.github+json',
+  };
+  try {
+    List<dynamic> lista = [];
+    String? sha;
+
+    final actual = await http.get(url, headers: headers);
+    if (actual.statusCode == 200) {
+      final data = jsonDecode(actual.body);
+      sha = data['sha'];
+      final contenidoB64 = (data['content'] as String).replaceAll('\n', '');
+      final textoActual = utf8.decode(base64.decode(contenidoB64));
+      lista = jsonDecode(textoActual) as List<dynamic>;
+    }
+
+    lista.add({
+      'competidor': c.competidor,
+      'canal': c.canal,
+      'campana': c.campana,
+      'categoria': c.categoria,
+      'puntoPrecio': c.puntoPrecio,
+      'silueta': c.silueta,
+      'composicion1': c.composicion1,
+      'composicion2': c.composicion2,
+      'manga': c.manga,
+      'color': c.colorPrenda,
+      'detalle': c.detalle,
+      'caracteristicas': c.caracteristicas,
+      'precio': c.precioFinal,
+      'sku': c.sku,
+      'fecha': DateTime.now().toIso8601String(),
+    });
+
+    final nuevoTexto = jsonEncode(lista);
+    final nuevoB64 = base64.encode(utf8.encode(nuevoTexto));
+
+    final body = jsonEncode({
+      'message': 'Captura M1: ${c.competidor} · ${c.categoria}',
+      'content': nuevoB64,
+      if (sha != null) 'sha': sha,
+    });
+
+    final resp = await http.put(url, headers: headers, body: body);
+    return resp.statusCode == 200 || resp.statusCode == 201;
+  } catch (_) {
+    return false;
+  }
+}
 
 void main() => runApp(const AzzortiApp());
 
@@ -1368,14 +1438,39 @@ class LeyendaAuto extends StatelessWidget {
 }
 
 // ====================== MOMENTO 2 · REVISAR ======================
-class RevisarScreen extends StatelessWidget {
+class RevisarScreen extends StatefulWidget {
   final Captura captura;
   final VoidCallback onFin;
   const RevisarScreen({super.key, required this.captura, required this.onFin});
 
   @override
+  State<RevisarScreen> createState() => _RevisarScreenState();
+}
+
+class _RevisarScreenState extends State<RevisarScreen> {
+  bool sincronizando = false;
+
+  Future<void> _guardarYSincronizar() async {
+    final c = widget.captura;
+    setState(() => sincronizando = true);
+    final ok = await sincronizarConGithub(c);
+    c.estado = Estado.porSincronizar;
+    widget.onFin();
+    if (!mounted) return;
+    setState(() => sincronizando = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? '✓ Sincronizado en línea con el dashboard'
+          : 'Guardado localmente. No se pudo sincronizar en línea (revisa la señal).'),
+    ));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ConfirmacionScreen(captura: c, onFin: widget.onFin),
+    ));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = captura;
+    final c = widget.captura;
     return Scaffold(
       appBar: AppBar(
         title: const Column(
@@ -1433,15 +1528,16 @@ class RevisarScreen extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           FilledButton(
-            onPressed: () {
-              c.estado = Estado.porSincronizar;
-              onFin();
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ConfirmacionScreen(captura: c, onFin: onFin),
-              ));
-            },
-            child: const Text('Guardar y sincronizar',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            onPressed: sincronizando ? null : _guardarYSincronizar,
+            child: sincronizando
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.4, color: Colors.white),
+                  )
+                : const Text('Guardar y sincronizar',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
