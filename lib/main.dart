@@ -23,7 +23,7 @@ import 'package:image/image.dart' as img;
 // y cambia _backendBaseUrl por la IP de la laptop en tu red WiFi local
 // (Windows: `ipconfig` -> "Dirección IPv4"). El celular debe estar en la
 // misma red que la laptop.
-const String _backendBaseUrl = 'http://192.168.0.100:8000';
+const String _backendBaseUrl = 'http://192.168.20.29:8000';
 
 class ResultadoSync {
   final bool ok;
@@ -1964,12 +1964,13 @@ class _EtiquetaEstado extends StatelessWidget {
   const _EtiquetaEstado({required this.texto, required this.ok});
   @override
   Widget build(BuildContext context) {
-    final color = ok == null
+    final estado = ok; // variable local: permite que Dart estreche el tipo
+    final color = estado == null
         ? AppColors.muted
-        : (ok ? AppColors.green : const Color(0xFFC93B3B));
-    final bg = ok == null
+        : (estado ? AppColors.green : const Color(0xFFC93B3B));
+    final bg = estado == null
         ? const Color(0xFFF1F5F9)
-        : (ok ? AppColors.greenBg : const Color(0xFFFBEAEA));
+        : (estado ? AppColors.greenBg : const Color(0xFFFBEAEA));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

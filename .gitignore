@@ -25,6 +25,7 @@ ios/Runner.xcworkspace/xcuserdata/
 backend/__pycache__/
 backend/*.pyc
 backend/azzorti_demo.db
+backend/server.log
 
 # Sistema
 .DS_Store
