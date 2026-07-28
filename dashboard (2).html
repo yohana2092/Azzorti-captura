@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azzorti Price Intelligence — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0E1E3A; --navy-light:#16294D;
+    --blue:#2F6FED; --blue-dim:#E8EFFE;
+    --amber:#C9821B; --amber-bg:#FDF3E1;
+    --green:#1F8F5F; --green-bg:#E7F6EE;
+    --red:#C93B3B; --red-bg:#FBEAEA;
+    --paper:#F1F3F9; --card:#FFFFFF;
+    --ink:#151E33; --muted:#6B7280; --line:#E4E7F0;
+    --mono:'JetBrains Mono',monospace;
+    --retail-bar:#1D4E66; --vd-bar:#4A1942; --vd-tint:#F6EEF5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
+  h1,h2,h3,h4{font-family:'Sora',sans-serif;margin:0;}
+
+  .sim-banner{background:linear-gradient(90deg,#3B2A05,#4A3607);color:#F5D48A;font-family:var(--mono);font-size:11.8px;text-align:center;padding:8px 12px;letter-spacing:.02em;border-bottom:1px solid #6B4E10;}
+  .sim-banner b{color:#FFE1A8;}
+
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{width:212px;flex:none;background:var(--navy);color:#C9D3EA;padding:22px 14px;display:flex;flex-direction:column;gap:24px;}
+  .brand{display:flex;align-items:center;gap:8px;color:#fff;font-family:'Sora',sans-serif;font-weight:700;font-size:16px;padding:0 6px;}
+  .brand .zz{color:#6E93F7;}
+  .nav{display:flex;flex-direction:column;gap:3px;}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:#AAB8D6;text-decoration:none;font-size:13.4px;font-weight:500;}
+  .nav a svg{width:16px;height:16px;flex:none;}
+  .nav a.active{background:rgba(255,255,255,0.09);color:#fff;font-weight:600;}
+  .side-foot{margin-top:auto;font-family:var(--mono);font-size:10.5px;color:#5E6D93;padding:0 6px;line-height:1.6;}
+
+  .main{flex:1;padding:24px 32px 60px;min-width:0;}
+  .wrap-inner{max-width:1080px;}
+  .page-head .path{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+  .page-head h1{font-size:21px;margin-bottom:18px;}
+
+  .chan-toggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-bottom:22px;}
+  .chan-btn{display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9px;border:none;background:transparent;font-family:'Sora',sans-serif;font-weight:600;font-size:13.5px;color:var(--muted);cursor:pointer;}
+  .chan-btn svg{width:16px;height:16px;}
+  .chan-btn.active.retail{background:var(--retail-bar);color:#fff;}
+  .chan-btn.active.vd{background:var(--vd-bar);color:#fff;}
+  .chan-sub{font-size:12px;color:var(--muted);margin:-14px 0 20px;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 17px;}
+  .kpi .lbl{font-size:10.7px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
+  .kpi .num{font-size:21px;font-weight:700;font-family:'Sora',sans-serif;}
+  .kpi .sub{font-size:11px;color:var(--muted);margin-top:3px;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 0;flex-wrap:wrap;gap:10px;}
+  .panel-head h3{font-size:14px;}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .chart{display:flex;gap:40px;align-items:flex-end;height:170px;padding:16px 20px 20px;}
+  .cat-group{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;}
+  .bars{display:flex;gap:9px;align-items:flex-end;height:130px;}
+  .bar{width:34px;border-radius:6px 6px 0 0;position:relative;}
+  .bar.azz{background:var(--blue);}
+  .bar.comp{background:#C7D0E4;}
+  .bar .bv{position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10.4px;color:var(--muted);white-space:nowrap;}
+  .cat-label{font-size:12px;font-weight:600;color:var(--navy);}
+
+  .filters-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .filter-field{display:flex;flex-direction:column;gap:5px;}
+  .filter-field label{font-family:var(--mono);font-size:10.3px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .filter-field select{font-family:'Inter',sans-serif;font-size:13.2px;padding:9px 30px 9px 13px;border-radius:9px;border:1px solid var(--line);background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%236B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right 10px center;background-size:14px;appearance:none;-webkit-appearance:none;color:var(--ink);font-weight:500;min-width:190px;cursor:pointer;}
+  .filter-field select:focus{outline:2px solid var(--blue);outline-offset:1px;}
+
+  .placeholder-box{background:#FAFBFE;border:1px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px;display:none;}
+  .placeholder-box.show{display:block;}
+
+  .cat-block{border-top:1px solid var(--line);}
+  .cat-title-row{display:flex;justify-content:space-between;align-items:center;padding:13px 20px;background:#FAFBFE;flex-wrap:wrap;gap:6px;}
+  .cat-title{font-size:13.3px;font-weight:700;color:var(--navy);}
+  .cat-policy{font-size:11.3px;color:var(--muted);font-family:var(--mono);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.8px;}
+  thead th{text-align:left;padding:10px 20px;font-family:var(--mono);font-size:10.2px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600;}
+  tbody td{padding:11px 20px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFBFE;}
+  .tier{font-family:var(--mono);font-weight:700;font-size:10.6px;padding:3px 8px;border-radius:6px;}
+  .tier.bajo{background:var(--green-bg);color:var(--green);}
+  .tier.medio{background:var(--amber-bg);color:var(--amber);}
+  .tier.alto{background:var(--red-bg);color:var(--red);}
+  .desc-txt{font-size:12px;color:var(--ink);max-width:250px;line-height:1.4;}
+  .desc-txt.pending{color:#B0B7C8;font-style:italic;}
+  .price{font-family:var(--mono);font-weight:600;}
+  .variation{font-family:var(--mono);font-weight:700;}
+  .variation.down{color:var(--green);}
+  .variation.up{color:var(--red);}
+  .variation.pending{color:#B0B7C8;font-style:italic;font-weight:400;}
+  .brand-pill{font-family:var(--mono);font-size:10.6px;padding:3px 8px;border-radius:6px;background:var(--vd-tint);color:var(--vd-bar);font-weight:600;}
+
+  .photo-cell{display:flex;align-items:center;gap:10px;}
+  .swatch{width:36px;height:36px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;}
+  .swatch svg{width:16px;height:16px;}
+  .swatch.bajo{background:var(--green-bg);}
+  .swatch.medio{background:var(--amber-bg);}
+  .swatch.alto{background:var(--red-bg);}
+  .swatch.vd{background:var(--vd-tint);}
+  .no-photo-tag{font-family:var(--mono);font-size:9px;color:#B0B7C8;text-transform:uppercase;letter-spacing:.03em;}
+
+  .src-note{font-size:11.3px;color:var(--muted);padding:12px 20px;border-top:1px dashed var(--line);background:#FAFBFE;}
+  .src-note b{color:var(--navy);}
+
+  .foto-preview-trigger{cursor:zoom-in;}
+  .lightbox{display:none;position:fixed;inset:0;background:rgba(15,23,42,.82);z-index:999;align-items:center;justify-content:center;padding:24px;}
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:min(90vw,520px);max-height:82vh;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.4);}
+  .lightbox .cerrar{position:absolute;top:22px;right:26px;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--ink);border:none;font-size:18px;font-weight:700;cursor:pointer;}
+  .lightbox .etiqueta-lb{position:absolute;bottom:calc(9vh + 14px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,.75);color:#fff;font-family:var(--mono);font-size:11.5px;padding:6px 14px;border-radius:999px;}
+
+  @media (max-width:1000px){
+    .sidebar{display:none;}
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .desc-txt{max-width:150px;}
+    .filter-field select{min-width:150px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sim-banner">⚠ <b>SIMULACIÓN</b> — estructura y datos históricos reales de IPC_BOLIVIA / INDEX_PRECIO_SECTOR_VENTA_DIRECTA. Fotos son marcadores de posición: la captura real llega con el módulo M1 (etiqueta / foto en tienda).</div>
+
+<div style="max-width:1100px;margin:18px auto 0;padding:0 22px;">
+  <div style="font-size:11px;letter-spacing:.12em;color:#64748b;font-weight:700;">PRUEBA EN VIVO · MÓDULO M1 → M4</div>
+  <h2 style="font-size:19px;margin:4px 0 10px;color:#0f1c33;">🔴 Capturas de hoy (agregadas en vivo)</h2>
+  <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:12.5px;margin-bottom:22px;">
+    <thead>
+      <tr style="background:#101d36;color:#cbd8f0;">
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">COMPETIDOR</th>
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">CANAL</th>
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">CATEGORÍA</th>
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">DESCRIPCIÓN</th>
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">PRECIO</th>
+        <th style="text-align:left;padding:10px 12px;font-size:10.5px;">SKU</th>
+      </tr>
+    </thead>
+    <tbody id="capturas-en-vivo">
+      <tr style="background:#E8EFFE;">
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;"><b>Índigo</b></td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">Retail · May-26</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">Jeans Dama · Medio</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#475569;">Entallada — Tela gruesa</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-family:'Courier New',monospace;font-weight:700;">Bs 200</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-family:'Courier New',monospace;">pntazl</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">A<span class="zz">ZZ</span>ORTI</div>
+    <div class="nav">
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Precios</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="3.2"/><circle cx="17" cy="8" r="3.2"/><path d="M2.5 20c.6-3.4 3-5.4 5.5-5.4s4.9 2 5.5 5.4M12.7 14.7c2.3.2 4.3 2.1 4.8 5.3"/></svg>Competencia</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l4 4v12H6z"/><path d="M14 4v4h4"/></svg>Reportes</a>
+    </div>
+    <div class="side-foot">MÓDULO M4 · DASHBOARD &amp; ALERTAS<br>BENCHMARKING PRECIOS BOLIVIA</div>
+  </div>
+
+  <div class="main">
+    <div class="wrap-inner">
+      <div class="page-head">
+        <div class="path">Benchmarking Precios Bolivia</div>
+        <h1>Comparación de Precios</h1>
+      </div>
+
+      <div class="chan-toggle">
+        <button class="chan-btn active retail" id="btn-retail" onclick="showChannel('retail')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9.5 4.5 4h15L21 9.5M4 9.5h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-10Z"/><path d="M9 20v-6h6v6"/></svg>
+          Retail
+        </button>
+        <button class="chan-btn vd" id="btn-directa" onclick="showChannel('directa')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v4h4M9 12h6M9 16h6"/></svg>
+          Venta Directa
+        </button>
+      </div>
+      <div class="chan-sub" id="chan-sub">Tiendas físicas · relevamiento por corte mensual (IPC_BOLIVIA_2024_2025.xlsx)</div>
+
+      <!-- ============ RETAIL VIEW ============ -->
+      <div class="view active" id="view-retail">
+
+        <div class="kpis">
+          <div class="kpi"><div class="lbl">Diferencia promedio</div><div class="num" style="color:var(--red);">-18,3%</div><div class="sub">vs. precio de competencia</div></div>
+          <div class="kpi"><div class="lbl">Competidor principal</div><div class="num" style="font-size:18px;">Forever</div><div class="sub">4 de 6 referencias cruzadas</div></div>
+          <div class="kpi"><div class="lbl">Productos monitoreados</div><div class="num">6</div><div class="sub">3 blusas · 3 jeans</div></div>
+          <div class="kpi"><div class="lbl">Con ficha de características</div><div class="num">2 de 5</div><div class="sub">categorías con descripción</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Precio promedio por categoría (Bs)</h3>
+            <div class="legend"><span><i style="background:var(--blue);"></i>Azzorti</span><span><i style="background:#C7D0E4;"></i>Competencia</span></div>
+          </div>
+          <div class="chart">
+            <div class="cat-group"><div class="bars"><div class="bar azz" style="height:83px;"><span class="bv">23,2</span></div><div class="bar comp" style="height:100px;"><span class="bv">27,8</span></div></div><div class="cat-label">Blusas Femeninas</div></div>
+            <div class="cat-group"><div class="bars"><div class="bar azz" style="height:53px;"><span class="bv">14,68</span></div><div class="bar comp" style="height:67px;"><span class="bv">18,53</span></div></div><div class="cat-label">Jeans Femeninos</div></div>
+          </div>
+        </div>
+
+        <div class="filters-row">
+          <div class="filter-field">
+            <label>Proveedor</label>
+            <select id="sel-proveedor" onchange="onProveedorChange(this)">
+              <option value="Forever">Forever</option>
+              <option value="Mitsuba">Mitsuba (sin datos)</option>
+              <option value="Textilon">Textilon (sin datos)</option>
+              <option value="Lili Pink">Lili Pink (sin datos)</option>
+              <option value="Casa In">Casa In (sin datos)</option>
+              <option value="Casa Ideas">Casa Ideas (sin datos)</option>
+              <option value="Hipermaxi">Hipermaxi (sin datos)</option>
+              <option value="VOG">VOG (sin datos)</option>
+              <option value="Alianza">Alianza (sin datos)</option>
+              <option value="JYJ">JYJ (sin datos)</option>
+              <option value="Roho">Roho (sin datos)</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Campaña / Corte</label>
+            <select id="sel-campana" onchange="onCampanaChange(this)">
+              <option value="May-26">May-26</option>
+              <option value="Ene-26">Ene-26</option>
+              <option value="Dic-25">Dic-25 (sin datos)</option>
+              <option value="Nov-25">Nov-25 (sin datos)</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Categoría</label>
+            <select id="sel-categoria" onchange="onCategoriaChange(this)">
+              <option value="todas">Todas (con datos)</option>
+              <option value="blusas">Blusas Fem.</option>
+              <option value="jeans">Jeans Fem.</option>
+              <option value="camisetas">Camisetas Fem.</option>
+              <option value="vestidos">Vestidos Fem. (sin datos)</option>
+              <option value="camisetasmasc">Camisetas Masc. (sin datos)</option>
+              <option value="jeansmasc">Jeans Masc. (sin datos)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="placeholder-box" id="retail-placeholder">Sin datos cargados para esta demo todavía — se completa con la captura real del analista (módulo M1).</div>
+
+        <div class="panel" id="retail-detail">
+          <div class="panel-head"><h3 id="retail-detail-title">Detalle — Forever · May-26</h3></div>
+
+          <div class="cat-block" data-block="blusas">
+            <div class="cat-title-row">
+              <span class="cat-title">RE Blusas Fem. — Precio RE Bs 23,20</span>
+              <span class="cat-policy">Política: por debajo del 20% de Forever</span>
+            </div>
+            <table>
+              <thead><tr><th>Foto</th><th style="width:70px;">Punto</th><th>Descripción (may-26)</th><th>Ene-26</th><th>May-26</th><th>Variación</th></tr></thead>
+              <tbody>
+                <tr style="background:#E8EFFE;">
+                  <td><div class="photo-cell"><div class="swatch medio" style="padding:0;overflow:hidden;"><img src="data:image/jpeg;base64,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" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src)" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><span class="no-photo-tag" style="color:#2F6FED;font-weight:700;">🆕 foto real (M1)</span></div></td>
+                  <td><span class="tier medio">Medio</span></td>
+                  <td class="desc-txt">Silueta oversize, tela poliéster 58%, manga larga, color negro, detalle de botones — <b>Venta Directa · C7</b></td>
+                  <td class="price">—</td>
+                  <td class="price">219</td>
+                  <td class="variation pending">primera captura</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch bajo"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8F5F" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
+                  <td><span class="tier bajo">Bajo</span></td>
+                  <td class="desc-txt">Silueta suelta, tela poliéster 58%, sin manga, detalle caído en el hombro, color celeste</td>
+                  <td class="price">229</td>
+                  <td class="price">219</td>
+                  <td class="variation down">-4,4%</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch medio"><svg viewBox="0 0 24 24" fill="none" stroke="#C9821B" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
+                  <td><span class="tier medio">Medio</span></td>
+                  <td class="desc-txt">Silueta suelta con mangas, ruchado en la cintura, 65% algodón / 35% poliéster, manga 3/4, estampada</td>
+                  <td class="price">289</td>
+                  <td class="price">249</td>
+                  <td class="variation down">-13,8%</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch alto"><svg viewBox="0 0 24 24" fill="none" stroke="#C93B3B" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
+                  <td><span class="tier alto">Alto</span></td>
+                  <td class="desc-txt">Silueta suelta, tela broderí 100%, detalle de cordón adelante, color blanco</td>
+                  <td class="price">349</td>
+                  <td class="price">319</td>
+                  <td class="variation down">-8,6%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cat-block" data-block="jeans">
+            <div class="cat-title-row">
+              <span class="cat-title">RE Jeans Fem. — Precio RE Bs 14,68</span>
+              <span class="cat-policy">Política: por debajo del 20% de Forever / Mitsuba</span>
+            </div>
+            <table>
+              <tbody>
+                <tr>
+                  <td style="width:66px;"><div class="photo-cell"><div class="swatch bajo"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8F5F" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
+                  <td style="width:70px;"><span class="tier bajo">Bajo</span></td>
+                  <td class="desc-txt">Jean básico tipo skinny, tela elastizada, color azul marino</td>
+                  <td class="price">339</td>
+                  <td class="price">319</td>
+                  <td class="variation down">-5,9%</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch medio"><svg viewBox="0 0 24 24" fill="none" stroke="#C9821B" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
+                  <td><span class="tier medio">Medio</span></td>
+                  <td class="desc-txt">Jean bota recta tipo cargo, tela rígida, color celeste</td>
+                  <td class="price">439</td>
+                  <td class="price">449</td>
+                  <td class="variation up">+2,3%</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch alto"><svg viewBox="0 0 24 24" fill="none" stroke="#C93B3B" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
+                  <td><span class="tier alto">Alto</span></td>
+                  <td class="desc-txt">Jean bota campaña, tela rígida, detalle de apliques brillantes en el bolsillo delantero</td>
+                  <td class="price">589</td>
+                  <td class="price">549</td>
+                  <td class="variation down">-6,8%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cat-block" data-block="camisetas">
+            <div class="cat-title-row">
+              <span class="cat-title">RE Camisetas Fem. — Precio RE Bs 16,93</span>
+              <span class="cat-policy">Política: igual que Mitsuba</span>
+            </div>
+            <table>
+              <tbody>
+                <tr>
+                  <td style="width:66px;"><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
+                  <td style="width:70px;"><span class="tier bajo">Bajo</span></td>
+                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
+                  <td class="price">219</td>
+                  <td class="price">—</td>
+                  <td class="variation pending">sin dato aún</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
+                  <td><span class="tier medio">Medio</span></td>
+                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
+                  <td class="price">219</td>
+                  <td class="price">—</td>
+                  <td class="variation pending">sin dato aún</td>
+                </tr>
+                <tr>
+                  <td><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
+                  <td><span class="tier alto">Alto</span></td>
+                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
+                  <td class="price">289</td>
+                  <td class="price">—</td>
+                  <td class="variation pending">sin dato aún</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="src-note"><b>Nota:</b> foto es un marcador — llega con la captura del analista (etiqueta o foto en tienda, módulo M1). Ene-26 es el último dato real de la hoja FOREVER; May-26 es la ficha de ejemplo del usuario final. Solo Forever tiene datos cargados en esta demo; el resto queda listado en el desplegable para mostrar cómo escala, marcado como "sin datos". <b>La fila resaltada en azul</b> es el registro real que se capturó en la prueba de la app M1 V2.1 (foto de etiqueta y producto tomadas con la cámara del celular, competidor y precio marcados en la tienda) — se agregó aquí a mano para mostrar cómo se vería una vez exista la conexión API entre M1 y M4; no llegó sola.</div>
+        </div>
+      </div>
+
+      <!-- ============ VENTA DIRECTA VIEW ============ -->
+      <div class="view" id="view-directa">
+
+        <div class="kpis">
+          <div class="kpi"><div class="lbl">Marcas monitoreadas</div><div class="num">8</div><div class="sub">catálogos de venta directa</div></div>
+          <div class="kpi"><div class="lbl">Tipo de cambio vigente</div><div class="num">6,96</div><div class="sub">Bs por USD</div></div>
+          <div class="kpi"><div class="lbl">Campañas con historial</div><div class="num">C1–C17</div><div class="sub">2024, 2025 y 2026 en curso</div></div>
+          <div class="kpi"><div class="lbl">Categorías de catálogo</div><div class="num">5+</div><div class="sub">Perfumería, Rostro, Maquillaje…</div></div>
+        </div>
+
+        <div class="filters-row">
+          <div class="filter-field">
+            <label>Marca</label>
+            <select id="sel-marca" onchange="onMarcaChange(this)">
+              <option value="Natura">Natura</option>
+              <option value="Yanbal">Yanbal (sin datos)</option>
+              <option value="Esika">Esika (sin datos)</option>
+              <option value="O Boticário">O Boticário (sin datos)</option>
+              <option value="Cyzone">Cyzone (sin datos)</option>
+              <option value="Hinode">Hinode (sin datos)</option>
+              <option value="L'Bel">L'Bel (sin datos)</option>
+              <option value="Tupperware">Tupperware (sin datos)</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Campaña</label>
+            <select id="sel-campana-vd" onchange="onCampanaVdChange(this)">
+              <option value="C01 2026">C01 2026 (vs. C17 2025)</option>
+              <option value="C17 2025">C17 2025</option>
+              <option value="C09 2025">C09 2025 (sin datos)</option>
+              <option value="C01 2025">C01 2025 (sin datos)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="placeholder-box" id="vd-placeholder">Sin datos cargados para esta demo todavía — se completa con la carga real del catálogo (módulo M2).</div>
+
+        <div class="panel" id="vd-detail">
+          <div class="panel-head"><h3 id="vd-detail-title">Productos Natura — C17 2025 vs C01 2026</h3></div>
+          <table>
+            <thead><tr><th>Foto</th><th>Categoría</th><th>Producto</th><th>C17 2025 (Bs)</th><th>C01 2026 (Bs)</th><th>Variación</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><path d="M9 3h6v3H9zM8 6h8l1 15H7Z"/></svg></div></td>
+                <td><span class="brand-pill">Perfumería</span></td>
+                <td>Humor</td>
+                <td class="price">640,32</td>
+                <td class="price">542,88</td>
+                <td class="variation down">-15,2%</td>
+              </tr>
+              <tr>
+                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div></td>
+                <td><span class="brand-pill">Maquillaje</span></td>
+                <td>Base Natura Una</td>
+                <td class="price">431,52</td>
+                <td class="price">236,64</td>
+                <td class="variation down">-14,5%</td>
+              </tr>
+              <tr>
+                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><path d="M9 3c1 2-1 3-1 5a4 4 0 0 0 8 0c0-2-2-3-1-5"/><path d="M9 12v9h6v-9"/></svg></div></td>
+                <td><span class="brand-pill">Cabello</span></td>
+                <td>Shampoo 400 ml</td>
+                <td class="price">153,12</td>
+                <td class="price">146,16</td>
+                <td class="variation down">-4,5%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="src-note"><b>Nota:</b> valores tomados literalmente de la hoja NATURA; variación replica la columna "VARIACION C17/01 2026" ya existente en el Excel. Foto es un marcador — el catálogo real trae imagen del producto, pendiente de integrar cuando se defina el origen (carga manual o scraping del catálogo digital).</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function showChannel(name){
+    document.getElementById('view-retail').classList.toggle('active', name==='retail');
+    document.getElementById('view-directa').classList.toggle('active', name==='directa');
+    document.getElementById('btn-retail').classList.toggle('active', name==='retail');
+    document.getElementById('btn-directa').classList.toggle('active', name==='directa');
+    document.getElementById('chan-sub').textContent = name==='retail'
+      ? 'Tiendas físicas · relevamiento por corte mensual (IPC_BOLIVIA_2024_2025.xlsx)'
+      : 'Catálogos · relevamiento por campaña C1–C17, USD→Bs TC 6,96 (INDEX_PRECIO_SECTOR_VENTA_DIRECTA1.xlsx)';
+  }
+
+  function applyRetailCategoryFilter(){
+    var val = document.getElementById('sel-categoria').value;
+    var map = {blusas:'blusas', jeans:'jeans', camisetas:'camisetas'};
+    document.querySelectorAll('#retail-detail .cat-block').forEach(function(block){
+      if(val === 'todas'){ block.style.display=''; }
+      else { block.style.display = (block.dataset.block === map[val]) ? '' : 'none'; }
+    });
+  }
+
+  function onProveedorChange(el){
+    var hasData = el.value === 'Forever';
+    document.getElementById('retail-detail').style.display = hasData ? 'block' : 'none';
+    document.getElementById('retail-placeholder').classList.toggle('show', !hasData);
+    if(hasData){
+      var camp = document.getElementById('sel-campana').value;
+      document.getElementById('retail-detail-title').textContent = 'Detalle — ' + el.value + ' · ' + camp;
+      applyRetailCategoryFilter();
+    }
+  }
+
+  function onCampanaChange(el){
+    var hasData = (el.value === 'May-26' || el.value === 'Ene-26');
+    var prov = document.getElementById('sel-proveedor').value;
+    if(!hasData || prov !== 'Forever'){
+      document.getElementById('retail-detail').style.display = 'none';
+      document.getElementById('retail-placeholder').classList.add('show');
+      return;
+    }
+    document.getElementById('retail-detail').style.display = 'block';
+    document.getElementById('retail-placeholder').classList.remove('show');
+    document.getElementById('retail-detail-title').textContent = 'Detalle — ' + prov + ' · ' + el.value;
+    applyRetailCategoryFilter();
+  }
+
+  function onCategoriaChange(el){
+    var val = el.value;
+    var hasData = ['todas','blusas','jeans','camisetas'].indexOf(val) !== -1;
+    var prov = document.getElementById('sel-proveedor').value;
+    if(!hasData || prov !== 'Forever'){
+      document.getElementById('retail-detail').style.display = 'none';
+      document.getElementById('retail-placeholder').classList.add('show');
+      return;
+    }
+    document.getElementById('retail-detail').style.display = 'block';
+    document.getElementById('retail-placeholder').classList.remove('show');
+    applyRetailCategoryFilter();
+  }
+
+  function onMarcaChange(el){
+    var hasData = el.value === 'Natura';
+    document.getElementById('vd-detail').style.display = hasData ? 'block' : 'none';
+    document.getElementById('vd-placeholder').classList.toggle('show', !hasData);
+    if(hasData){
+      var camp = document.getElementById('sel-campana-vd').value;
+      document.getElementById('vd-detail-title').textContent = 'Productos ' + el.value + ' — ' + camp;
+    }
+  }
+
+  function onCampanaVdChange(el){
+    var hasData = (el.value === 'C01 2026' || el.value === 'C17 2025');
+    var marca = document.getElementById('sel-marca').value;
+    if(!hasData || marca !== 'Natura'){
+      document.getElementById('vd-detail').style.display = 'none';
+      document.getElementById('vd-placeholder').classList.add('show');
+      return;
+    }
+    document.getElementById('vd-detail').style.display = 'block';
+    document.getElementById('vd-placeholder').classList.remove('show');
+    document.getElementById('vd-detail-title').textContent = 'Productos ' + marca + ' — ' + el.value;
+  }
+</script>
+
+<div class="lightbox" id="lightbox" onclick="cerrarVistaPrevia(event)">
+  <button class="cerrar" onclick="cerrarVistaPrevia(event)">✕</button>
+  <img id="lightbox-img" src="" alt="Vista previa de la foto capturada en M1">
+  <span class="etiqueta-lb">Foto real capturada en M1 · Forever · Bs 219</span>
+</div>
+
+<script>
+  function abrirVistaPrevia(src){
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+  }
+  function cerrarVistaPrevia(e){
+    if(e.target.id === 'lightbox' || e.target.classList.contains('cerrar')){
+      document.getElementById('lightbox').classList.remove('open');
+    }
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
+  });
+</script>
+
+</body>
+</html>

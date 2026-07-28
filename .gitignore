@@ -1,0 +1,32 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+.idea/
+
+# Nativo Android/iOS (solo artefactos de build, las carpetas android/ e ios/
+# en sí SÍ se versionan normalmente en un proyecto Flutter)
+android/.gradle/
+android/app/build/
+android/local.properties
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/xcuserdata/
+
+# Python backend
+backend/__pycache__/
+backend/*.pyc
+backend/azzorti_demo.db
+
+# Sistema
+.DS_Store
+Thumbs.db
+.claude/
