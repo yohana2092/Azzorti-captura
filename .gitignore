@@ -25,7 +25,12 @@ ios/Runner.xcworkspace/xcuserdata/
 backend/__pycache__/
 backend/*.pyc
 backend/azzorti_demo.db
+backend/azzorti.db
 backend/server.log
+# Fotos/catalogos subidos y recortes generados por OCR - el servidor
+# recrea estas carpetas vacias al arrancar (ver STATIC_DIR en server.py),
+# no hace falta versionarlas y son pesadas (cientos de MB).
+backend/static/
 
 # Sistema
 .DS_Store

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -23,7 +22,7 @@ import 'package:image/image.dart' as img;
 // y cambia _backendBaseUrl por la IP de la laptop en tu red WiFi local
 // (Windows: `ipconfig` -> "Dirección IPv4"). El celular debe estar en la
 // misma red que la laptop.
-const String _backendBaseUrl = 'http://192.168.20.29:8000';
+const String _backendBaseUrl = 'http://192.168.20.28:8000';
 
 class ResultadoSync {
   final bool ok;
@@ -52,7 +51,9 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
             'campana': c.campana,
             'categoria': c.categoria,
             'nivel_precio': c.puntoPrecio,
+            'descripcion': c.descripcionProducto,
             'silueta': c.silueta,
+            'talla': c.talla.isEmpty ? null : c.talla,
             'composicion1': c.composicion1,
             'composicion2': c.composicion2,
             'manga': c.manga,
@@ -60,7 +61,8 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
             'detalle': c.detalle,
             'caracteristicas': c.caracteristicas,
             'precio': double.tryParse(c.precioFinal) ?? 0,
-            'sku_competidor': c.sku.isEmpty ? null : c.sku,
+            'foto_producto_b64':
+                c.fotoProducto != null ? base64Encode(c.fotoProducto!) : null,
           }),
         )
         .timeout(const Duration(seconds: 8));
@@ -138,9 +140,11 @@ void main() => runApp(const AzzortiApp());
 
 // ====================== COLORES ======================
 class AppColors {
-  static const navy = Color(0xFF101D36);
+  // Colores de marca Azzorti (negro + amarillo del logo) — antes era un
+  // azul/navy genérico de prototipo, sin relación con la identidad real.
+  static const navy = Color(0xFF000000);
   static const ink = Color(0xFF0F1C33);
-  static const blue = Color(0xFF2563EB);
+  static const blue = Color(0xFFF6C500);
   static const paper = Color(0xFFF6F7FA);
   static const muted = Color(0xFF64748B);
   static const line = Color(0xFFE2E8F0);
@@ -217,12 +221,28 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     // Diccionario de telas conocidas (para emparejar con el % más cercano,
     // en vez de exigir que estén pegados en la misma línea — el OCR de
     // etiquetas angostas suele partir el texto en varias líneas cortas).
-    const telas = [
-      'poliester', 'poliéster', 'algodon', 'algodón', 'spandex', 'elastano',
-      'elastán', 'lycra', 'licra', 'nylon', 'nailon', 'poliamida', 'lino',
-      'modal', 'rayon', 'rayón', 'viscosa', 'lana', 'seda', 'acrilico',
-      'acrílico',
-    ];
+    // Muchas prendas importadas traen la etiqueta en inglés (ej.
+    // "Composition 95% Polyester 5% Elastane") — antes solo se reconocían
+    // los nombres en español, así que esas etiquetas no arrojaban nada.
+    // El valor del mapa es el nombre canónico que se muestra siempre en
+    // español, sin importar en qué idioma estaba impresa la etiqueta.
+    const telas = <String, String>{
+      'poliester': 'poliéster', 'poliéster': 'poliéster',
+      'polyester': 'poliéster',
+      'algodon': 'algodón', 'algodón': 'algodón', 'cotton': 'algodón',
+      'spandex': 'spandex', 'elastano': 'elastano', 'elastán': 'elastano',
+      'elastane': 'elastano', 'elastic': 'elastano',
+      'lycra': 'lycra', 'licra': 'lycra',
+      'nylon': 'nylon', 'nailon': 'nylon', 'polyamide': 'poliamida',
+      'poliamida': 'poliamida',
+      'lino': 'lino', 'linen': 'lino',
+      'modal': 'modal',
+      'rayon': 'rayón', 'rayón': 'rayón', 'viscosa': 'viscosa',
+      'viscose': 'viscosa',
+      'lana': 'lana', 'wool': 'lana',
+      'seda': 'seda', 'silk': 'seda',
+      'acrilico': 'acrílico', 'acrílico': 'acrílico', 'acrylic': 'acrílico',
+    };
 
     // Paso 1: todos los porcentajes con su posición en el texto.
     final regexPorcentaje = RegExp(r'(\d{1,3})\s*%');
@@ -231,7 +251,7 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     // Paso 2: todas las telas conocidas con su posición en el texto.
     final textoMin = texto.toLowerCase();
     final encontrados = <MapEntry<int, String>>[];
-    for (final t in telas) {
+    for (final t in telas.keys) {
       var desde = 0;
       while (true) {
         final i = textoMin.indexOf(t, desde);
@@ -247,6 +267,11 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     // distintas por culpa de una etiqueta angosta o texto vertical).
     final pares = <String>[];
     for (final p in porcentajes) {
+      // Un 0% no es una composición real — el OCR a veces confunde "1" con
+      // "0" en etiquetas borrosas o con poca luz (ej. "100%" leído "000%").
+      // Mejor no autocompletar nada que mostrar un dato claramente inválido
+      // marcado como "✓ Detectado" cuando en realidad viene mal leído.
+      if ((int.tryParse(p.group(1) ?? '') ?? 0) == 0) continue;
       String? telaCercana;
       var mejorDistancia = 1 << 30;
       for (final e in encontrados) {
@@ -257,7 +282,7 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
         }
       }
       if (telaCercana != null) {
-        pares.add('${p.group(1)}% ${_capitalizar(telaCercana)}');
+        pares.add('${p.group(1)}% ${_capitalizar(telas[telaCercana]!)}');
       }
     }
 
@@ -306,57 +331,129 @@ Future<Map<String, String>> sugerirDesdeProducto(Uint8List bytes) async {
   return resultado;
 }
 
-/// Calcula el color más frecuente de la zona central de la foto (evita
-/// bordes/fondo) y lo empareja con el nombre en español más parecido.
+/// Detecta si un píxel es muy probablemente piel humana (heurística RGB
+/// estándar). Las fotos de campo casi siempre incluyen brazos/cuello/cara
+/// de quien modela la prenda — sin excluir esto, el promedio de color
+/// terminaba mezclado con tono de piel en vez de reflejar la prenda.
+bool _esPiel(int r, int g, int b) {
+  final maxC = [r, g, b].reduce((a, v) => a > v ? a : v);
+  final minC = [r, g, b].reduce((a, v) => a < v ? a : v);
+  return r > 95 &&
+      g > 40 &&
+      b > 20 &&
+      (maxC - minC) > 15 &&
+      (r - g).abs() > 15 &&
+      r > g &&
+      r > b;
+}
+
+/// Convierte RGB (0-255) a HSV — matiz en grados (0-360), saturación y
+/// valor en 0-1. Se usa para separar "de qué color es" (matiz) de "qué tan
+/// oscuro/clarito se ve por la sombra o la luz" (valor) — una tela roja en
+/// una zona de sombra sigue siendo roja, aunque su RGB absoluto (más
+/// oscuro) quede numéricamente parecido a un café o negro.
+(double, double, double) _rgbAHsv(int r255, int g255, int b255) {
+  final r = r255 / 255, g = g255 / 255, b = b255 / 255;
+  final maxC = [r, g, b].reduce((a, v) => a > v ? a : v);
+  final minC = [r, g, b].reduce((a, v) => a < v ? a : v);
+  final delta = maxC - minC;
+  final v = maxC;
+  final s = maxC == 0 ? 0.0 : delta / maxC;
+  double h;
+  if (delta == 0) {
+    h = 0;
+  } else if (maxC == r) {
+    h = 60 * (((g - b) / delta) % 6);
+  } else if (maxC == g) {
+    h = 60 * (((b - r) / delta) + 2);
+  } else {
+    h = 60 * (((r - g) / delta) + 4);
+  }
+  if (h < 0) h += 360;
+  return (h, s, v);
+}
+
+/// Color dominante de la prenda: clasifica CADA píxel muestreado por su
+/// matiz (HSV) y se queda con el que gana más votos — no promedia primero
+/// (eso difumina estampados) y no compara distancia RGB completa (eso
+/// confunde brillo con color: una tela roja en la sombra puede quedar
+/// numéricamente más cerca de "Café" que de "Rojo" si se compara en RGB,
+/// aunque el matiz real siga siendo rojo).
+///
+/// Un píxel se considera "acromático" (negro/gris/blanco, sin matiz) según
+/// su saturación — exigiendo más saturación cuanto más oscuro es el píxel,
+/// porque a baja luminosidad el matiz calculado se vuelve ruido (una sombra
+/// oscura puede leer con un matiz azulado sin serlo de verdad). El resto se
+/// agrupa por familia de matiz, y dentro de cada familia se elige la
+/// variante clara/oscura según el brillo.
 String _colorDominante(img.Image imagen) {
-  const paleta = <String, List<int>>{
-    'Negro': [20, 20, 20],
-    'Blanco': [245, 245, 245],
-    'Gris': [140, 140, 140],
-    'Celeste': [120, 170, 220],
-    'Azul': [30, 60, 140],
-    'Rojo': [190, 30, 30],
-    'Vino': [110, 20, 40],
-    'Rosado': [230, 140, 170],
-    'Morado': [110, 60, 150],
-    'Verde': [50, 120, 60],
-    'Amarillo': [230, 210, 60],
-    'Naranja': [220, 120, 40],
-    'Café': [90, 60, 40],
-    'Beige': [210, 190, 150],
-    'Crema': [230, 220, 190],
-  };
+  // Devuelve el nombre del color y si es "cromático" (con matiz real) o
+  // acromático (negro/gris/blanco, decidido solo por brillo).
+  (String, bool) clasificar(int r, int g, int b) {
+    final (h, s, v) = _rgbAHsv(r, g, b);
+    final umbralSaturacion = v >= 0.35 ? 0.18 : 0.30;
+    if (s < umbralSaturacion) {
+      if (v < 0.40) return ('Negro', false);
+      if (v < 0.78) return ('Gris', false);
+      return ('Blanco', false);
+    }
+    if (h < 12 || h >= 350) return (v < 0.55 ? 'Vino' : 'Rojo', true);
+    if (h < 40) {
+      if (v < 0.35) return ('Chocolate', true);
+      if (v < 0.55) return ('Café', true);
+      return (s > 0.45 ? 'Naranja' : 'Beige', true);
+    }
+    if (h < 65) {
+      if (v < 0.55) return ('Mostaza', true);
+      return (s > 0.35 ? 'Amarillo' : 'Crema', true);
+    }
+    if (h < 95) return (v < 0.55 ? 'Oliva' : 'Verde claro', true);
+    if (h < 160) return ('Verde', true);
+    if (h < 195) return ('Turquesa', true);
+    if (h < 255) return (v > 0.6 && s < 0.45 ? 'Celeste' : 'Azul', true);
+    if (h < 290) return (v > 0.65 && s < 0.45 ? 'Lavanda' : 'Morado', true);
+    if (h < 330) return ('Fucsia', true);
+    return (v > 0.55 ? 'Rosado' : 'Vino', true);
+  }
 
   final w = imagen.width;
   final h = imagen.height;
-  final cx0 = (w * 0.3).round();
-  final cx1 = (w * 0.7).round();
-  final cy0 = (h * 0.3).round();
-  final cy1 = (h * 0.7).round();
+  final cx0 = (w * 0.15).round();
+  final cx1 = (w * 0.85).round();
+  final cy0 = (h * 0.20).round();
+  final cy1 = (h * 0.92).round();
 
-  int rSum = 0, gSum = 0, bSum = 0, n = 0;
-  for (var y = cy0; y < cy1; y += 4) {
-    for (var x = cx0; x < cx1; x += 4) {
+  final votos = <String, int>{};
+  final votosCromaticos = <String, int>{};
+  var total = 0;
+  var totalCromatico = 0;
+
+  for (var y = cy0; y < cy1; y += 3) {
+    for (var x = cx0; x < cx1; x += 3) {
       final p = imagen.getPixel(x, y);
-      rSum += p.r.toInt();
-      gSum += p.g.toInt();
-      bSum += p.b.toInt();
-      n++;
+      final r = p.r.toInt(), g = p.g.toInt(), b = p.b.toInt();
+      if (_esPiel(r, g, b)) continue;
+      final (color, esCromatico) = clasificar(r, g, b);
+      votos[color] = (votos[color] ?? 0) + 1;
+      total++;
+      if (esCromatico) {
+        votosCromaticos[color] = (votosCromaticos[color] ?? 0) + 1;
+        totalCromatico++;
+      }
     }
   }
-  if (n == 0) return '';
-  final r = rSum / n, g = gSum / n, b = bSum / n;
+  if (votos.isEmpty) return '';
 
-  String mejor = '';
-  var mejorDist = double.infinity;
-  paleta.forEach((nombre, rgb) {
-    final d = sqrt(pow(r - rgb[0], 2) + pow(g - rgb[1], 2) + pow(b - rgb[2], 2));
-    if (d < mejorDist) {
-      mejorDist = d;
-      mejor = nombre;
-    }
-  });
-  return mejor;
+  // Un fondo oscuro/gris parejo (mesa, silla, pared) puede acumular más
+  // píxeles que la prenda si esta no llena todo el encuadre — pero si hay
+  // una porción real de píxeles con color de verdad (no solo negro/gris/
+  // blanco de fondo), esa prenda con color es casi siempre el sujeto de
+  // la foto, no el fondo. Por eso, cuando el color ocupa una porción
+  // considerable del total, se prioriza el color sobre el fondo acromático.
+  if (totalCromatico / total >= 0.15) {
+    return votosCromaticos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+  return votos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 }
 
 String _capitalizar(String s) =>
@@ -377,7 +474,9 @@ class Captura {
   String campana;
   String categoria;
   String puntoPrecio;
+  String descripcionProducto; // nombre corto del producto, ej. "Blusa floral escote redondo"
   String silueta;
+  String talla;
   String composicion1;
   String composicion2;
   String manga;
@@ -385,7 +484,6 @@ class Captura {
   String detalle;
   String caracteristicas; // texto libre, respaldo si no hay etiqueta
   String precioFinal;
-  String sku;
   Estado estado;
   int? backendId; // id asignado por el backend real al sincronizar
 
@@ -399,7 +497,9 @@ class Captura {
     this.campana = '',
     this.categoria = '',
     this.puntoPrecio = '',
+    this.descripcionProducto = '',
     this.silueta = '',
+    this.talla = '',
     this.composicion1 = '',
     this.composicion2 = '',
     this.manga = '',
@@ -407,7 +507,6 @@ class Captura {
     this.detalle = '',
     this.caracteristicas = '',
     this.precioFinal = '',
-    this.sku = '',
     this.estado = Estado.borrador,
     this.backendId,
   });
@@ -443,6 +542,7 @@ class AzzortiApp extends StatelessWidget {
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.blue,
+            foregroundColor: AppColors.navy, // texto negro: el fondo ahora es amarillo, no azul
             minimumSize: const Size.fromHeight(48),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
@@ -484,15 +584,29 @@ class _HomeShellState extends State<HomeShell> {
 
   void refrescar() => setState(() {});
 
-  void sincronizarTodo() {
-    setState(() {
-      for (final c in capturas) {
-        if (c.estado == Estado.porSincronizar) c.estado = Estado.sincronizada;
+  Future<void> sincronizarTodo() async {
+    final pendientes =
+        capturas.where((c) => c.estado == Estado.porSincronizar).toList();
+    int exitosos = 0;
+    int fallidos = 0;
+    for (final c in pendientes) {
+      final resultado = await sincronizarConBackend(c);
+      if (!mounted) return;
+      if (resultado.ok) {
+        setState(() => c.estado = Estado.sincronizada);
+        exitosos++;
+      } else {
+        // Se queda como "por sincronizar" — sea porque el backend sigue
+        // sin responder o porque es un duplicado (el usuario debe corregirlo
+        // a mano). No se marca como sincronizado sin haberlo logrado de verdad.
+        fallidos++;
       }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content:
-            Text('Registros sincronizados con la base de datos (simulado)')));
+    }
+    if (!mounted) return;
+    final mensaje = fallidos == 0
+        ? '✓ $exitosos registro(s) sincronizado(s) con el backend'
+        : '$exitosos sincronizado(s), $fallidos siguieron sin poder — revisa conexión con el backend';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -804,16 +918,19 @@ class GuardadoRapidoScreen extends StatefulWidget {
 }
 
 class _GuardadoRapidoScreenState extends State<GuardadoRapidoScreen> {
+  // Orden alfabetico (pedido de Yohana, para ubicar mas rapido un
+  // competidor en la lista) - "Otro" se deja al final a proposito, es la
+  // valvula de escape para un competidor nuevo, no una opcion mas.
   static const competidores = [
-    'Forever',
-    'Mitsuba',
-    'Textilon',
-    'Lili Pink',
-    'Hipermaxi',
-    'Casa In',
-    'Roho',
     'Casa Ideas',
+    'Casa In',
+    'Forever',
+    'Hipermaxi',
     'JYJ',
+    'Lili Pink',
+    'Mitsuba',
+    'Roho',
+    'Textilon',
     'Vog',
     'Otro',
   ];
@@ -1027,7 +1144,7 @@ class TarjetaCaptura extends StatelessWidget {
       sub = '${c.hora} · ${c.numFotos} foto(s)';
     } else {
       titulo = '${c.categoria} · ${c.puntoPrecio}';
-      sub = '${c.competidor} · ${c.sku.isEmpty ? "sin SKU" : c.sku}';
+      sub = c.competidor;
     }
     final chip = switch (c.estado) {
       Estado.borrador =>
@@ -1107,32 +1224,60 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
   String? categoria;
   String punto = 'Bajo';
 
-  static const cortes = ['May-26 (activa)', 'Abr-26', 'Mar-26'];
-  static const campanas = ['C7 (activa)', 'C6', 'C5', 'C4'];
+  // "C-10" es la campaña real vigente (misma campaña con la que se cargó
+  // el catálogo Azzorti en el backend) — antes decían "May-26"/"C7", que
+  // no coincidían con ningún dato real cargado.
+  // "(activa)" era parte del VALOR guardado, no solo un texto visual -
+  // las capturas quedaban con campana="C-10 (activa)" literal, que no
+  // coincide con ningún filtro del dashboard (mismo bug que ya se había
+  // corregido del lado del dashboard, pero no acá).
+  static const cortes = ['C-10', 'C-09', 'C-08'];
+  // Venta Directa usa "C09 2026".."C18 2026" (con el año), no el formato
+  // "C-9".."C-18" de Retail - eran la misma lista por error, así que las
+  // capturas de Venta Directa quedaban con una campaña que no coincidía
+  // con ningún filtro del dashboard (bug real detectado por Yohana).
+  static const campanas = ['C10 2026', 'C09 2026', 'C08 2026'];
   // Subgrupos reales de REX (ropa) y HOG (hogar/infantil) — ver
-  // "IPC BOLIVIA 2024_2025 - Venta retail.xlsx". Se muestran juntos en una
-  // sola lista para no rediseñar la pantalla en esta iteración; el grupo
-  // (REX/HOG) queda implícito en el nombre del subgrupo.
-  static const categorias = [
+  // "IPC BOLIVIA 2024_2025 - Venta retail.xlsx".
+  // Orden alfabetico (pedido de Yohana).
+  static const categoriasRetail = [
     'Blusas Femeninas',
-    'Vestidos Femeninos Cortos',
-    'Vestidos Femeninos Largos',
-    'Camisetas Masculinas',
     'Camisetas Femeninas',
+    'Camisetas Masculinas',
+    'Crop Top Femenino',
+    'Cubrecamas Dobles',
+    'Cubrecamas Sencillos Infantiles',
     'Jeans Femeninos',
     'Jeans Masculinos',
     'Lencería PPP',
-    'Cubrecamas Dobles',
+    'Mochilas Infantiles',
+    'Polos Masculinos',
     'Sábanas Dobles',
     'Toallas',
-    'Mochilas Infantiles',
-    'Cubrecamas Sencillos Infantiles',
+    'Vestidos Femeninos Cortos',
+    'Vestidos Femeninos Largos',
+  ];
+  // Categorias reales de Venta Directa - ver "Comparativo fragancias
+  // azzorti vs competencia.xlsx" y "INDEX PRECIO SECTOR VENTA DIRECTA".
+  // Antes se mostraban mezcladas con las de Retail en una sola lista.
+  // Orden alfabetico (pedido de Yohana).
+  static const categoriasVentaDirecta = [
+    'Cabello',
+    'Cuidado Diario',
+    'Cup',
+    'Fragancias',
+    'Hogar', // ej. Tupperware
+    'Joyería',
+    'Maquillaje',
+    'Rostro',
   ];
 
   @override
   Widget build(BuildContext context) {
     final c = widget.captura;
     final opciones = canal == 'Retail' ? cortes : campanas;
+    final categoriasDisponibles =
+        canal == 'Retail' ? categoriasRetail : categoriasVentaDirecta;
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -1171,6 +1316,7 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
                           onSelected: (_) => setState(() {
                             canal = op;
                             campana = null;
+                            categoria = null;
                           }),
                         ),
                       ),
@@ -1192,7 +1338,7 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
           Selector(
             valor: categoria,
             hint: 'Elige la categoría',
-            opciones: categorias,
+            opciones: categoriasDisponibles,
             onChanged: (v) => setState(() => categoria = v),
           ),
           const SizedBox(height: 18),
@@ -1249,18 +1395,20 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
   bool colorSugerido = false; // true si el color vino de analizar la foto
 
   String? silueta;
+  String? talla;
   String? manga;
   bool mangaSugerida = false;
 
+  late final TextEditingController descripcionCtrl;
   late final TextEditingController comp1Ctrl;
   late final TextEditingController comp2Ctrl;
   late final TextEditingController colorCtrl;
   late final TextEditingController detalleCtrl;
   late final TextEditingController caracteristicasCtrl;
   late final TextEditingController precioCtrl;
-  late final TextEditingController skuCtrl;
 
   static const siluetas = ['Suelta', 'Entallada', 'Oversize', 'Recta'];
+  static const tallas = ['XS', 'S', 'M', 'L', 'XL', 'Única', 'N/A (no aplica)'];
   static const mangas = [
     'Sin manga',
     'Manga corta',
@@ -1272,20 +1420,24 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
   @override
   void initState() {
     super.initState();
+    descripcionCtrl = TextEditingController();
     comp1Ctrl = TextEditingController();
     comp2Ctrl = TextEditingController();
     colorCtrl = TextEditingController();
     detalleCtrl = TextEditingController();
     caracteristicasCtrl = TextEditingController();
     precioCtrl = TextEditingController(text: widget.captura.precioTienda);
-    skuCtrl = TextEditingController();
     _analizarFotos();
   }
 
   Future<void> _analizarFotos() async {
     final c = widget.captura;
 
-    if (c.fotoEtiqueta != null) {
+    // En Venta Directa no hay etiqueta de composición textil que leer
+    // (es un perfume/maquillaje/joya, no una prenda) - se deja que
+    // "características del producto" sea el dato descriptivo, como pidió
+    // Yohana, en vez de forzar un OCR que no aplica a ese tipo de producto.
+    if (c.fotoEtiqueta != null && c.canal != 'Venta Directa') {
       final r = await leerEtiqueta(c.fotoEtiqueta!);
       comp1Ctrl.text = r['componente1'] ?? '';
       comp2Ctrl.text = r['componente2'] ?? '';
@@ -1311,6 +1463,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
   Widget build(BuildContext context) {
     final c = widget.captura;
     final vinoDeTienda = c.precioTienda.isNotEmpty;
+    final esVentaDirecta = c.canal == 'Venta Directa';
 
     if (analizando) {
       return Scaffold(
@@ -1353,7 +1506,9 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             MiniFoto(etiqueta: 'Producto', bytes: c.fotoProducto),
           ]),
           const SizedBox(height: 16),
-          if (etiquetaDioDatos)
+          if (esVentaDirecta)
+            const SizedBox.shrink()
+          else if (etiquetaDioDatos)
             const LeyendaAuto('✓ Detectado de la etiqueta', AppColors.green)
           else if (c.fotoEtiqueta != null)
             const Text(
@@ -1367,22 +1522,41 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             ),
           const SizedBox(height: 14),
 
-          const Etiqueta('COMPOSICIÓN — COMPONENTE 1'),
+          const Etiqueta('DESCRIPCIÓN DEL PRODUCTO'),
           const SizedBox(height: 8),
           CampoTexto(
-            controller: comp1Ctrl,
-            hint: 'ej. 97% Poliéster',
-            auto: comp1Ctrl.text.isNotEmpty,
+            controller: descripcionCtrl,
+            hint: esVentaDirecta
+                ? 'ej. Eau de parfum floral 50 ml'
+                : 'ej. Blusa floral escote redondo manga corta',
+          ),
+          const SizedBox(height: 6),
+          Text(
+            esVentaDirecta
+                ? 'Un nombre corto que identifique el producto — ayuda a reconocerlo después en el dashboard.'
+                : 'Un nombre corto que identifique la prenda — ayuda a reconocerla después en el dashboard, igual que el catálogo de Azzorti nombra cada producto (ej. "Blusa Ref.R4874").',
+            style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
           ),
           const SizedBox(height: 16),
-          const Etiqueta('COMPOSICIÓN — COMPONENTE 2 (SI APLICA)'),
-          const SizedBox(height: 8),
-          CampoTexto(
-            controller: comp2Ctrl,
-            hint: 'ej. 3% Spandex',
-            auto: comp2Ctrl.text.isNotEmpty,
-          ),
-          const SizedBox(height: 16),
+
+          if (!esVentaDirecta) ...[
+            const Etiqueta('COMPOSICIÓN — COMPONENTE 1'),
+            const SizedBox(height: 8),
+            CampoTexto(
+              controller: comp1Ctrl,
+              hint: 'ej. 97% Poliéster',
+              auto: comp1Ctrl.text.isNotEmpty,
+            ),
+            const SizedBox(height: 16),
+            const Etiqueta('COMPOSICIÓN — COMPONENTE 2 (SI APLICA)'),
+            const SizedBox(height: 8),
+            CampoTexto(
+              controller: comp2Ctrl,
+              hint: 'ej. 3% Spandex',
+              auto: comp2Ctrl.text.isNotEmpty,
+            ),
+            const SizedBox(height: 16),
+          ],
           const Etiqueta('COLOR'),
           const SizedBox(height: 8),
           CampoTexto(
@@ -1395,33 +1569,48 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                 '🔎 Sugerido de la foto del producto — revisa', AppColors.amberTxt),
           const SizedBox(height: 20),
 
-          const Etiqueta('SILUETA / CORTE'),
-          const SizedBox(height: 8),
-          Selector(
-              valor: silueta,
-              hint: 'Elige la silueta',
-              opciones: siluetas,
-              onChanged: (v) => setState(() => silueta = v)),
-          const SizedBox(height: 16),
-          const Etiqueta('MANGA'),
-          const SizedBox(height: 8),
-          Selector(
-              valor: manga,
-              hint: 'Elige el tipo de manga (o N/A si no aplica)',
-              opciones: mangas,
-              onChanged: (v) => setState(() {
-                    manga = v;
-                    mangaSugerida = false;
-                  })),
-          if (mangaSugerida)
-            const LeyendaAuto('🔎 Sugerido desde la foto — revisa', AppColors.amberTxt),
-          const SizedBox(height: 16),
-          const Etiqueta('DETALLE'),
-          const SizedBox(height: 8),
-          CampoTexto(controller: detalleCtrl, hint: 'ej. Caído en el hombro'),
-          const SizedBox(height: 16),
+          if (!esVentaDirecta) ...[
+            const Etiqueta('SILUETA / CORTE'),
+            const SizedBox(height: 8),
+            Selector(
+                valor: silueta,
+                hint: 'Elige la silueta',
+                opciones: siluetas,
+                onChanged: (v) => setState(() => silueta = v)),
+            const SizedBox(height: 16),
+            const Etiqueta('TALLA'),
+            const SizedBox(height: 8),
+            Selector(
+                valor: talla,
+                hint: 'Elige la talla',
+                opciones: tallas,
+                onChanged: (v) => setState(() => talla = v)),
+            const SizedBox(height: 6),
+            const Text(
+              'La talla real de Azzorti puede variar por talla (ej. distintos códigos S/M/L/XL) — anotarla ayuda a elegir el equivalente correcto más adelante.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            const Etiqueta('MANGA'),
+            const SizedBox(height: 8),
+            Selector(
+                valor: manga,
+                hint: 'Elige el tipo de manga (o N/A si no aplica)',
+                opciones: mangas,
+                onChanged: (v) => setState(() {
+                      manga = v;
+                      mangaSugerida = false;
+                    })),
+            if (mangaSugerida)
+              const LeyendaAuto('🔎 Sugerido desde la foto — revisa', AppColors.amberTxt),
+            const SizedBox(height: 16),
+            const Etiqueta('DETALLE'),
+            const SizedBox(height: 8),
+            CampoTexto(controller: detalleCtrl, hint: 'ej. Caído en el hombro'),
+            const SizedBox(height: 16),
+          ],
 
-          Etiqueta(etiquetaDioDatos
+          Etiqueta((etiquetaDioDatos && !esVentaDirecta)
               ? 'CARACTERÍSTICAS DEL PRODUCTO (opcional)'
               : 'CARACTERÍSTICAS DEL PRODUCTO — DESCRÍBELO AQUÍ, NO HAY ETIQUETA'),
           const SizedBox(height: 8),
@@ -1429,9 +1618,11 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             controller: caracteristicasCtrl,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: etiquetaDioDatos
-                  ? 'Cualquier detalle extra que quieras anotar…'
-                  : 'ej. Blusa suelta, tela gruesa tipo lino, sin etiqueta legible…',
+              hintText: esVentaDirecta
+                  ? 'ej. Notas florales, frasco dorado, presentación en set…'
+                  : etiquetaDioDatos
+                      ? 'Cualquier detalle extra que quieras anotar…'
+                      : 'ej. Blusa suelta, tela gruesa tipo lino, sin etiqueta legible…',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -1454,10 +1645,6 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                 style: TextStyle(fontSize: 11.5, color: AppColors.muted),
               ),
             ),
-          const SizedBox(height: 16),
-          const Etiqueta('SKU DE REFERENCIA'),
-          const SizedBox(height: 8),
-          CampoTexto(controller: skuCtrl, hint: 'ej. FWR-BLZ-219-MAY26'),
           const SizedBox(height: 26),
           FilledButton(
             onPressed: () {
@@ -1477,7 +1664,9 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                         'Como no hay datos de la etiqueta, describe las características del producto')));
                 return;
               }
+              c.descripcionProducto = descripcionCtrl.text.trim();
               c.silueta = silueta ?? '';
+              c.talla = talla ?? '';
               c.composicion1 = comp1Ctrl.text.trim();
               c.composicion2 = comp2Ctrl.text.trim();
               c.manga = manga ?? '';
@@ -1485,7 +1674,6 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               c.detalle = detalleCtrl.text.trim();
               c.caracteristicas = caracteristicasCtrl.text.trim();
               c.precioFinal = precioCtrl.text.trim();
-              c.sku = skuCtrl.text.trim();
               Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => RevisarScreen(captura: c, onFin: widget.onFin),
               ));
@@ -1588,7 +1776,10 @@ class _RevisarScreenState extends State<RevisarScreen> {
               FilaResumen('Competidor', c.competidor),
               FilaResumen('Canal', '${c.canal} · ${c.campana}'),
               FilaResumen('Categoría', '${c.categoria} · ${c.puntoPrecio}'),
+              if (c.descripcionProducto.isNotEmpty)
+                FilaResumen('Descripción', c.descripcionProducto),
               FilaResumen('Silueta', c.silueta),
+              FilaResumen('Talla', c.talla.isEmpty ? '—' : c.talla),
               FilaResumen('Composición',
                   [c.composicion1, c.composicion2]
                           .where((e) => e.isNotEmpty)
@@ -1601,22 +1792,8 @@ class _RevisarScreenState extends State<RevisarScreen> {
               if (c.caracteristicas.isNotEmpty)
                 FilaResumen('Características', c.caracteristicas),
               FilaResumen('Precio', 'Bs ${c.precioFinal}'),
-              FilaResumen('SKU', c.sku.isEmpty ? '—' : c.sku),
               FilaResumen('Fotos', '${c.numFotos} adjunta(s)'),
             ]),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.amberBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: const Text(
-              'El backend valida que el precio sea numérico y bloquea el guardado si el SKU ya existe para ese competidor en esa campaña.',
-              style: TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
-            ),
           ),
           const SizedBox(height: 22),
           FilledButton(
@@ -1682,7 +1859,19 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
     if (skuSeleccionado == null) return;
     setState(() => confirmando = true);
     final id = widget.captura.backendId!;
-    await confirmarHomologacion(id, skuSeleccionado!);
+    final ok = await confirmarHomologacion(id, skuSeleccionado!);
+    if (!mounted) return;
+    if (!ok) {
+      // Antes se seguia igual a la pantalla de evaluacion aunque la
+      // confirmacion fallara (ej. sin conexion, o el codigo ya no existe
+      // en el catalogo indexado) - se veia como si hubiera quedado
+      // homologado sin quedar guardado de verdad en el backend.
+      setState(() => confirmando = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              '⚠ No se pudo confirmar la homologación (revisa la conexión con el backend). Intenta de nuevo.')));
+      return;
+    }
     final evaluacion = await pedirEvaluacion(id);
     if (!mounted) return;
     setState(() => confirmando = false);
@@ -1695,10 +1884,20 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
     ));
   }
 
-  void _omitir() {
+  Future<void> _omitir() async {
+    // Antes esto nunca pedia evaluacion (mostraba siempre el aviso "se
+    // guardo sin homologar"). Desde el Pendiente 3, aunque no haya
+    // homologacion, el backend igual puede comparar contra la misma
+    // captura de la campana anterior - se pide igual, puede volver
+    // VS_CAMPANA_ANTERIOR o SIN_DATO segun si existe ese dato previo.
+    final evaluacion = await pedirEvaluacion(widget.captura.backendId!);
+    if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          ConfirmacionScreen(captura: widget.captura, onFin: widget.onFin),
+      builder: (_) => ConfirmacionScreen(
+        captura: widget.captura,
+        onFin: widget.onFin,
+        evaluacion: evaluacion,
+      ),
     ));
   }
 
@@ -1749,6 +1948,8 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
                       final sku = s['sku'] as String;
                       final score = (s['score_similitud'] as num).toDouble();
                       final seleccionado = skuSeleccionado == sku;
+                      final fotoUrl = s['foto_url'] as String?;
+                      final pagina = s['pagina_catalogo'];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(
@@ -1762,17 +1963,67 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
                                   : AppColors.line,
                               width: seleccionado ? 1.6 : 1),
                         ),
-                        child: RadioListTile<String>(
-                          value: sku,
-                          groupValue: skuSeleccionado,
-                          onChanged: (v) => setState(() => skuSeleccionado = v),
-                          title: Text('$sku · Bs ${s['precio']}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 13.5)),
-                          subtitle: Text(
-                              '${s['color'] ?? '—'} · ${s['silueta'] ?? '—'} · ${s['composicion'] ?? '—'}',
-                              style: const TextStyle(fontSize: 11.5)),
-                          secondary: _ScoreBadge(score: score),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => skuSeleccionado = sku),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Radio<String>(
+                                  value: sku,
+                                  groupValue: skuSeleccionado,
+                                  onChanged: (v) =>
+                                      setState(() => skuSeleccionado = v),
+                                ),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: fotoUrl != null
+                                      ? Image.network(fotoUrl,
+                                          width: 56,
+                                          height: 56,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              _SinFoto())
+                                      : _SinFoto(),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                          '${s['descripcion'] ?? sku} · Bs ${s['precio']}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13.5)),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                          '${s['color'] ?? '—'} · ${s['silueta'] ?? '—'} · ${s['composicion'] ?? '—'}',
+                                          style: const TextStyle(
+                                              fontSize: 11.5,
+                                              color: AppColors.muted)),
+                                      if (pagina != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
+                                          child: Text('Pág. $pagina del catálogo',
+                                              style: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: AppColors.muted,
+                                                  fontStyle:
+                                                      FontStyle.italic)),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _ScoreBadge(score: score),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     }),
@@ -1800,6 +2051,11 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
   }
 }
 
+/// Puntaje de similitud (0-100%): qué tan parecidos son los atributos
+/// (color/silueta/composición/manga) de este producto Azzorti frente a lo
+/// que el analista capturó de la competencia. NO es una probabilidad de
+/// que sea el producto correcto — es solo una ayuda para ordenar las
+/// sugerencias; la confirmación final siempre la hace la persona.
 class _ScoreBadge extends StatelessWidget {
   final double score;
   const _ScoreBadge({required this.score});
@@ -1811,15 +2067,34 @@ class _ScoreBadge extends StatelessWidget {
     final bg = score >= 60
         ? AppColors.greenBg
         : (score >= 30 ? AppColors.amberBg : const Color(0xFFF1F5F9));
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text('${score.toStringAsFixed(0)}%',
-          style:
-              TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          child: Text('${score.toStringAsFixed(0)}%',
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+        ),
+        const SizedBox(height: 2),
+        const Text('similitud',
+            style: TextStyle(fontSize: 9, color: AppColors.muted)),
+      ],
     );
   }
+}
+
+class _SinFoto extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 56,
+        height: 56,
+        color: const Color(0xFFF1F5F9),
+        child: const Icon(Icons.image_outlined,
+            size: 20, color: AppColors.muted),
+      );
 }
 
 // ====================== MOMENTO 2 · CONFIRMACIÓN ======================
@@ -1876,6 +2151,10 @@ class ConfirmacionScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),
           const SizedBox(height: 16),
+          // _TarjetaEvaluacion ya maneja sola los 3 casos (homologado,
+          // vs. campaña anterior, o sin ningún dato para comparar) - solo
+          // si la llamada al backend falló de plano (ev == null) se avisa
+          // aparte, sin fingir un motivo especifico que no se conoce.
           if (ev != null) _TarjetaEvaluacion(ev: ev) else
             Container(
               padding: const EdgeInsets.all(12),
@@ -1884,7 +2163,7 @@ class ConfirmacionScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text(
-                'Se guardó sin homologar contra Azzorti — no hay evaluación de política/alerta para este registro.',
+                'No se pudo obtener la evaluación de precio — revisa la conexión con el backend.',
                 style: TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
               ),
             ),
@@ -1905,22 +2184,39 @@ class ConfirmacionScreen extends StatelessWidget {
   }
 }
 
-/// Muestra el resultado real del motor de precios: cumplimiento de la
-/// política específica de esa categoría/competidor (si existe) y la
-/// alerta genérica de tolerancia del 10% — son dos evaluaciones
-/// independientes, tal como se acordó (ver memoria del proyecto).
+/// Muestra el resultado real del motor de precios: contra Azzorti si ya hay
+/// homologación, o contra la misma captura de la campaña anterior si no la
+/// hay — un solo umbral de alerta editable (ya no hay política puntual por
+/// categoría/competidor, esa se retiró en el Pendiente 3; ver memoria del
+/// proyecto).
 class _TarjetaEvaluacion extends StatelessWidget {
   final Map<String, dynamic> ev;
   const _TarjetaEvaluacion({required this.ev});
 
   @override
   Widget build(BuildContext context) {
+    final modo = ev['modo'] as String? ?? 'SIN_DATO';
+    final umbral = (ev['umbral_pct'] as num?)?.toDouble() ?? 10.0;
+
+    if (modo == 'SIN_DATO') {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.amberBg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          (ev['mensaje'] as String?) ??
+              'Sin homologación y sin captura previa del mismo producto para comparar.',
+          style: const TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
+        ),
+      );
+    }
+
+    final esHomologo = modo == 'HOMOLOGO';
     final deltaPct = (ev['delta_pct'] as num).toDouble();
-    final cumplimiento = ev['cumplimiento_politica'] as Map<String, dynamic>;
-    final alerta = ev['alerta_generica_10pct'] as Map<String, dynamic>;
-    final disparada = alerta['disparada'] as bool;
-    final tienePolitica = cumplimiento['tiene_politica'] as bool;
-    final cumple = cumplimiento['cumple'] as bool?;
+    final alerta = ev['alerta'] as bool;
+    final umbralTxt = umbral % 1 == 0 ? umbral.toStringAsFixed(0) : umbral.toString();
 
     return Container(
       decoration: BoxDecoration(
@@ -1929,29 +2225,26 @@ class _TarjetaEvaluacion extends StatelessWidget {
         border: Border.all(color: AppColors.line),
       ),
       child: Column(children: [
-        FilaResumen('Azzorti equivalente', ev['azzorti_sku'] as String),
-        FilaResumen('Precio Azzorti', 'Bs ${ev['precio_azzorti']}'),
-        FilaResumen('Precio competencia', 'Bs ${ev['precio_competencia']}'),
+        if (esHomologo) ...[
+          FilaResumen('Azzorti equivalente', ev['azzorti_sku'] as String),
+          FilaResumen('Precio Azzorti', 'Bs ${ev['precio_azzorti']}'),
+        ] else
+          FilaResumen('Campaña anterior', ev['campana_anterior'] as String),
+        FilaResumen(
+          esHomologo ? 'Precio competencia' : 'Precio campaña anterior',
+          'Bs ${esHomologo ? ev['precio_competencia'] : ev['precio_anterior']}',
+        ),
+        if (!esHomologo)
+          FilaResumen('Precio campaña actual', 'Bs ${ev['precio_competencia']}'),
         FilaResumen('Diferencia', '${deltaPct.toStringAsFixed(1)}%'),
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 10, 4, 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _EtiquetaEstado(
-              texto: !tienePolitica
-                  ? 'Sin política definida para esta categoría/competidor'
-                  : (cumple == true
-                      ? 'Cumple la política (${cumplimiento['tipo']} ${cumplimiento['umbral_pct'] ?? ''}%)'
-                      : 'No cumple la política (${cumplimiento['tipo']} ${cumplimiento['umbral_pct'] ?? ''}%)'),
-              ok: !tienePolitica ? null : cumple,
-            ),
-            const SizedBox(height: 8),
-            _EtiquetaEstado(
-              texto: disparada
-                  ? '⚠ Alerta: variación mayor al 10% frente a Azzorti'
-                  : 'Variación dentro de la tolerancia del 10%',
-              ok: !disparada,
-            ),
-          ]),
+          child: _EtiquetaEstado(
+            texto: alerta
+                ? '⚠ Alerta: variación mayor al $umbralTxt% ${esHomologo ? "frente a Azzorti" : "frente a la campaña anterior"}'
+                : 'Variación dentro de la tolerancia del $umbralTxt%',
+            ok: !alerta,
+          ),
         ),
       ]),
     );

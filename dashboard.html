@@ -50,6 +50,12 @@
 
   .view{display:none;}
   .view.active{display:block;}
+  .top-section{display:none;}
+  .top-section.active{display:block;}
+  .hist-bar-grupo{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
+  .hist-bar{width:34px;border-radius:6px 6px 0 0;background:var(--blue);position:relative;}
+  .hist-bar-valor{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:700;white-space:nowrap;}
+  .hist-bar-label{font-size:10px;color:var(--muted);text-align:center;max-width:70px;line-height:1.3;}
 
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 17px;}
@@ -122,6 +128,11 @@
   .lightbox img{max-width:min(90vw,520px);max-height:82vh;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.4);}
   .lightbox .cerrar{position:absolute;top:22px;right:26px;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--ink);border:none;font-size:18px;font-weight:700;cursor:pointer;}
   .lightbox .etiqueta-lb{position:absolute;bottom:calc(9vh + 14px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,.75);color:#fff;font-family:var(--mono);font-size:11.5px;padding:6px 14px;border-radius:999px;}
+  .modal-caja{background:#fff;border-radius:14px;padding:22px;max-width:420px;width:92vw;box-shadow:0 20px 50px rgba(0,0,0,.4);}
+  .modal-caja h3{font-size:15px;margin-bottom:4px;}
+  .modal-caja .campo{display:flex;flex-direction:column;gap:4px;margin-top:12px;}
+  .modal-caja label{font-family:var(--mono);font-size:10.3px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .modal-caja input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;}
 
   @media (max-width:1000px){
     .sidebar{display:none;}
@@ -133,22 +144,21 @@
 </head>
 <body>
 
-<div class="sim-banner">⚠ <b>SIMULACIÓN</b> — estructura y datos históricos reales de IPC_BOLIVIA / INDEX_PRECIO_SECTOR_VENTA_DIRECTA. Fotos son marcadores de posición: la captura real llega con el módulo M1 (etiqueta / foto en tienda).</div>
-
 <div class="app">
   <div class="sidebar">
     <div class="brand">A<span class="zz">ZZ</span>ORTI</div>
     <div class="nav">
-      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</a>
-      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Precios</a>
-      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="3.2"/><circle cx="17" cy="8" r="3.2"/><path d="M2.5 20c.6-3.4 3-5.4 5.5-5.4s4.9 2 5.5 5.4M12.7 14.7c2.3.2 4.3 2.1 4.8 5.3"/></svg>Competencia</a>
-      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l4 4v12H6z"/><path d="M14 4v4h4"/></svg>Reportes</a>
+      <a href="#" class="active" id="nav-dashboard" onclick="mostrarSeccion('dashboard');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</a>
+      <a href="#" id="nav-precios" onclick="mostrarSeccion('precios');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Precios</a>
+      <a href="#" id="nav-competencia" onclick="mostrarSeccion('competencia');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="3.2"/><circle cx="17" cy="8" r="3.2"/><path d="M2.5 20c.6-3.4 3-5.4 5.5-5.4s4.9 2 5.5 5.4M12.7 14.7c2.3.2 4.3 2.1 4.8 5.3"/></svg>Competencia</a>
+      <a href="#" id="nav-reportes" onclick="mostrarSeccion('reportes');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l4 4v12H6z"/><path d="M14 4v4h4"/></svg>Reportes</a>
     </div>
     <div class="side-foot">MÓDULO M4 · DASHBOARD &amp; ALERTAS<br>BENCHMARKING PRECIOS BOLIVIA</div>
   </div>
 
   <div class="main">
     <div class="wrap-inner">
+      <div id="section-dashboard" class="top-section active">
       <div class="page-head">
         <div class="path">Benchmarking Precios Bolivia</div>
         <h1>Comparación de Precios</h1>
@@ -165,6 +175,18 @@
         </button>
       </div>
       <div class="chan-sub" id="chan-sub">Tiendas físicas · relevamiento por corte mensual (IPC_BOLIVIA_2024_2025.xlsx)</div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin:-8px 0 20px;font-size:12px;color:var(--muted);">
+        <span>Umbral de alerta (reemplaza las políticas por categoría — aplica igual en Retail y Venta Directa):</span>
+        <input id="input-umbral" type="number" step="0.5" min="0.5" value="10"
+          style="width:56px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font:inherit;">
+        <span>%</span>
+        <button onclick="guardarUmbralAlerta()"
+          style="padding:4px 10px;border:none;border-radius:6px;background:var(--blue);color:#fff;font-weight:700;font-size:11.5px;cursor:pointer;">
+          Guardar
+        </button>
+        <span id="umbral-mensaje" style="font-size:11px;"></span>
+      </div>
 
       <!-- ============ RETAIL VIEW ============ -->
       <div class="view active" id="view-retail">
@@ -191,6 +213,7 @@
           <div class="filter-field">
             <label>Proveedor</label>
             <select id="sel-proveedor" onchange="onProveedorChange(this)">
+              <option value="todas">Todas</option>
               <option value="Forever">Forever</option>
               <option value="Índigo">Índigo</option>
               <option value="Éxito">Éxito</option>
@@ -209,10 +232,17 @@
           <div class="filter-field">
             <label>Campaña / Corte</label>
             <select id="sel-campana" onchange="onCampanaChange(this)">
-              <option value="May-26">May-26</option>
-              <option value="Ene-26">Ene-26</option>
-              <option value="Dic-25">Dic-25 (sin datos)</option>
-              <option value="Nov-25">Nov-25 (sin datos)</option>
+              <option value="todas">Todas</option>
+              <option value="C-9">C-9 (sin datos)</option>
+              <option value="C-10">C-10 (activa)</option>
+              <option value="C-11">C-11 (sin datos)</option>
+              <option value="C-12">C-12 (sin datos)</option>
+              <option value="C-13">C-13 (sin datos)</option>
+              <option value="C-14">C-14 (sin datos)</option>
+              <option value="C-15">C-15 (sin datos)</option>
+              <option value="C-16">C-16 (sin datos)</option>
+              <option value="C-17">C-17 (sin datos)</option>
+              <option value="C-18">C-18 (sin datos)</option>
             </select>
           </div>
           <div class="filter-field">
@@ -228,14 +258,22 @@
               <option value="jeansmasc">Jeans Masc. (sin datos)</option>
             </select>
           </div>
+          <div class="filter-field">
+            <label>Línea</label>
+            <select id="sel-linea" onchange="applyRetailCategoryFilter()">
+              <option value="todas">Todas</option>
+              <option value="Ropa">Ropa</option>
+              <option value="Hogar">Hogar</option>
+            </select>
+          </div>
         </div>
 
         <div class="placeholder-box" id="retail-placeholder">Sin datos cargados para esta demo todavía — se completa con la captura real del analista (módulo M1).</div>
 
         <div class="panel" id="retail-detail">
-          <div class="panel-head"><h3 id="retail-detail-title">Detalle — Forever · May-26</h3></div>
+          <div class="panel-head"><h3 id="retail-detail-title">Detalle — Forever · C-10 (activa)</h3></div>
 
-          <div class="cat-block" data-block="blusas" data-provider="Forever">
+          <div class="cat-block" data-block="blusas" data-provider="Forever" data-linea="Ropa">
             <div class="cat-title-row">
               <span class="cat-title">RE Blusas Fem. — Precio RE Bs 23,20</span>
               <span class="cat-policy">Política: por debajo del 20% de Forever</span>
@@ -279,7 +317,7 @@
             </table>
           </div>
 
-          <div class="cat-block" data-block="blusas" data-provider="Éxito" style="display:none;">
+          <div class="cat-block" data-block="blusas" data-provider="Éxito" data-linea="Ropa" style="display:none;">
             <div class="cat-title-row">
               <span class="cat-title">🔴 EN VIVO — Blusas Femeninas · Éxito</span>
               <span class="cat-policy">Capturado hoy con la app M1 · Retail · Abr-26</span>
@@ -298,7 +336,7 @@
             </table>
           </div>
 
-          <div class="cat-block" data-block="jeans" data-provider="Forever">
+          <div class="cat-block" data-block="jeans" data-provider="Forever" data-linea="Ropa">
             <div class="cat-title-row">
               <span class="cat-title">RE Jeans Fem. — Precio RE Bs 14,68</span>
               <span class="cat-policy">Política: por debajo del 20% de Forever / Mitsuba</span>
@@ -333,7 +371,7 @@
             </table>
           </div>
 
-          <div class="cat-block" data-block="jeansdama" data-provider="Índigo" style="display:none;">
+          <div class="cat-block" data-block="jeansdama" data-provider="Índigo" data-linea="Ropa" style="display:none;">
             <div class="cat-title-row">
               <span class="cat-title">🔴 EN VIVO — Jeans Dama · Índigo</span>
               <span class="cat-policy">Capturado hoy con la app M1 · Retail · May-26</span>
@@ -352,7 +390,7 @@
             </table>
           </div>
 
-          <div class="cat-block" data-block="camisetas" data-provider="Forever">
+          <div class="cat-block" data-block="camisetas" data-provider="Forever" data-linea="Ropa">
             <div class="cat-title-row">
               <span class="cat-title">RE Camisetas Fem. — Precio RE Bs 16,93</span>
               <span class="cat-policy">Política: igual que Mitsuba</span>
@@ -396,15 +434,24 @@
 
         <div class="kpis">
           <div class="kpi"><div class="lbl">Marcas monitoreadas</div><div class="num">8</div><div class="sub">catálogos de venta directa</div></div>
-          <div class="kpi"><div class="lbl">Tipo de cambio vigente</div><div class="num">6,96</div><div class="sub">Bs por USD</div></div>
+          <div class="kpi">
+            <div class="lbl">Tipo de cambio vigente</div>
+            <div class="num">
+              <input id="input-tc" type="number" step="0.01" value="6.96"
+                onchange="onTipoCambioChange(this)"
+                style="width:80px;border:none;background:transparent;font:inherit;color:inherit;padding:0;">
+            </div>
+            <div class="sub">Bs por USD — editable</div>
+          </div>
           <div class="kpi"><div class="lbl">Campañas con historial</div><div class="num">C1–C17</div><div class="sub">2024, 2025 y 2026 en curso</div></div>
           <div class="kpi"><div class="lbl">Categorías de catálogo</div><div class="num">5+</div><div class="sub">Perfumería, Rostro, Maquillaje…</div></div>
         </div>
 
         <div class="filters-row">
           <div class="filter-field">
-            <label>Marca</label>
+            <label>Competidor</label>
             <select id="sel-marca" onchange="onMarcaChange(this)">
+              <option value="todas">Todas</option>
               <option value="Natura">Natura</option>
               <option value="Yanbal">Yanbal (sin datos)</option>
               <option value="Esika">Esika (sin datos)</option>
@@ -418,48 +465,238 @@
           <div class="filter-field">
             <label>Campaña</label>
             <select id="sel-campana-vd" onchange="onCampanaVdChange(this)">
-              <option value="C01 2026">C01 2026 (vs. C17 2025)</option>
-              <option value="C17 2025">C17 2025</option>
-              <option value="C09 2025">C09 2025 (sin datos)</option>
-              <option value="C01 2025">C01 2025 (sin datos)</option>
+              <option value="todas">Todas</option>
+              <option value="C09 2026">C09 2026 (sin datos)</option>
+              <option value="C10 2026">C10 2026 (activa)</option>
+              <option value="C11 2026">C11 2026 (sin datos)</option>
+              <option value="C12 2026">C12 2026 (sin datos)</option>
+              <option value="C13 2026">C13 2026 (sin datos)</option>
+              <option value="C14 2026">C14 2026 (sin datos)</option>
+              <option value="C15 2026">C15 2026 (sin datos)</option>
+              <option value="C16 2026">C16 2026 (sin datos)</option>
+              <option value="C17 2026">C17 2026 (sin datos)</option>
+              <option value="C18 2026">C18 2026 (sin datos)</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Categoría</label>
+            <select id="sel-categoria-vd" onchange="_refrescarTodoVd()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Línea</label>
+            <select id="sel-linea-vd" onchange="_refrescarTodoVd()">
+              <option value="todas">Todas</option>
+              <option value="Joyería">Joyería</option>
+              <option value="Fragancias">Fragancias</option>
+              <option value="Alianzas">Alianzas</option>
             </select>
           </div>
         </div>
 
-        <div class="placeholder-box" id="vd-placeholder">Sin datos cargados para esta demo todavía — se completa con la carga real del catálogo (módulo M2).</div>
-
-        <div class="panel" id="vd-detail">
-          <div class="panel-head"><h3 id="vd-detail-title">Productos Natura — C17 2025 vs C01 2026</h3></div>
+        <div class="panel" id="vd-catalogos-panel">
+          <div class="panel-head"><h3>Catálogos de competidores por campaña</h3></div>
+          <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="filter-field">
+              <label>Competidor</label>
+              <input id="cat-competidor" type="text" placeholder="ej. Esika"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:150px;">
+            </div>
+            <div class="filter-field">
+              <label>Campaña</label>
+              <input id="cat-campana" type="text" placeholder="ej. C05 2026" list="lista-campanas-vd"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
+            </div>
+            <div class="filter-field">
+              <label>Archivo (PDF/Excel/imagen)</label>
+              <input id="cat-archivo" type="file" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg">
+            </div>
+            <button onclick="subirCatalogo()"
+              style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
+              Subir catálogo
+            </button>
+          </div>
+          <div id="cat-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
           <table>
-            <thead><tr><th>Foto</th><th>Categoría</th><th>Producto</th><th>C17 2025 (Bs)</th><th>C01 2026 (Bs)</th><th>Variación</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><path d="M9 3h6v3H9zM8 6h8l1 15H7Z"/></svg></div></td>
-                <td><span class="brand-pill">Perfumería</span></td>
-                <td>Humor</td>
-                <td class="price">640,32</td>
-                <td class="price">542,88</td>
-                <td class="variation down">-15,2%</td>
-              </tr>
-              <tr>
-                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div></td>
-                <td><span class="brand-pill">Maquillaje</span></td>
-                <td>Base Natura Una</td>
-                <td class="price">431,52</td>
-                <td class="price">236,64</td>
-                <td class="variation down">-14,5%</td>
-              </tr>
-              <tr>
-                <td><div class="swatch vd"><svg viewBox="0 0 24 24" fill="none" stroke="#4A1942" stroke-width="1.6"><path d="M9 3c1 2-1 3-1 5a4 4 0 0 0 8 0c0-2-2-3-1-5"/><path d="M9 12v9h6v-9"/></svg></div></td>
-                <td><span class="brand-pill">Cabello</span></td>
-                <td>Shampoo 400 ml</td>
-                <td class="price">153,12</td>
-                <td class="price">146,16</td>
-                <td class="variation down">-4,5%</td>
-              </tr>
-            </tbody>
+            <thead><tr><th>Competidor</th><th>Campaña</th><th>Archivo</th><th>Producto estrella</th></tr></thead>
+            <tbody id="cat-tbody"></tbody>
           </table>
-          <div class="src-note"><b>Nota:</b> valores tomados literalmente de la hoja NATURA; variación replica la columna "VARIACION C17/01 2026" ya existente en el Excel. Foto es un marcador — el catálogo real trae imagen del producto, pendiente de integrar cuando se defina el origen (carga manual o scraping del catálogo digital).</div>
+          <div class="src-note">Aquí solo se sube el catálogo como referencia — el sistema no lo lee automáticamente (cada competidor trae un diseño distinto). Después de subirlo, usa "+ Registrar producto estrella" para anotar a mano cada producto que Mercadeo ya identificó, y el motor de homologación hace el resto.</div>
+        </div>
+
+        <div class="panel" id="vd-estrella-panel">
+          <div class="panel-head"><h3>Productos estrella (lista de Mercadeo)</h3></div>
+          <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="filter-field">
+              <label>Campaña</label>
+              <input id="est-campana" type="text" placeholder="ej. C10 2026" list="lista-campanas-vd"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
+              <datalist id="lista-campanas-vd"></datalist>
+            </div>
+            <div class="filter-field">
+              <label>Excel de productos estrella</label>
+              <input id="est-archivo" type="file" accept=".xlsx,.xls">
+            </div>
+            <button onclick="importarProductosEstrella()"
+              style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
+              Importar
+            </button>
+          </div>
+          <div id="est-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
+          <table>
+            <thead><tr><th style="width:56px;">Foto</th><th>Competidor</th><th>Producto</th><th>Precio competidor</th><th>Comparación</th><th>Precio Azzorti</th><th>Variación</th></tr></thead>
+            <tbody id="est-tbody"></tbody>
+          </table>
+          <div class="src-note">Esta lista la define Mercadeo (no el motor de similitud): cada producto ya trae asignado su equivalente Azzorti, o queda marcado para comparar contra su propio precio de la campaña anterior cuando no hay un homólogo directo. Importa el mismo archivo cuantas veces haga falta — actualiza los precios en vez de duplicar filas.</div>
+        </div>
+
+        <div class="panel" id="vd-live-panel" style="display:none;">
+          <div class="panel-head">
+            <h3>🔴 EN VIVO — Capturas reales de Venta Directa</h3>
+            <span class="cat-policy">Sincronizado automáticamente desde la app M1</span>
+          </div>
+          <table>
+            <thead><tr><th style="width:66px;">Foto</th><th>Marca</th><th>Categoría</th><th>Producto</th><th>Precio</th><th>Homologación Azzorti</th><th>Variación</th></tr></thead>
+            <tbody id="vd-live-tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+
+      </div><!-- /section-dashboard -->
+
+      <!-- ============ PRECIOS (histórico) ============ -->
+      <div id="section-precios" class="top-section">
+        <div class="page-head">
+          <div class="path">Benchmarking Precios Bolivia</div>
+          <h1>Precios — Histórico</h1>
+        </div>
+        <div class="filters-row">
+          <div class="filter-field">
+            <label>Canal</label>
+            <select id="hist-canal" onchange="_pintarHistorico()">
+              <option value="todas">Todas</option>
+              <option value="Retail">Retail</option>
+              <option value="VentaDirecta">Venta Directa</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Año</label>
+            <select id="hist-anio" onchange="_pintarHistorico()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Campaña</label>
+            <select id="hist-campana" onchange="_pintarHistorico()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Competidor</label>
+            <select id="hist-competidor" onchange="_pintarHistorico()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Precio promedio por competidor · campaña</h3></div>
+          <div id="hist-chart" style="padding:16px 20px;display:flex;align-items:flex-end;gap:18px;height:220px;overflow-x:auto;"></div>
+          <div class="src-note">Cada barra es el precio promedio de esa combinación Canal · Competidor · Campaña, calculado sobre lo capturado en la app (Retail) o registrado en Productos Estrella (Venta Directa). Filtra por Año/Campaña/Competidor con "Todas" para comparar varias barras a la vez. Nota: las campañas de Retail (ej. "C-10") todavía no guardan el año en el dato mismo — mientras eso no se defina, se asume el año en curso.</div>
+        </div>
+      </div>
+
+      <!-- ============ COMPETENCIA (repositorio de catálogos) ============ -->
+      <div id="section-competencia" class="top-section">
+        <div class="page-head">
+          <div class="path">Benchmarking Precios Bolivia</div>
+          <h1>Competencia — Catálogos por campaña</h1>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Subir catálogo</h3></div>
+          <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="filter-field">
+              <label>Competidor (o "Azzorti" para el catálogo propio)</label>
+              <input id="comp-competidor" type="text" placeholder="ej. Esika o Azzorti"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:200px;">
+            </div>
+            <div class="filter-field">
+              <label>Campaña</label>
+              <input id="comp-campana" type="text" placeholder="ej. C-10" list="lista-campanas-vd"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
+            </div>
+            <div class="filter-field">
+              <label>Archivo (PDF/Excel/imagen)</label>
+              <input id="comp-archivo" type="file" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg">
+            </div>
+            <button onclick="subirCatalogoCompetencia()"
+              style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
+              Subir catálogo
+            </button>
+          </div>
+          <div id="comp-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
+        </div>
+        <div id="comp-por-competidor"></div>
+        <div class="src-note">Incluye tanto los catálogos de la competencia como los de Azzorti (sube con competidor = "Azzorti") — todos quedan repositados aquí por competidor y campaña. Solo se sube el archivo como referencia, no se lee automáticamente.</div>
+      </div>
+
+      <!-- ============ REPORTES (vista gerencial exportable) ============ -->
+      <div id="section-reportes" class="top-section">
+        <div class="page-head">
+          <div class="path">Benchmarking Precios Bolivia</div>
+          <h1>Reportes</h1>
+        </div>
+        <div class="filters-row">
+          <div class="filter-field">
+            <label>Canal</label>
+            <select id="rep-canal" onchange="_pintarReporte()">
+              <option value="todas">Todas</option>
+              <option value="Retail">Retail</option>
+              <option value="VentaDirecta">Venta Directa</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Línea</label>
+            <select id="rep-linea" onchange="_pintarReporte()">
+              <option value="todas">Todas</option>
+              <option value="Ropa">Ropa</option>
+              <option value="Hogar">Hogar</option>
+              <option value="Joyería">Joyería</option>
+              <option value="Fragancias">Fragancias</option>
+              <option value="Alianzas">Alianzas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Categoría</label>
+            <select id="rep-categoria" onchange="_pintarReporte()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Campaña</label>
+            <select id="rep-campana" onchange="_pintarReporte()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label>Competidor</label>
+            <select id="rep-competidor" onchange="_pintarReporte()">
+              <option value="todas">Todas</option>
+            </select>
+          </div>
+          <button onclick="exportarReporteCSV()"
+            style="padding:9px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:700;cursor:pointer;">
+            ⬇ Exportar CSV
+          </button>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Registros (Retail + Venta Directa)</h3></div>
+          <table>
+            <thead><tr><th>Canal</th><th>Competidor</th><th>Categoría</th><th>Línea</th><th>Campaña</th><th>Producto</th><th>Precio competidor</th><th>Comparación</th><th>Variación</th></tr></thead>
+            <tbody id="rep-tbody"></tbody>
+          </table>
+          <div class="src-note">Vista para gerencia: junta capturas de Retail y productos de Venta Directa bajo los mismos 4 filtros (con "Todas"/vacío = sin restricción). El CSV exportado respeta exactamente lo que se ve filtrado en la tabla.</div>
         </div>
       </div>
 
@@ -468,35 +705,119 @@
 </div>
 
 <script>
+  var _canalActual = 'retail';
   function showChannel(name){
+    _canalActual = name;
     document.getElementById('view-retail').classList.toggle('active', name==='retail');
     document.getElementById('view-directa').classList.toggle('active', name==='directa');
     document.getElementById('btn-retail').classList.toggle('active', name==='retail');
     document.getElementById('btn-directa').classList.toggle('active', name==='directa');
-    document.getElementById('chan-sub').textContent = name==='retail'
+    _actualizarChanSub();
+  }
+
+  // Pendiente 6: "Dashboard" (lo que ya existia) y las 3 secciones nuevas
+  // (Precios/Competencia/Reportes) son 4 vistas de nivel superior - antes
+  // esos 3 enlaces del menu no hacian nada (href="#" decorativo).
+  function mostrarSeccion(nombre){
+    ['dashboard', 'precios', 'competencia', 'reportes'].forEach(function(n){
+      document.getElementById('section-' + n).classList.toggle('active', n === nombre);
+      document.getElementById('nav-' + n).classList.toggle('active', n === nombre);
+    });
+    if(nombre === 'precios') cargarHistorico();
+    if(nombre === 'competencia') cargarCompetencia();
+    if(nombre === 'reportes') cargarReporte();
+  }
+
+  function _actualizarChanSub(){
+    var tc = document.getElementById('input-tc').value || '6.96';
+    document.getElementById('chan-sub').textContent = _canalActual==='retail'
       ? 'Tiendas físicas · relevamiento por corte mensual (IPC_BOLIVIA_2024_2025.xlsx)'
-      : 'Catálogos · relevamiento por campaña C1–C17, USD→Bs TC 6,96 (INDEX_PRECIO_SECTOR_VENTA_DIRECTA1.xlsx)';
+      : 'Catálogos · relevamiento por campaña C1–C17, USD→Bs TC ' + tc + ' (INDEX_PRECIO_SECTOR_VENTA_DIRECTA1.xlsx)';
+  }
+
+  // El tipo de cambio ahora se puede editar a mano (antes era un numero
+  // fijo "6,96" en el HTML) - util porque el TC real cambia y antes habia
+  // que tocar el codigo para actualizarlo.
+  function onTipoCambioChange(el){
+    if(!el.value || isNaN(parseFloat(el.value))){
+      el.value = '6.96';
+    }
+    _actualizarChanSub();
   }
 
   function proveedorTieneDatos(nombre){
     return document.querySelector('#retail-detail .cat-block[data-provider="' + nombre + '"]') !== null;
   }
 
+  // Linea real de negocio, segun "Tabla Competidor y lineas.xlsx": en
+  // Retail es Ropa/Hogar; en Venta Directa es Joyeria/Fragancias/Alianzas.
+  // Alianzas se decide por el competidor (Hipermaxi/Farmacorp venden de
+  // todo bajo ese acuerdo, no por categoria de producto); el resto se
+  // deriva de la categoria/subgrupo real. Categorias que no calzan con
+  // ninguna linea conocida (ej. Maquillaje, Rostro de Venta Directa)
+  // quedan como "Otros" en vez de forzarlas a una linea equivocada.
+  var COMPETIDORES_ALIANZAS = ['hipermaxi', 'farmacorp'];
+
+  function _calcularLinea(categoriaTexto, competidor, canal){
+    var comp = (competidor || '').toLowerCase();
+    if (canal === 'VentaDirecta' && COMPETIDORES_ALIANZAS.indexOf(comp) !== -1) return 'Alianzas';
+    var t = (categoriaTexto || '').toLowerCase();
+    if (canal === 'VentaDirecta'){
+      if (t.indexOf('fragancia') !== -1) return 'Fragancias';
+      if (t.indexOf('joyeria') !== -1 || t.indexOf('joyería') !== -1) return 'Joyería';
+      return 'Otros';
+    }
+    // Retail
+    if (t.indexOf('cubrecama') !== -1 || t.indexOf('sábana') !== -1 || t.indexOf('sabana') !== -1 ||
+        t.indexOf('toalla') !== -1 || t.indexOf('mochila') !== -1 || t.indexOf('hogar') !== -1) return 'Hogar';
+    return 'Ropa';
+  }
+
   function applyRetailCategoryFilter(){
     var val = document.getElementById('sel-categoria').value;
     var prov = document.getElementById('sel-proveedor').value;
+    var linea = document.getElementById('sel-linea').value;
+    var camp = document.getElementById('sel-campana').value;
     document.querySelectorAll('#retail-detail .cat-block').forEach(function(block){
-      var provOk = block.dataset.provider === prov;
+      var provOk = (prov === 'todas') || (block.dataset.provider === prov);
       var catOk = (val === 'todas') ? true : (block.dataset.block === val);
-      block.style.display = (provOk && catOk) ? '' : 'none';
+      var lineaOk = (linea === 'todas') ? true : (block.dataset.linea === linea);
+      // La campaña ahora sí filtra filas de verdad — antes el selector de
+      // Campaña solo cambiaba el titulo, nunca ocultaba nada (Yohana lo
+      // señaló: "si debe tener filtro de cabecera").
+      var campOk = (camp === 'todas') || !block.dataset.campana || (block.dataset.campana === camp);
+      block.style.display = (provOk && catOk && lineaOk && campOk) ? '' : 'none';
     });
   }
 
+  // Categorías/proveedores que sí tienen bloque cargado, para saltar a una
+  // combinación con datos reales en vez de dejar el filtro en una mezcla
+  // vacía (antes pasaba: cambiabas Proveedor y la Categoría se quedaba en
+  // lo que estuviera seleccionado antes, aunque ese proveedor no tuviera
+  // nada en esa categoría).
+  function _categoriasDeProveedor(prov){
+    return Array.from(document.querySelectorAll('#retail-detail .cat-block[data-provider="' + prov + '"]'))
+      .map(function(b){ return b.dataset.block; });
+  }
+  function _proveedoresDeCategoria(slugCat){
+    return Array.from(document.querySelectorAll('#retail-detail .cat-block[data-block="' + slugCat + '"]'))
+      .map(function(b){ return b.dataset.provider; });
+  }
+
   function onProveedorChange(el){
-    var hasData = proveedorTieneDatos(el.value);
+    // "Todas" no tiene un proveedor unico para comprobar si "tiene datos" -
+    // siempre se deja pasar, y el filtro decide que se ve segun categoria/linea.
+    var hasData = (el.value === 'todas') || proveedorTieneDatos(el.value);
     document.getElementById('retail-detail').style.display = hasData ? 'block' : 'none';
     document.getElementById('retail-placeholder').classList.toggle('show', !hasData);
     if(hasData){
+      if(el.value !== 'todas'){
+        var selCat = document.getElementById('sel-categoria');
+        var cats = _categoriasDeProveedor(el.value);
+        if(cats.length && cats.indexOf(selCat.value) === -1){
+          selCat.value = cats[0];
+        }
+      }
       var camp = document.getElementById('sel-campana').value;
       document.getElementById('retail-detail-title').textContent = 'Detalle — ' + el.value + ' · ' + camp;
       applyRetailCategoryFilter();
@@ -505,7 +826,7 @@
 
   function onCampanaChange(el){
     var prov = document.getElementById('sel-proveedor').value;
-    var hasData = proveedorTieneDatos(prov);
+    var hasData = (prov === 'todas') || proveedorTieneDatos(prov);
     if(!hasData){
       document.getElementById('retail-detail').style.display = 'none';
       document.getElementById('retail-placeholder').classList.add('show');
@@ -518,8 +839,15 @@
   }
 
   function onCategoriaChange(el){
-    var prov = document.getElementById('sel-proveedor').value;
-    var hasData = proveedorTieneDatos(prov);
+    var selProv = document.getElementById('sel-proveedor');
+    if(selProv.value !== 'todas' && el.value !== 'todas'){
+      var provs = _proveedoresDeCategoria(el.value);
+      if(provs.length && provs.indexOf(selProv.value) === -1){
+        selProv.value = provs[0];
+      }
+    }
+    var prov = selProv.value;
+    var hasData = (prov === 'todas') || proveedorTieneDatos(prov);
     if(!hasData){
       document.getElementById('retail-detail').style.display = 'none';
       document.getElementById('retail-placeholder').classList.add('show');
@@ -527,41 +855,65 @@
     }
     document.getElementById('retail-detail').style.display = 'block';
     document.getElementById('retail-placeholder').classList.remove('show');
+    var camp = document.getElementById('sel-campana').value;
+    document.getElementById('retail-detail-title').textContent = 'Detalle — ' + prov + ' · ' + camp;
     applyRetailCategoryFilter();
   }
 
+  // El filtro de arriba (Competidor/Campaña/Categoría) es uno solo para
+  // toda la vista de Venta Directa: al cambiar cualquiera de los tres, se
+  // repinta TODO lo de abajo con esa misma combinación (capturas en vivo,
+  // catálogos subidos y productos estrella) - antes cada tabla tenía su
+  // propio filtro por separado, lo que hacía que filtrar arriba no
+  // cambiara nada en las tablas de abajo.
+  function _refrescarTodoVd(){
+    if (typeof _pintarCatalogos === 'function') _pintarCatalogos();
+    if (typeof _pintarProductosEstrella === 'function') _pintarProductosEstrella();
+    if (typeof sincronizarDashboard === 'function') sincronizarDashboard(true);
+  }
+
   function onMarcaChange(el){
-    var hasData = el.value === 'Natura';
-    document.getElementById('vd-detail').style.display = hasData ? 'block' : 'none';
-    document.getElementById('vd-placeholder').classList.toggle('show', !hasData);
-    if(hasData){
-      var camp = document.getElementById('sel-campana-vd').value;
-      document.getElementById('vd-detail-title').textContent = 'Productos ' + el.value + ' — ' + camp;
-    }
+    _refrescarTodoVd();
   }
 
   function onCampanaVdChange(el){
-    var hasData = (el.value === 'C01 2026' || el.value === 'C17 2025');
-    var marca = document.getElementById('sel-marca').value;
-    if(!hasData || marca !== 'Natura'){
-      document.getElementById('vd-detail').style.display = 'none';
-      document.getElementById('vd-placeholder').classList.add('show');
-      return;
-    }
-    document.getElementById('vd-detail').style.display = 'block';
-    document.getElementById('vd-placeholder').classList.remove('show');
-    document.getElementById('vd-detail-title').textContent = 'Productos ' + marca + ' — ' + el.value;
+    _refrescarTodoVd();
   }
 </script>
 
 <div class="lightbox" id="lightbox" onclick="cerrarVistaPrevia(event)">
   <button class="cerrar" onclick="cerrarVistaPrevia(event)">✕</button>
   <img id="lightbox-img" src="" alt="Vista previa de la foto capturada en M1">
-  <span class="etiqueta-lb">Foto real capturada en M1 · Forever · Bs 219</span>
+  <span class="etiqueta-lb" id="lightbox-etiqueta">Foto real capturada en M1 · Forever · Bs 219</span>
+</div>
+
+<div class="lightbox" id="modal-estrella" onclick="if(event.target.id==='modal-estrella') cerrarModalEstrella()">
+  <div class="modal-caja">
+    <h3>Registrar producto estrella</h3>
+    <div id="modal-estrella-sub" style="font-size:11.5px;color:var(--muted);"></div>
+    <div class="campo"><label>Categoría</label><input id="me-categoria" type="text" placeholder="ej. Fragancias"></div>
+    <div class="campo"><label>Descripción del producto</label><input id="me-descripcion" type="text" placeholder="ej. Leyenda Absolute 100ml"></div>
+    <div class="campo"><label>Precio (Bs)</label><input id="me-precio" type="number" step="0.01" placeholder="ej. 313.13"></div>
+    <div class="campo"><label>Página del catálogo (opcional)</label><input id="me-pagina" type="number" placeholder="ej. 24"></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button onclick="guardarProductoEstrella()"
+        style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
+        Guardar
+      </button>
+      <button onclick="cerrarModalEstrella()"
+        style="padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;">
+        Cancelar
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
-  function abrirVistaPrevia(src){
+  function abrirVistaPrevia(src, etiqueta){
+    // Antes el texto de abajo quedaba fijo en "Forever · Bs 219" sin
+    // importar qué foto se abriera — se actualiza según la imagen real.
+    document.getElementById('lightbox-etiqueta').textContent =
+      etiqueta || 'Vista previa';
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox').classList.add('open');
   }
@@ -571,7 +923,10 @@
     }
   }
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
+    if(e.key === 'Escape'){
+      document.getElementById('lightbox').classList.remove('open');
+      document.getElementById('modal-estrella').classList.remove('open');
+    }
   });
 </script>
 
@@ -582,9 +937,631 @@
   // embebido en el APK (hallazgo de seguridad ya corregido). Cambia la IP
   // por la de tu laptop en la red local antes de la demo (misma IP que
   // pusiste en _backendBaseUrl de lib/main.dart).
-  const BACKEND_URL = 'http://192.168.20.29:8000';
+  const BACKEND_URL = 'http://192.168.20.28:8000';
 
   var _ultimoConteoLive = 0;
+  var _vdCombosVistos = new Set();
+  var _catalogoSeleccionado = null; // {id, competidor, campana} para el modal de producto estrella
+
+  async function subirCatalogo(){
+    const competidor = document.getElementById('cat-competidor').value.trim();
+    const campana = document.getElementById('cat-campana').value.trim();
+    const archivoInput = document.getElementById('cat-archivo');
+    const msg = document.getElementById('cat-mensaje');
+    if(!competidor || !campana || !archivoInput.files[0]){
+      msg.textContent = '⚠ Completa competidor, campaña y elige un archivo.';
+      return;
+    }
+    const form = new FormData();
+    form.append('competidor', competidor);
+    form.append('campana', campana);
+    form.append('archivo', archivoInput.files[0]);
+    msg.textContent = 'Subiendo…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos', {method: 'POST', body: form});
+      if(!resp.ok) throw new Error('fallo al subir');
+      msg.textContent = '✓ Catálogo subido.';
+      document.getElementById('cat-competidor').value = '';
+      document.getElementById('cat-campana').value = '';
+      archivoInput.value = '';
+      cargarCatalogos();
+    } catch(e){
+      msg.textContent = '⚠ No se pudo subir — revisa que el backend esté encendido.';
+    }
+  }
+
+  async function cargarUmbralAlerta(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/configuracion/umbral-alerta', {cache: 'no-store'});
+      if(!resp.ok) return;
+      const data = await resp.json();
+      document.getElementById('input-umbral').value = data.umbral_pct;
+    } catch(e) {
+      // sin conexion por ahora - se queda con el valor por defecto del campo
+    }
+  }
+
+  async function guardarUmbralAlerta(){
+    const valor = parseFloat(document.getElementById('input-umbral').value);
+    const msg = document.getElementById('umbral-mensaje');
+    if(isNaN(valor) || valor <= 0){
+      msg.textContent = '⚠ Debe ser un número mayor a 0.';
+      return;
+    }
+    try {
+      const resp = await fetch(BACKEND_URL + '/configuracion/umbral-alerta', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({umbral_pct: valor}),
+      });
+      if(!resp.ok) throw new Error();
+      msg.textContent = '✓ Guardado — aplica desde ahora.';
+      sincronizarDashboard(true);
+      _pintarProductosEstrella();
+    } catch(e){
+      msg.textContent = '⚠ No se pudo guardar — revisa el backend.';
+    }
+  }
+
+  // ====== Pendiente 6: Precios (histórico) ======
+  var _ultimaListaHistorico = [];
+
+  async function cargarHistorico(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/historico', {cache: 'no-store'});
+      if(!resp.ok) return;
+      _ultimaListaHistorico = await resp.json();
+      const anios = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.anio; }))).sort();
+      const campanas = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.campana; }))).sort();
+      const competidores = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.competidor; }))).sort();
+      document.getElementById('hist-anio').innerHTML = '<option value="todas">Todas</option>' +
+        anios.map(function(a){ return '<option value="' + a + '">' + a + '</option>'; }).join('');
+      document.getElementById('hist-campana').innerHTML = '<option value="todas">Todas</option>' +
+        campanas.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('');
+      document.getElementById('hist-competidor').innerHTML = '<option value="todas">Todas</option>' +
+        competidores.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('');
+      _pintarHistorico();
+    } catch(e) {
+      // sin conexion por ahora
+    }
+  }
+
+  function _pintarHistorico(){
+    const canal = document.getElementById('hist-canal').value;
+    const anio = document.getElementById('hist-anio').value;
+    const campana = document.getElementById('hist-campana').value;
+    const competidor = document.getElementById('hist-competidor').value;
+    const lista = _ultimaListaHistorico.filter(function(h){
+      return (canal === 'todas' || h.canal === canal)
+        && (anio === 'todas' || String(h.anio) === anio)
+        && (campana === 'todas' || h.campana === campana)
+        && (competidor === 'todas' || h.competidor === competidor);
+    });
+    const cont = document.getElementById('hist-chart');
+    cont.innerHTML = '';
+    if(!lista.length){
+      cont.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:20px;">Sin datos para esta combinación de filtros.</div>';
+      return;
+    }
+    const maxPrecio = Math.max.apply(null, lista.map(function(h){ return h.precio_promedio; }));
+    lista.forEach(function(h){
+      const alturaPx = Math.max(10, Math.round((h.precio_promedio / maxPrecio) * 160));
+      const grupo = document.createElement('div');
+      grupo.className = 'hist-bar-grupo';
+      grupo.innerHTML =
+        '<div class="hist-bar" style="height:' + alturaPx + 'px;">' +
+          '<span class="hist-bar-valor">Bs ' + h.precio_promedio + '</span>' +
+        '</div>' +
+        '<div class="hist-bar-label">' + h.competidor + '<br>' + h.campana + '<br>(' + h.canal + ')</div>';
+      cont.appendChild(grupo);
+    });
+  }
+
+  // ====== Pendiente 6: Competencia (repositorio de catálogos) ======
+  async function subirCatalogoCompetencia(){
+    const competidor = document.getElementById('comp-competidor').value.trim();
+    const campana = document.getElementById('comp-campana').value.trim();
+    const archivoInput = document.getElementById('comp-archivo');
+    const msg = document.getElementById('comp-mensaje');
+    if(!competidor || !campana || !archivoInput.files[0]){
+      msg.textContent = '⚠ Completa competidor, campaña y elige un archivo.';
+      return;
+    }
+    const form = new FormData();
+    form.append('competidor', competidor);
+    form.append('campana', campana);
+    form.append('archivo', archivoInput.files[0]);
+    msg.textContent = 'Subiendo…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos', {method: 'POST', body: form});
+      if(!resp.ok) throw new Error('fallo al subir');
+      msg.textContent = '✓ Catálogo subido.';
+      document.getElementById('comp-competidor').value = '';
+      document.getElementById('comp-campana').value = '';
+      archivoInput.value = '';
+      cargarCompetencia();
+      cargarCatalogos(); // el panel viejo de Venta Directa usa la misma fuente
+    } catch(e){
+      msg.textContent = '⚠ No se pudo subir — revisa que el backend esté encendido.';
+    }
+  }
+
+  async function cargarCompetencia(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos', {cache: 'no-store'});
+      if(!resp.ok) return;
+      const lista = await resp.json();
+      const porCompetidor = {};
+      lista.forEach(function(cat){
+        (porCompetidor[cat.competidor] = porCompetidor[cat.competidor] || []).push(cat);
+      });
+      const cont = document.getElementById('comp-por-competidor');
+      cont.innerHTML = '';
+      Object.keys(porCompetidor).sort().forEach(function(competidor){
+        const catalogos = porCompetidor[competidor];
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+        const esAzzorti = competidor.toLowerCase() === 'azzorti';
+        const filas = catalogos.map(function(c){
+          const esPdf = /\.pdf($|\?)/i.test(c.archivo_url);
+          return '<tr>' +
+            '<td>' + c.campana + '</td>' +
+            '<td><a href="' + c.archivo_url + '" target="_blank" rel="noopener">Ver archivo</a></td>' +
+            '<td>' + (esPdf
+              ? '<button onclick="detectarOfertas(' + c.id + ', this)" style="padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11.5px;">Detectar ofertas</button>'
+              : '<span style="font-size:11.5px;color:var(--muted);">Solo aplica a PDF</span>') +
+              '<div id="ofertas-cat-' + c.id + '" style="margin-top:6px;font-size:11.5px;color:var(--muted);"></div></td>' +
+            (esAzzorti
+              ? '<td>' + (esPdf
+                  ? '<button onclick="indexarProductos(' + c.id + ', this)" style="padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11.5px;">Indexar productos</button>'
+                  : '<span style="font-size:11.5px;color:var(--muted);">Solo aplica a PDF</span>') +
+                  '<div id="productos-cat-' + c.id + '" style="margin-top:6px;font-size:11.5px;color:var(--muted);"></div></td>'
+              : '') +
+            '</tr>';
+        }).join('');
+        panel.innerHTML =
+          '<div class="panel-head"><h3>' + (esAzzorti ? '⭐ ' : '') + competidor + '</h3>' +
+            '<span class="cat-policy">' + catalogos.length + ' catálogo(s)</span></div>' +
+          '<table><thead><tr><th>Campaña</th><th>Archivo</th><th>Ofertas identificadas</th>' +
+            (esAzzorti ? '<th>Homologación Venta Directa</th>' : '') +
+          '</tr></thead><tbody>' + filas + '</tbody></table>';
+        cont.appendChild(panel);
+        catalogos.forEach(function(c){
+          _pintarOfertasDeCatalogo(c.id);
+          if(esAzzorti) _pintarEstadoIndexado(c.id);
+        });
+      });
+      if(!Object.keys(porCompetidor).length){
+        cont.innerHTML = '<div class="placeholder-box show">Todavía no se ha subido ningún catálogo.</div>';
+      }
+    } catch(e) {
+      // sin conexion por ahora
+    }
+  }
+
+  // ====== Pendiente 8: identificación de ofertas (OCR por página del catálogo PDF) ======
+  async function _pintarOfertasDeCatalogo(catalogoId){
+    const cont = document.getElementById('ofertas-cat-' + catalogoId);
+    if(!cont) return;
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/ofertas', {cache: 'no-store'});
+      if(!resp.ok) return;
+      const filas = await resp.json();
+      const detectadas = filas.filter(function(f){ return f.oferta_detectada; });
+      if(!detectadas.length){
+        cont.textContent = filas.length ? 'Sin ofertas identificadas.' : '';
+        return;
+      }
+      const porOferta = {};
+      detectadas.forEach(function(f){
+        (porOferta[f.oferta_detectada] = porOferta[f.oferta_detectada] || []).push(f);
+      });
+      cont.innerHTML = Object.keys(porOferta).map(function(nombre){
+        const items = porOferta[nombre].map(function(f){
+          return f.producto_codigo ? ('cód. ' + f.producto_codigo + ' (pág. ' + f.pagina + ')') : ('pág. ' + f.pagina + ' completa');
+        }).join(', ');
+        return '<span class="brand-pill" style="margin:2px 4px 2px 0;" title="' + nombre + '">' + nombre + ': ' + items + '</span>';
+      }).join('<br>');
+    } catch(e) {
+      // sin conexion por ahora
+    }
+  }
+
+  async function detectarOfertas(catalogoId, btnEl){
+    const cont = document.getElementById('ofertas-cat-' + catalogoId);
+    btnEl.disabled = true;
+    const textoOriginal = btnEl.textContent;
+    btnEl.textContent = 'Analizando…';
+    if(cont) cont.textContent = 'Leyendo cada página del catálogo (puede tardar uno o dos minutos)…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/detectar-ofertas', {method: 'POST'});
+      const data = await resp.json();
+      if(!resp.ok){
+        if(cont) cont.textContent = data.detail || 'No se pudo analizar el catálogo.';
+        return;
+      }
+      await _pintarOfertasDeCatalogo(catalogoId);
+    } catch(e) {
+      if(cont) cont.textContent = 'Sin conexión con el backend.';
+    } finally {
+      btnEl.disabled = false;
+      btnEl.textContent = textoOriginal;
+    }
+  }
+
+  // ====== Homologación de Venta Directa contra el catálogo Azzorti ======
+  async function _pintarEstadoIndexado(catalogoId){
+    const cont = document.getElementById('productos-cat-' + catalogoId);
+    if(!cont) return;
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/productos-resumen', {cache: 'no-store'});
+      if(!resp.ok) return;
+      const data = await resp.json();
+      cont.textContent = data.total_productos
+        ? data.total_productos + ' productos indexados (' + data.con_precio + ' con precio legible)'
+        : 'Todavía no indexado — sin esto, Venta Directa no tiene con qué homologar en la app.';
+    } catch(e) {
+      // sin conexion por ahora
+    }
+  }
+
+  async function indexarProductos(catalogoId, btnEl){
+    const cont = document.getElementById('productos-cat-' + catalogoId);
+    btnEl.disabled = true;
+    const textoOriginal = btnEl.textContent;
+    btnEl.textContent = 'Indexando…';
+    if(cont) cont.textContent = 'Leyendo cada página del catálogo (puede tardar varios minutos en catálogos largos)…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/indexar-productos', {method: 'POST'});
+      const data = await resp.json();
+      if(!resp.ok){
+        if(cont) cont.textContent = data.detail || 'No se pudo indexar el catálogo.';
+        return;
+      }
+      await _pintarEstadoIndexado(catalogoId);
+    } catch(e) {
+      if(cont) cont.textContent = 'Sin conexión con el backend.';
+    } finally {
+      btnEl.disabled = false;
+      btnEl.textContent = textoOriginal;
+    }
+  }
+
+  // ====== Pendiente 6: Reportes (vista gerencial exportable) ======
+  var _ultimaListaReporteRetail = [];
+  var _ultimaListaReporteVd = [];
+
+  async function cargarReporte(){
+    try {
+      const [respRetail, respVd] = await Promise.all([
+        fetch(BACKEND_URL + '/capturas', {cache: 'no-store'}),
+        fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'}),
+      ]);
+      _ultimaListaReporteRetail = respRetail.ok ? await respRetail.json() : [];
+      _ultimaListaReporteVd = respVd.ok ? await respVd.json() : [];
+      // Los 3 desplegables se llenan con lo que realmente existe en los
+      // datos (igual que el resto del dashboard) en vez de ser texto libre
+      // — evita typos y es consistente con Canal/Línea.
+      const categorias = new Set(), campanas = new Set(), competidores = new Set();
+      _ultimaListaReporteRetail.forEach(function(c){
+        if(c.categoria) categorias.add(c.categoria);
+        if(c.campana) campanas.add(c.campana);
+        if(c.competidor) competidores.add(c.competidor);
+      });
+      _ultimaListaReporteVd.forEach(function(p){
+        if(p.categoria) categorias.add(p.categoria);
+        if(p.campana) campanas.add(p.campana);
+        if(p.competidor) competidores.add(p.competidor);
+      });
+      function _opciones(sel, valores){
+        const actual = sel.value;
+        sel.innerHTML = '<option value="todas">Todas</option>' +
+          Array.from(valores).sort().map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join('');
+        if(Array.from(valores).includes(actual)) sel.value = actual;
+      }
+      _opciones(document.getElementById('rep-categoria'), categorias);
+      _opciones(document.getElementById('rep-campana'), campanas);
+      _opciones(document.getElementById('rep-competidor'), competidores);
+      _pintarReporte();
+    } catch(e) {
+      // sin conexion por ahora
+    }
+  }
+
+  function _filaReporteDesdeRetail(c){
+    const linea = _calcularLinea(c.categoria, c.competidor, 'Retail');
+    let comparacion = 'Sin homologar';
+    let variacion = null;
+    if(c.homologacion){
+      comparacion = 'vs Azzorti (' + (c.homologacion.azzorti_descripcion || c.homologacion.azzorti_sku) + ')';
+      variacion = c.homologacion.delta_pct;
+    } else if(c.vs_campana_anterior){
+      comparacion = 'vs campaña ' + c.vs_campana_anterior.campana_anterior;
+      variacion = c.vs_campana_anterior.delta_pct;
+    }
+    return {
+      canal: 'Retail', competidor: c.competidor, categoria: c.categoria, linea: linea,
+      campana: c.campana, producto: c.descripcion || '—', precio: c.precio,
+      comparacion: comparacion, variacion: variacion,
+    };
+  }
+
+  function _filaReporteDesdeVd(p){
+    const linea = _calcularLinea(p.categoria, p.competidor, 'VentaDirecta');
+    return {
+      canal: 'Venta Directa', competidor: p.competidor, categoria: p.categoria, linea: linea,
+      campana: p.campana, producto: p.descripcion_competidor, precio: p.precio_competidor,
+      comparacion: p.comparacion, variacion: p.delta_pct,
+    };
+  }
+
+  function _filasReporteFiltradas(){
+    const canal = document.getElementById('rep-canal').value;
+    const linea = document.getElementById('rep-linea').value;
+    const categoria = document.getElementById('rep-categoria').value;
+    const campana = document.getElementById('rep-campana').value;
+    const competidor = document.getElementById('rep-competidor').value;
+    let filas = [];
+    if(canal === 'todas' || canal === 'Retail'){
+      filas = filas.concat(_ultimaListaReporteRetail.map(_filaReporteDesdeRetail));
+    }
+    if(canal === 'todas' || canal === 'VentaDirecta'){
+      filas = filas.concat(_ultimaListaReporteVd.map(_filaReporteDesdeVd));
+    }
+    return filas.filter(function(f){
+      return (linea === 'todas' || f.linea === linea)
+        && (categoria === 'todas' || _coincideAprox(f.categoria, categoria))
+        && (campana === 'todas' || _normalizar(f.campana) === _normalizar(campana))
+        && (competidor === 'todas' || _coincideAprox(f.competidor, competidor));
+    });
+  }
+
+  function _pintarReporte(){
+    const filas = _filasReporteFiltradas();
+    const tbody = document.getElementById('rep-tbody');
+    tbody.innerHTML = '';
+    filas.forEach(function(f){
+      const variacionHtml = (f.variacion == null)
+        ? '<span class="variation pending">—</span>'
+        : '<span class="variation ' + (f.variacion >= 0 ? 'up' : 'down') + '">' + f.variacion + '%</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + f.canal + '</td>' +
+        '<td><span class="brand-pill">' + f.competidor + '</span></td>' +
+        '<td>' + (f.categoria || '—') + '</td>' +
+        '<td>' + f.linea + '</td>' +
+        '<td>' + f.campana + '</td>' +
+        '<td class="desc-txt">' + f.producto + '</td>' +
+        '<td class="price">Bs ' + f.precio + '</td>' +
+        '<td class="desc-txt" style="font-size:11.5px;color:var(--muted);">' + f.comparacion + '</td>' +
+        '<td>' + variacionHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportarReporteCSV(){
+    const filas = _filasReporteFiltradas();
+    const encabezado = ['Canal','Competidor','Categoria','Linea','Campana','Producto','Precio','Comparacion','Variacion_pct'];
+    const lineas = [encabezado.join(',')];
+    filas.forEach(function(f){
+      const campos = [f.canal, f.competidor, f.categoria || '', f.linea, f.campana, f.producto, f.precio,
+        f.comparacion, f.variacion == null ? '' : f.variacion];
+      lineas.push(campos.map(function(v){
+        const s = String(v).replace(/"/g, '""');
+        return /[,"\n]/.test(s) ? '"' + s + '"' : s;
+      }).join(','));
+    });
+    const blob = new Blob([lineas.join('\n')], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte_azzorti_' + Date.now() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  var _ultimaListaCatalogos = [];
+
+  async function cargarCatalogos(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos', {cache: 'no-store'});
+      if(!resp.ok) return;
+      _ultimaListaCatalogos = await resp.json();
+      // Mismo filtro único de arriba: se le agregan las opciones reales
+      // de competidor/campaña que traigan los catálogos subidos.
+      _ultimaListaCatalogos.forEach(function(cat){
+        _asegurarOpcion('sel-marca', cat.competidor, cat.competidor);
+        _asegurarOpcion('sel-campana-vd', cat.campana, cat.campana);
+      });
+      _pintarCatalogos();
+    } catch(e) {
+      // sin conexión con el backend por ahora - se reintenta en el próximo sync
+    }
+  }
+
+  function _pintarCatalogos(){
+    const marcaVal = document.getElementById('sel-marca').value;
+    const campanaVal = document.getElementById('sel-campana-vd').value;
+    const lineaVal = document.getElementById('sel-linea-vd').value;
+    const lista = _ultimaListaCatalogos.filter(function(cat){
+      const okMarca = (marcaVal === 'todas') || _coincideAprox(cat.competidor, marcaVal);
+      const okCampana = (campanaVal === 'todas') || _normalizar(cat.campana) === _normalizar(campanaVal);
+      // El catalogo no trae categoria propia (es un archivo, no un
+      // producto) - la linea se calcula solo por competidor (cubre
+      // Alianzas; para Joyeria/Fragancias sin categoria no hay como saber,
+      // asi que un catalogo de un competidor que no es Hipermaxi/Farmacorp
+      // pasa el filtro de linea salvo que se pida una linea especifica).
+      const okLinea = (lineaVal === 'todas') || _calcularLinea('', cat.competidor, 'VentaDirecta') === lineaVal;
+      return okMarca && okCampana && okLinea;
+    });
+    const tbody = document.getElementById('cat-tbody');
+    tbody.innerHTML = '';
+    lista.forEach(function(cat){
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span class="brand-pill">' + cat.competidor + '</span></td>' +
+        '<td>' + cat.campana + '</td>' +
+        '<td><a href="' + cat.archivo_url + '" target="_blank" rel="noopener">Ver archivo</a></td>' +
+        '<td><button onclick="abrirModalEstrella(' + cat.id + ', \'' + cat.competidor.replace(/'/g,"") + '\', \'' + cat.campana.replace(/'/g,"") + '\')" ' +
+          'style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">+ Registrar producto estrella</button></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function importarProductosEstrella(){
+    const campana = document.getElementById('est-campana').value.trim();
+    const archivoInput = document.getElementById('est-archivo');
+    const msg = document.getElementById('est-mensaje');
+    if(!campana || !archivoInput.files[0]){
+      msg.textContent = '⚠ Completa la campaña y elige el archivo Excel.';
+      return;
+    }
+    const form = new FormData();
+    form.append('campana', campana);
+    form.append('archivo', archivoInput.files[0]);
+    msg.textContent = 'Importando…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/productos-estrella/importar', {method: 'POST', body: form});
+      const data = await resp.json();
+      if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
+      msg.textContent = '✓ ' + data.mensaje;
+      cargarProductosEstrella();
+    } catch(e){
+      msg.textContent = '⚠ ' + (e.message || 'No se pudo importar — revisa que el backend esté encendido.');
+    }
+  }
+
+  var _ultimaListaEstrella = [];
+
+  // Normaliza para comparar (minusculas, sin espacios extra) - el Excel de
+  // Mercadeo usa "CYZONE"/"FRAGANCIA" y el resto del dashboard usa
+  // "Cyzone"/"Fragancias", y ambos deben calzar con el mismo filtro de
+  // arriba en vez de tratarse como valores distintos.
+  function _normalizar(s){
+    return (s || '').toString().trim().toLowerCase();
+  }
+  // Coincide si son iguales normalizados, o si uno es prefijo del otro
+  // (cubre singular/plural: "fragancia" vs "fragancias").
+  function _coincideAprox(a, b){
+    const na = _normalizar(a), nb = _normalizar(b);
+    if(!na || !nb) return false;
+    return na === nb || na.startsWith(nb) || nb.startsWith(na);
+  }
+
+  async function cargarProductosEstrella(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'});
+      if(!resp.ok) return;
+      _ultimaListaEstrella = await resp.json();
+      // El filtro de arriba (Competidor/Campaña/Categoría) es el UNICO
+      // que controla esta tabla - se le agregan las opciones reales que
+      // trae este Excel (puede tener competidores muy distintos al resto
+      // del dashboard, ej. Cyzone/LBEL/Yanbal) en vez de tener un filtro
+      // aparte que confunda cuál manda.
+      _ultimaListaEstrella.forEach(function(p){
+        _asegurarOpcion('sel-marca', p.competidor, p.competidor);
+        _asegurarOpcion('sel-campana-vd', p.campana, p.campana);
+        if(p.categoria) _asegurarOpcion('sel-categoria-vd', p.categoria, p.categoria);
+      });
+      _pintarProductosEstrella();
+    } catch(e) {
+      // sin conexión con el backend por ahora
+    }
+  }
+
+  function _pintarProductosEstrella(){
+    const marcaVal = document.getElementById('sel-marca').value;
+    const campanaVal = document.getElementById('sel-campana-vd').value;
+    const catVal = document.getElementById('sel-categoria-vd').value;
+    const lineaVal = document.getElementById('sel-linea-vd').value;
+    const lista = _ultimaListaEstrella.filter(function(p){
+      const okCompetidor = (marcaVal === 'todas') || _coincideAprox(p.competidor, marcaVal);
+      const okCampana = (campanaVal === 'todas') || _normalizar(p.campana) === _normalizar(campanaVal);
+      const okCategoria = (catVal === 'todas') || _coincideAprox(p.categoria, catVal);
+      const okLinea = (lineaVal === 'todas') || _calcularLinea(p.categoria, p.competidor, 'VentaDirecta') === lineaVal;
+      return okCompetidor && okCampana && okCategoria && okLinea;
+    });
+    const tbody = document.getElementById('est-tbody');
+    tbody.innerHTML = '';
+    lista.forEach(function(p){
+      const claseVar = (p.delta_pct == null) ? 'pending' : (p.delta_pct >= 0 ? 'up' : 'down');
+      const variacionHtml = (p.delta_pct == null)
+        ? '<span class="variation pending">—</span>'
+        : '<span class="variation ' + claseVar + '">' + p.delta_pct + '%</span>';
+      const fotoHtml = p.foto_url
+        ? '<img src="' + p.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
+          (p.competidor + ' · ' + p.descripcion_competidor).replace(/'/g,"") + '\')" ' +
+          'style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;">'
+        : '<div style="width:40px;height:40px;border-radius:6px;background:var(--paper);"></div>';
+      const fotoAzzortiHtml = p.foto_azzorti_url
+        ? '<img src="' + p.foto_azzorti_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
+          ('Azzorti · ' + (p.azzorti_referente || '')).replace(/'/g,"") + '\')" ' +
+          'style="width:26px;height:26px;object-fit:cover;border-radius:5px;cursor:pointer;vertical-align:middle;margin-right:6px;">'
+        : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + fotoHtml + '</td>' +
+        '<td><span class="brand-pill">' + p.competidor + '</span></td>' +
+        '<td class="desc-txt">' + p.descripcion_competidor + '</td>' +
+        '<td class="price">' + (p.precio_competidor != null ? 'Bs ' + p.precio_competidor : '—') + '</td>' +
+        '<td class="desc-txt" style="font-size:11.5px;color:var(--muted);">' + fotoAzzortiHtml + p.comparacion + '</td>' +
+        '<td class="price">' + (p.precio_azzorti != null ? 'Bs ' + p.precio_azzorti : '—') + '</td>' +
+        '<td>' + variacionHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function abrirModalEstrella(catalogoId, competidor, campana){
+    _catalogoSeleccionado = {id: catalogoId, competidor: competidor, campana: campana};
+    document.getElementById('modal-estrella-sub').textContent = competidor + ' · ' + campana;
+    document.getElementById('me-categoria').value = '';
+    document.getElementById('me-descripcion').value = '';
+    document.getElementById('me-precio').value = '';
+    document.getElementById('me-pagina').value = '';
+    document.getElementById('modal-estrella').classList.add('open');
+  }
+  function cerrarModalEstrella(){
+    document.getElementById('modal-estrella').classList.remove('open');
+  }
+
+  async function guardarProductoEstrella(){
+    const categoria = document.getElementById('me-categoria').value.trim();
+    const descripcion = document.getElementById('me-descripcion').value.trim();
+    const precio = parseFloat(document.getElementById('me-precio').value);
+    const pagina = document.getElementById('me-pagina').value.trim();
+    if(!categoria || !descripcion || isNaN(precio)){
+      alert('Completa al menos categoría, descripción y precio.');
+      return;
+    }
+    const cat = _catalogoSeleccionado;
+    try {
+      const resp = await fetch(BACKEND_URL + '/capturas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          competidor: cat.competidor,
+          canal: 'Venta Directa',
+          campana: cat.campana,
+          categoria: categoria,
+          nivel_precio: 'N/A',
+          descripcion: descripcion + (pagina ? ' (pág. ' + pagina + ' del catálogo)' : ''),
+          precio: precio,
+          catalogo_id: cat.id,
+        }),
+      });
+      if(!resp.ok){
+        const data = await resp.json().catch(function(){ return {}; });
+        alert('⚠ ' + (data.detail || 'No se pudo guardar el producto estrella.'));
+        return;
+      }
+      cerrarModalEstrella();
+      sincronizarDashboard(true);
+    } catch(e){
+      alert('⚠ No se pudo conectar con el backend.');
+    }
+  }
 
   function _slug(texto){
     return texto.toLowerCase()
@@ -594,11 +1571,31 @@
 
   function _asegurarOpcion(selectId, valor, etiqueta){
     var sel = document.getElementById(selectId);
-    var existe = Array.from(sel.options).some(function(o){ return o.value === valor; });
-    if(!existe){
+    var existente = Array.from(sel.options).find(function(o){ return o.value === valor; });
+    if(!existente){
       var op = document.createElement('option');
-      op.value = valor; op.textContent = etiqueta;
+      op.value = valor; op.textContent = '🔴 ' + etiqueta;
       sel.appendChild(op);
+      // Las campañas reales tambien se ofrecen como sugerencia al escribir
+      // en los campos "Campaña" de subir catalogo / importar productos
+      // estrella - asi se evita un typo que rompa el historico (ver
+      // pregunta de Yohana sobre por que "C10 2026" no era la campana real).
+      if(selectId === 'sel-campana-vd' && !document.getElementById('lista-campanas-vd').querySelector('option[value="' + valor + '"]')){
+        var opDatalist = document.createElement('option');
+        opDatalist.value = valor;
+        document.getElementById('lista-campanas-vd').appendChild(opDatalist);
+      }
+    } else if(existente.textContent.indexOf('sin datos') !== -1){
+      // Ya existía como opción estática "(sin datos)" del mockup original
+      // — ahora que llegó una captura real en vivo, se actualiza la
+      // etiqueta para que deje de decir "sin datos".
+      // NOTA: a propósito esta función ya NO selecciona la opción por su
+      // cuenta (antes lo hacía, y eso hizo que Proveedor y Categoría se
+      // pudieran quedar desincronizados entre sí — cada uno seleccionado
+      // en un momento distinto, armando una combinación sin datos reales
+      // detrás). Quien llama a esta función decide cuándo seleccionar
+      // AMBOS selectores relacionados juntos, en el mismo momento.
+      existente.textContent = '🔴 ' + etiqueta;
     }
   }
 
@@ -609,41 +1606,71 @@
     return 'medio';
   }
 
-  function _asegurarBloque(proveedor, categoriaTexto){
+  function _asegurarBloque(proveedor, categoriaTexto, campana){
     var slugCat = _slug(categoriaTexto);
-    var selectorBloque = '#retail-detail .cat-block[data-provider="' + proveedor + '"][data-block="' + slugCat + '"]';
+    var selectorBloque = '#retail-detail .cat-block[data-provider="' + proveedor + '"][data-block="' + slugCat + '"][data-campana="' + campana + '"]';
     var bloque = document.querySelector(selectorBloque);
     if(bloque) return bloque;
 
     _asegurarOpcion('sel-proveedor', proveedor, proveedor);
     _asegurarOpcion('sel-categoria', slugCat, categoriaTexto);
+    _asegurarOpcion('sel-campana', campana, campana);
+    // Selecciona los tres juntos, en el mismo momento — así el filtro que
+    // se ve en pantalla siempre corresponde a una combinación real que
+    // sí tiene datos, nunca a una mezcla de selecciones de momentos
+    // distintos (ver nota en _asegurarOpcion).
+    document.getElementById('sel-proveedor').value = proveedor;
+    document.getElementById('sel-categoria').value = slugCat;
+    document.getElementById('sel-campana').value = campana;
+    document.getElementById('sel-proveedor').dispatchEvent(new Event('change'));
 
     bloque = document.createElement('div');
     bloque.className = 'cat-block';
     bloque.dataset.provider = proveedor;
     bloque.dataset.block = slugCat;
+    bloque.dataset.campana = campana;
+    bloque.dataset.linea = _calcularLinea(categoriaTexto, proveedor, 'Retail');
     bloque.style.display = 'none';
     bloque.innerHTML =
       '<div class="cat-title-row">' +
-        '<span class="cat-title">🔴 EN VIVO — ' + categoriaTexto + ' · ' + proveedor + '</span>' +
+        '<span class="cat-title">🔴 EN VIVO — ' + categoriaTexto + ' · ' + proveedor + ' · ' + campana + '</span>' +
         '<span class="cat-policy">Sincronizado automáticamente desde la app M1</span>' +
       '</div>' +
       '<table>' +
-        '<thead><tr><th style="width:66px;">Foto</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio</th><th>SKU</th></tr></thead>' +
+        '<thead><tr><th style="width:66px;">Foto</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio</th><th>SKU</th><th>Homologación Azzorti</th><th>Variación</th></tr></thead>' +
         '<tbody></tbody>' +
       '</table>';
-    document.getElementById('retail-detail').appendChild(bloque);
+    // Se inserta ordenado alfabéticamente por categoría junto a los demás
+    // bloques (estáticos o en vivo) que ya existan — no siempre al final —
+    // para que quede ubicado donde corresponde dentro del detalle, como en
+    // el resto de la lista (ej. junto a otras entradas de "Camisetas Fem.").
+    var contenedor = document.getElementById('retail-detail');
+    var existentes = Array.from(contenedor.querySelectorAll('.cat-block'));
+    var siguiente = existentes.find(function(b){ return b.dataset.block > slugCat; });
+    if(siguiente){
+      contenedor.insertBefore(bloque, siguiente);
+    } else {
+      contenedor.appendChild(bloque);
+    }
     return bloque;
   }
 
-  async function sincronizarDashboard(){
+  async function sincronizarDashboard(forzar){
     try {
       const resp = await fetch(BACKEND_URL + '/capturas', {cache: 'no-store'});
       if(!resp.ok) return; // backend apagado, o sin señal en la red local
       const lista = await resp.json();
       if(!Array.isArray(lista) || lista.length === 0) return;
-      if(lista.length === _ultimoConteoLive) return; // nada nuevo
-      _ultimoConteoLive = lista.length;
+      // Antes solo comparaba la CANTIDAD de registros — si el backend se
+      // reiniciaba con datos distintos pero el mismo número de filas, el
+      // dashboard se quedaba pegado mostrando lo viejo. Se compara contra
+      // el id más alto visto, que sí cambia con cada captura real nueva.
+      const idMasAlto = Math.max(...lista.map(function(c){ return c.id || 0; }));
+      const huella = lista.length + '|' + idMasAlto;
+      // "forzar" se usa cuando el usuario cambia un filtro (ej. Categoría
+      // en Venta Directa) y hay que re-pintar aunque los datos no cambiaron.
+      if(huella === _ultimoConteoLive && !forzar) return; // nada nuevo
+      _ultimoConteoLive = huella;
       // El backend usa nombres de columna distintos a los del capturas.json
       // original — se normalizan aquí para no tocar el resto del render.
       lista.forEach(function(c){
@@ -651,41 +1678,213 @@
         c.sku = c.sku_competidor;
       });
 
-      // Agrupa por proveedor + categoría, y arma la tabla de cada grupo desde cero
+      // Antes esto agrupaba TODAS las capturas sin importar el canal — una
+      // captura de Venta Directa (ej. Esika) terminaba armando un bloque
+      // dentro de la vista de Retail también. Se separa por canal primero.
+      const listaRetail = lista.filter(function(c){ return c.canal !== 'Venta Directa'; });
+      const listaVD = lista.filter(function(c){ return c.canal === 'Venta Directa'; });
+
+      // Agrupa por proveedor + categoría + campaña, y arma la tabla de cada
+      // grupo desde cero. Antes la campaña no formaba parte de la llave -
+      // capturas de campañas distintas del mismo proveedor/categoría
+      // terminaban mezcladas en la misma tabla, y el filtro de Campaña de
+      // arriba solo cambiaba el título, no ocultaba ninguna fila de verdad.
       const grupos = {};
-      lista.forEach(function(c){
+      listaRetail.forEach(function(c){
         const prov = c.competidor || 'Sin nombre';
         const cat = c.categoria || 'Sin categoría';
-        const key = prov + '|||' + cat;
+        const camp = c.campana || 'Sin campaña';
+        const key = prov + '|||' + cat + '|||' + camp;
         (grupos[key] = grupos[key] || []).push(c);
       });
 
       Object.keys(grupos).forEach(function(key){
         const partes = key.split('|||');
-        const prov = partes[0], cat = partes[1];
-        const bloque = _asegurarBloque(prov, cat);
+        const prov = partes[0], cat = partes[1], camp = partes[2];
+        const bloque = _asegurarBloque(prov, cat, camp);
         const tbody = bloque.querySelector('tbody');
         tbody.innerHTML = '';
         grupos[key].forEach(function(c){
-          const desc = [
-            c.silueta,
-            [c.composicion1, c.composicion2].filter(Boolean).join(' + '),
-            c.color, c.manga, c.caracteristicas
-          ].filter(Boolean).join(' — ') || '—';
+          // Cada valor se etiqueta con su campo — antes solo se veían las
+          // respuestas sueltas (ej. "N/A (no aplica)") sin decir a qué
+          // pregunta correspondían.
+          const atributos = [
+            ['Silueta', c.silueta],
+            ['Talla', c.talla],
+            ['Composición', [c.composicion1, c.composicion2].filter(Boolean).join(' + ')],
+            ['Color', c.color],
+            ['Manga', c.manga],
+            ['Características', c.caracteristicas],
+          ].filter(function(par){ return par[1]; })
+           .map(function(par){ return par[0] + ': ' + par[1]; })
+           .join(' — ') || '—';
+          // La descripción corta que escribe el analista (Momento 2) va
+          // primero; los atributos quedan como detalle debajo.
+          const desc = c.descripcion
+            ? '<b>' + c.descripcion + '</b><br><span style="font-size:11px;color:#6B7280;">' + atributos + '</span>'
+            : atributos;
           const tierClase = _tierClase(c.puntoPrecio);
+          // Misma estructura foto-preview-trigger que usan las demás filas
+          // del dashboard, para que también abra la vista previa al hacer
+          // clic (antes la imagen no era clicable en las filas en vivo).
+          const etiquetaLbCompetidor = 'Foto real capturada en M1 · ' + (c.competidor || '—') + ' · Bs ' + (c.precio || '—');
+          const fotoHtml = c.foto_url
+            ? '<div class="swatch ' + tierClase + '" style="padding:0;overflow:hidden;">' +
+                '<img src="' + c.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbCompetidor.replace(/'/g,"") + '\')" ' +
+                'style="width:100%;height:100%;object-fit:cover;border-radius:8px;">' +
+              '</div>'
+            : '<div class="swatch ' + tierClase + '" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700;">' +
+              (c.competidor||'?').substring(0,3).toUpperCase() + '</div>';
+          let homologHtml = '<span class="variation pending">Sin homologar aún</span>';
+          let variacionHtml = '—';
+          if (c.homologacion){
+            const h = c.homologacion;
+            const claseVar = h.alerta_generica ? 'up' : 'down';
+            const etiquetaLbAzzorti = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + h.precio_azzorti;
+            const fotoAzzortiHtml = h.foto_url
+              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzorti.replace(/'/g,"") + '\')" ' +
+                'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
+              : '';
+            // Antes solo se mostraba nombre/precio/variación — se agrega el
+            // SKU real de Azzorti y la página del catálogo cuando existe.
+            homologHtml =
+              '<div style="display:flex;align-items:center;">' + fotoAzzortiHtml +
+              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
+              '<br><span style="font-size:10.5px;color:#6B7280;">SKU: ' + h.azzorti_sku +
+              (h.pagina_catalogo ? ' · Pág. ' + h.pagina_catalogo : '') + '</span><br>' +
+              '<span class="price">Bs ' + h.precio_azzorti + '</span></div></div>';
+            // La variación antes iba pegada dentro de la celda de
+            // homologación — ahora es su propia columna (el encabezado
+            // "Variación" ya lo dice, no hace falta repetirlo en la celda).
+            variacionHtml =
+              '<span class="variation ' + claseVar + '">' + h.delta_pct + '%</span>' +
+              (h.alerta_generica ? ' ⚠️' : '');
+          } else if (c.vs_campana_anterior){
+            // Pendiente 3: sin homologación, se compara contra la misma
+            // captura de la campaña anterior — antes esto solo pasaba en
+            // Venta Directa (producto_estrella), ahora igual en Retail.
+            const va = c.vs_campana_anterior;
+            const claseVarAnterior = va.alerta_generica ? 'up' : 'down';
+            homologHtml =
+              '<span class="desc-txt" style="font-size:11.5px;color:#6B7280;">' +
+              'Sin homólogo Azzorti — vs. campaña ' + va.campana_anterior +
+              ' (Bs ' + va.precio_anterior + ')</span>';
+            variacionHtml =
+              '<span class="variation ' + claseVarAnterior + '">' + va.delta_pct + '%</span>' +
+              (va.alerta_generica ? ' ⚠️' : '');
+          }
+          // Columna SKU: el de la competencia (si lo digitaron) y, una vez
+          // homologado, también el código Azzorti equivalente — antes solo
+          // se veía el de la competencia, casi siempre vacío.
+          const skuHtml = [
+            c.sku ? c.sku : null,
+            c.homologacion ? 'Azzorti: ' + c.homologacion.azzorti_sku : null,
+          ].filter(Boolean).join('<br>') || '—';
           const tr = document.createElement('tr');
           tr.style.background = '#E8EFFE';
           tr.innerHTML =
-            '<td><div class="photo-cell"><div class="swatch ' + tierClase + '" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700;">' +
-              (c.competidor||'?').substring(0,3).toUpperCase() +
-            '</div></div></td>' +
+            '<td><div class="photo-cell">' + fotoHtml + '</div></td>' +
             '<td><span class="tier ' + tierClase + '">' + (c.puntoPrecio || '—') + '</span></td>' +
             '<td class="desc-txt">' + desc + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
-            '<td style="font-family:\'Courier New\',monospace;">' + (c.sku || '—') + '</td>';
+            '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuHtml + '</td>' +
+            '<td class="desc-txt">' + homologHtml + '</td>' +
+            '<td>' + variacionHtml + '</td>';
           tbody.appendChild(tr);
         });
       });
+
+      // Venta Directa: tabla en vivo simple (sin agrupar por marca/campaña
+      // como el resto de la vista VD, que sigue siendo el mockup estático)
+      // — mostrar que la captura real de Hito 2 sí llega, con el mismo
+      // resultado de homologación que en Retail.
+      const vdTbody = document.getElementById('vd-live-tbody');
+      if (listaVD.length){
+        document.getElementById('vd-live-panel').style.display = 'block';
+        vdTbody.innerHTML = '';
+        // Primero se asegura que TODAS las opciones reales existan (sin
+        // filtrar nada todavía) — si no, un competidor/campaña/categoría
+        // que llegó por primera vez pero no calza con el filtro actual
+        // nunca aparecería como opción seleccionable.
+        listaVD.forEach(function(c){
+          _asegurarOpcion('sel-categoria-vd', c.categoria, c.categoria);
+          _asegurarOpcion('sel-marca', c.competidor, c.competidor);
+          _asegurarOpcion('sel-campana-vd', c.campana, c.campana);
+          // Selecciona marca+campaña+categoría juntas la primera vez que
+          // se ve esta combinación — antes el filtro de arriba se quedaba
+          // en el mockup ("Natura"/"C01 2026") aunque abajo ya se viera Esika.
+          var _comboVd = c.competidor + '|||' + c.campana;
+          if(!_vdCombosVistos.has(_comboVd)){
+            _vdCombosVistos.add(_comboVd);
+            document.getElementById('sel-marca').value = c.competidor;
+            document.getElementById('sel-campana-vd').value = c.campana;
+            document.getElementById('sel-categoria-vd').value = c.categoria;
+            document.getElementById('sel-marca').dispatchEvent(new Event('change'));
+          }
+        });
+
+        // Ahora sí se filtra la tabla EN VIVO por las 3 combinaciones
+        // juntas (igual que Retail filtra por proveedor+categoría+línea)
+        // — antes Marca/Campaña no filtraban nada de esta tabla, solo la
+        // categoría, así que elegir una combinación real igual mostraba
+        // todo (o nada, si la categoría no calzaba con datos reales).
+        const marcaVdVal = document.getElementById('sel-marca').value;
+        const campanaVdVal = document.getElementById('sel-campana-vd').value;
+        const catVdVal = document.getElementById('sel-categoria-vd').value;
+        const lineaVdVal = document.getElementById('sel-linea-vd').value;
+        const listaVdFiltrada = listaVD.filter(function(c){
+          // _coincideAprox/_normalizar (no ===): la captura real llega con
+          // mayúsculas/minúsculas distintas a como está en el Excel de
+          // Mercadeo o en los catálogos subidos (ej. "Esika" vs "ESIKA").
+          const okMarca = (marcaVdVal === 'todas') || _coincideAprox(c.competidor, marcaVdVal);
+          const okCampana = (campanaVdVal === 'todas') || _normalizar(c.campana) === _normalizar(campanaVdVal);
+          const okCat = (catVdVal === 'todas') || _coincideAprox(c.categoria, catVdVal);
+          const okLinea = (lineaVdVal === 'todas') || _calcularLinea(c.categoria, c.competidor, 'VentaDirecta') === lineaVdVal;
+          return okMarca && okCampana && okCat && okLinea;
+        });
+        listaVdFiltrada.forEach(function(c){
+          const etiquetaLbCompetidorVd = (c.competidor || '—') + ' · ' + (c.categoria || '—') + ' · Bs ' + (c.precio || '—');
+          const fotoVd = c.foto_url
+            ? '<img src="' + c.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbCompetidorVd.replace(/'/g,"") + '\')" ' +
+              'style="width:36px;height:36px;object-fit:cover;border-radius:8px;">'
+            : '<div class="swatch vd" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700;">' +
+              (c.competidor||'?').substring(0,3).toUpperCase() + '</div>';
+          const nombreProducto = c.descripcion || '—';
+          let homologVd = '<span class="variation pending">Sin homologar aún</span>';
+          let variacionVd = '—';
+          if (c.homologacion){
+            const h = c.homologacion;
+            const claseVarVd = h.alerta_generica ? 'up' : 'down';
+            const etiquetaLbAzzortiVd = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + h.precio_azzorti;
+            const fotoAzzortiVd = h.foto_url
+              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzortiVd.replace(/'/g,"") + '\')" ' +
+                'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
+              : '';
+            homologVd =
+              '<div style="display:flex;align-items:center;">' + fotoAzzortiVd +
+              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
+              '<br><span style="font-size:10.5px;color:#6B7280;">SKU: ' + h.azzorti_sku +
+              (h.pagina_catalogo ? ' · Pág. ' + h.pagina_catalogo : '') + '</span><br>' +
+              '<span class="price">Bs ' + h.precio_azzorti + '</span></div></div>';
+            // Misma columna aparte que en Retail — sin repetir el rótulo,
+            // que ya está en el encabezado de la columna.
+            variacionVd =
+              '<span class="variation ' + claseVarVd + '">' + h.delta_pct + '%</span>' +
+              (h.alerta_generica ? ' ⚠️' : '');
+          }
+          const trVd = document.createElement('tr');
+          trVd.style.background = '#F6EEF5';
+          trVd.innerHTML =
+            '<td><div class="photo-cell">' + fotoVd + '</div></td>' +
+            '<td><span class="brand-pill">' + (c.competidor || '—') + '</span></td>' +
+            '<td><span class="brand-pill">' + (c.categoria || '—') + '</span></td>' +
+            '<td class="desc-txt">' + nombreProducto + '</td>' +
+            '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
+            '<td class="desc-txt">' + homologVd + '</td>' +
+            '<td>' + variacionVd + '</td>';
+          vdTbody.appendChild(trVd);
+        });
+      }
 
       // Refresca la vista según lo que esté seleccionado ahora mismo
       var provActual = document.getElementById('sel-proveedor').value;
@@ -700,6 +1899,9 @@
   }
 
   sincronizarDashboard();
+  cargarCatalogos();
+  cargarProductosEstrella();
+  cargarUmbralAlerta();
   setInterval(sincronizarDashboard, 6000);
 </script>
 
