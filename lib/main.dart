@@ -22,7 +22,7 @@ import 'package:image/image.dart' as img;
 // y cambia _backendBaseUrl por la IP de la laptop en tu red WiFi local
 // (Windows: `ipconfig` -> "Dirección IPv4"). El celular debe estar en la
 // misma red que la laptop.
-const String _backendBaseUrl = 'http://192.168.20.28:8000';
+const String _backendBaseUrl = 'https://azzorti-captura.onrender.com';
 
 class ResultadoSync {
   final bool ok;
