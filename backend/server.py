@@ -2145,7 +2145,17 @@ def _score_texto(texto_principal: str, texto_secundario: str, texto_catalogo: st
         return frac_secundario or 0.0
     if frac_secundario is None:
         return frac_principal
-    return 0.65 * frac_principal + 0.35 * frac_secundario
+    combinado = 0.65 * frac_principal + 0.35 * frac_secundario
+    # Si el usuario SI escribio caracteristicas especificas (2+ palabras
+    # con contenido) y NINGUNA aparece en el candidato, es una señal fuerte
+    # de que no es el mismo producto - se penaliza aunque el texto
+    # principal tenga alguna palabra generica en comun (bug real: "horno
+    # eléctrico" + caracteristicas "ahorro de luz y temporizador" contra
+    # un secador de pelo solo compartia la palabra generica "eléctrico"
+    # en el principal, nada en caracteristicas, e igual salia 22%).
+    if frac_secundario == 0 and len(_tokens_significativos(texto_secundario)) >= 2:
+        combinado *= 0.3
+    return combinado
 
 
 def _parsear_ofertas_referencia(contenido: bytes) -> list[dict]:
