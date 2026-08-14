@@ -22,7 +22,7 @@ import 'package:image/image.dart' as img;
 // y cambia _backendBaseUrl por la IP de la laptop en tu red WiFi local
 // (Windows: `ipconfig` -> "Dirección IPv4"). El celular debe estar en la
 // misma red que la laptop.
-const String _backendBaseUrl = 'https://azzorti-captura.onrender.com';
+const String _backendBaseUrl = 'http://192.168.20.28:8000';
 
 class ResultadoSync {
   final bool ok;
@@ -1231,12 +1231,17 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
   // las capturas quedaban con campana="C-10 (activa)" literal, que no
   // coincide con ningún filtro del dashboard (mismo bug que ya se había
   // corregido del lado del dashboard, pero no acá).
-  static const cortes = ['C-10', 'C-09', 'C-08'];
+  static const cortes = [
+    'C-10', 'C-11', 'C-12', 'C-13', 'C-14', 'C-15', 'C-16', 'C-17', 'C-18',
+  ];
   // Venta Directa usa "C09 2026".."C18 2026" (con el año), no el formato
   // "C-9".."C-18" de Retail - eran la misma lista por error, así que las
   // capturas de Venta Directa quedaban con una campaña que no coincidía
   // con ningún filtro del dashboard (bug real detectado por Yohana).
-  static const campanas = ['C10 2026', 'C09 2026', 'C08 2026'];
+  static const campanas = [
+    'C10 2026', 'C11 2026', 'C12 2026', 'C13 2026', 'C14 2026',
+    'C15 2026', 'C16 2026', 'C17 2026', 'C18 2026',
+  ];
   // Subgrupos reales de REX (ropa) y HOG (hogar/infantil) — ver
   // "IPC BOLIVIA 2024_2025 - Venta retail.xlsx".
   // Orden alfabetico (pedido de Yohana).
@@ -1619,7 +1624,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: esVentaDirecta
-                  ? 'ej. Notas florales, frasco dorado, presentación en set…'
+                  ? 'ej. Tono Vainilla, presentación 11g, frasco dorado…'
                   : etiquetaDioDatos
                       ? 'Cualquier detalle extra que quieras anotar…'
                       : 'ej. Blusa suelta, tela gruesa tipo lino, sin etiqueta legible…',
@@ -1630,6 +1635,14 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                   borderSide: const BorderSide(color: AppColors.line)),
             ),
           ),
+          if (esVentaDirecta)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Mientras más específico (tono, tamaño/presentación, tipo exacto de producto), más precisa la homologación — el sistema compara estas palabras contra el catálogo real de Azzorti.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+              ),
+            ),
           const SizedBox(height: 16),
 
           Etiqueta(vinoDeTienda
@@ -1742,8 +1755,13 @@ class _RevisarScreenState extends State<RevisarScreen> {
         builder: (_) => HomologacionScreen(captura: c, onFin: widget.onFin),
       ));
     } else {
+      // Antes esta pantalla siempre decia "quedo sincronizado con el
+      // backend" aunque la sincronizacion hubiera fallado de plano (sin
+      // conexion, etc.) - se le pasa explicitamente si de verdad se
+      // sincronizo, para no mostrar un exito que no ocurrio.
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ConfirmacionScreen(captura: c, onFin: widget.onFin),
+        builder: (_) => ConfirmacionScreen(
+            captura: c, onFin: widget.onFin, sincronizado: false),
       ));
     }
   }
@@ -2102,11 +2120,13 @@ class ConfirmacionScreen extends StatelessWidget {
   final Captura captura;
   final VoidCallback onFin;
   final Map<String, dynamic>? evaluacion;
+  final bool sincronizado;
   const ConfirmacionScreen(
       {super.key,
       required this.captura,
       required this.onFin,
-      this.evaluacion});
+      this.evaluacion,
+      this.sincronizado = true});
 
   @override
   Widget build(BuildContext context) {
@@ -2140,13 +2160,16 @@ class ConfirmacionScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Center(
-            child: Text('¡Guardado!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Center(
+            child: Text(sincronizado ? '¡Guardado!' : '⚠ Guardado localmente',
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(height: 6),
           Text(
-            '${c.competidor} · ${c.categoria} · ${c.puntoPrecio} quedó sincronizado con el backend.',
+            sincronizado
+                ? '${c.competidor} · ${c.categoria} · ${c.puntoPrecio} quedó sincronizado con el backend.'
+                : '${c.competidor} · ${c.categoria} · ${c.puntoPrecio} NO se pudo sincronizar con el backend (sin conexión). Queda guardado en el teléfono — vuelve a intentar "Guardar y sincronizar" desde el borrador cuando tengas señal.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
           ),

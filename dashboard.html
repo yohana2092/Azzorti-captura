@@ -203,15 +203,12 @@
             <h3>Precio promedio por categoría (Bs)</h3>
             <div class="legend"><span><i style="background:var(--blue);"></i>Azzorti</span><span><i style="background:#C7D0E4;"></i>Competencia</span></div>
           </div>
-          <div class="chart">
-            <div class="cat-group"><div class="bars"><div class="bar azz" style="height:83px;"><span class="bv">23,2</span></div><div class="bar comp" style="height:100px;"><span class="bv">27,8</span></div></div><div class="cat-label">Blusas Femeninas</div></div>
-            <div class="cat-group"><div class="bars"><div class="bar azz" style="height:53px;"><span class="bv">14,68</span></div><div class="bar comp" style="height:67px;"><span class="bv">18,53</span></div></div><div class="cat-label">Jeans Femeninos</div></div>
-          </div>
+          <div class="chart" id="retail-promedio-chart"></div>
         </div>
 
         <div class="filters-row">
           <div class="filter-field">
-            <label>Proveedor</label>
+            <label>Competidor</label>
             <select id="sel-proveedor" onchange="onProveedorChange(this)">
               <option value="todas">Todas</option>
               <option value="Forever">Forever</option>
@@ -233,29 +230,37 @@
             <label>Campaña / Corte</label>
             <select id="sel-campana" onchange="onCampanaChange(this)">
               <option value="todas">Todas</option>
-              <option value="C-9">C-9 (sin datos)</option>
-              <option value="C-10">C-10 (activa)</option>
-              <option value="C-11">C-11 (sin datos)</option>
-              <option value="C-12">C-12 (sin datos)</option>
-              <option value="C-13">C-13 (sin datos)</option>
-              <option value="C-14">C-14 (sin datos)</option>
-              <option value="C-15">C-15 (sin datos)</option>
-              <option value="C-16">C-16 (sin datos)</option>
-              <option value="C-17">C-17 (sin datos)</option>
-              <option value="C-18">C-18 (sin datos)</option>
+              <option value="C09 2026">C09 2026 (sin datos)</option>
+              <option value="C10 2026">C10 2026 (activa)</option>
+              <option value="C11 2026">C11 2026 (sin datos)</option>
+              <option value="C12 2026">C12 2026 (sin datos)</option>
+              <option value="C13 2026">C13 2026 (sin datos)</option>
+              <option value="C14 2026">C14 2026 (sin datos)</option>
+              <option value="C15 2026">C15 2026 (sin datos)</option>
+              <option value="C16 2026">C16 2026 (sin datos)</option>
+              <option value="C17 2026">C17 2026 (sin datos)</option>
+              <option value="C18 2026">C18 2026 (sin datos)</option>
             </select>
           </div>
           <div class="filter-field">
             <label>Categoría</label>
             <select id="sel-categoria" onchange="onCategoriaChange(this)">
-              <option value="todas">Todas (con datos)</option>
-              <option value="blusas">Blusas Fem.</option>
-              <option value="jeans">Jeans Fem.</option>
-              <option value="jeansdama">Jeans Dama</option>
-              <option value="camisetas">Camisetas Fem.</option>
-              <option value="vestidos">Vestidos Fem. (sin datos)</option>
-              <option value="camisetasmasc">Camisetas Masc. (sin datos)</option>
-              <option value="jeansmasc">Jeans Masc. (sin datos)</option>
+              <option value="todas">Todas</option>
+              <option value="blusasfemeninas">Blusas Femeninas</option>
+              <option value="camisetasfemeninas">Camisetas Femeninas</option>
+              <option value="camisetasmasculinas">Camisetas Masculinas</option>
+              <option value="croptopfemenino">Crop Top Femenino</option>
+              <option value="cubrecamasdobles">Cubrecamas Dobles</option>
+              <option value="cubrecamassencillosinfantiles">Cubrecamas Sencillos Infantiles</option>
+              <option value="jeansfemeninos">Jeans Femeninos</option>
+              <option value="jeansmasculinos">Jeans Masculinos</option>
+              <option value="lenceriappp">Lencería PPP</option>
+              <option value="mochilasinfantiles">Mochilas Infantiles</option>
+              <option value="polosmasculinos">Polos Masculinos</option>
+              <option value="sabanasdobles">Sábanas Dobles</option>
+              <option value="toallas">Toallas</option>
+              <option value="vestidosfemeninoscortos">Vestidos Femeninos Cortos</option>
+              <option value="vestidosfemeninoslargos">Vestidos Femeninos Largos</option>
             </select>
           </div>
           <div class="filter-field">
@@ -268,164 +273,10 @@
           </div>
         </div>
 
-        <div class="placeholder-box" id="retail-placeholder">Sin datos cargados para esta demo todavía — se completa con la captura real del analista (módulo M1).</div>
+        <div class="placeholder-box" id="retail-placeholder">Sin capturas todavía para esta combinación de competidor/categoría/campaña.</div>
 
         <div class="panel" id="retail-detail">
-          <div class="panel-head"><h3 id="retail-detail-title">Detalle — Forever · C-10 (activa)</h3></div>
-
-          <div class="cat-block" data-block="blusas" data-provider="Forever" data-linea="Ropa">
-            <div class="cat-title-row">
-              <span class="cat-title">RE Blusas Fem. — Precio RE Bs 23,20</span>
-              <span class="cat-policy">Política: por debajo del 20% de Forever</span>
-            </div>
-            <table>
-              <thead><tr><th>Foto</th><th style="width:70px;">Punto</th><th>Descripción (may-26)</th><th>Ene-26</th><th>May-26</th><th>Variación</th></tr></thead>
-              <tbody>
-                <tr style="background:#E8EFFE;">
-                  <td><div class="photo-cell"><div class="swatch medio" style="padding:0;overflow:hidden;"><img src="data:image/jpeg;base64,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" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src)" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"></div><span class="no-photo-tag" style="color:#2F6FED;font-weight:700;">🆕 foto real (M1)</span></div></td>
-                  <td><span class="tier medio">Medio</span></td>
-                  <td class="desc-txt">Silueta oversize, tela poliéster 58%, manga larga, color negro, detalle de botones — <b>Venta Directa · C7</b></td>
-                  <td class="price">—</td>
-                  <td class="price">219</td>
-                  <td class="variation pending">primera captura</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch bajo"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8F5F" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
-                  <td><span class="tier bajo">Bajo</span></td>
-                  <td class="desc-txt">Silueta suelta, tela poliéster 58%, sin manga, detalle caído en el hombro, color celeste</td>
-                  <td class="price">229</td>
-                  <td class="price">219</td>
-                  <td class="variation down">-4,4%</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch medio"><svg viewBox="0 0 24 24" fill="none" stroke="#C9821B" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
-                  <td><span class="tier medio">Medio</span></td>
-                  <td class="desc-txt">Silueta suelta con mangas, ruchado en la cintura, 65% algodón / 35% poliéster, manga 3/4, estampada</td>
-                  <td class="price">289</td>
-                  <td class="price">249</td>
-                  <td class="variation down">-13,8%</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch alto"><svg viewBox="0 0 24 24" fill="none" stroke="#C93B3B" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div><span class="no-photo-tag">sin foto</span></div></td>
-                  <td><span class="tier alto">Alto</span></td>
-                  <td class="desc-txt">Silueta suelta, tela broderí 100%, detalle de cordón adelante, color blanco</td>
-                  <td class="price">349</td>
-                  <td class="price">319</td>
-                  <td class="variation down">-8,6%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="cat-block" data-block="blusas" data-provider="Éxito" data-linea="Ropa" style="display:none;">
-            <div class="cat-title-row">
-              <span class="cat-title">🔴 EN VIVO — Blusas Femeninas · Éxito</span>
-              <span class="cat-policy">Capturado hoy con la app M1 · Retail · Abr-26</span>
-            </div>
-            <table>
-              <thead><tr><th style="width:66px;">Foto</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio</th><th>SKU</th></tr></thead>
-              <tbody>
-                <tr style="background:#E8EFFE;">
-                  <td><div class="photo-cell"><div class="swatch bajo"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8F5F" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
-                  <td><span class="tier bajo">Bajo</span></td>
-                  <td class="desc-txt">Suelta — 65% Poliéster + 35% Algodón</td>
-                  <td class="price">Bs 150</td>
-                  <td style="font-family:'Courier New',monospace;">bls</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="cat-block" data-block="jeans" data-provider="Forever" data-linea="Ropa">
-            <div class="cat-title-row">
-              <span class="cat-title">RE Jeans Fem. — Precio RE Bs 14,68</span>
-              <span class="cat-policy">Política: por debajo del 20% de Forever / Mitsuba</span>
-            </div>
-            <table>
-              <tbody>
-                <tr>
-                  <td style="width:66px;"><div class="photo-cell"><div class="swatch bajo"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8F5F" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
-                  <td style="width:70px;"><span class="tier bajo">Bajo</span></td>
-                  <td class="desc-txt">Jean básico tipo skinny, tela elastizada, color azul marino</td>
-                  <td class="price">339</td>
-                  <td class="price">319</td>
-                  <td class="variation down">-5,9%</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch medio"><svg viewBox="0 0 24 24" fill="none" stroke="#C9821B" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
-                  <td><span class="tier medio">Medio</span></td>
-                  <td class="desc-txt">Jean bota recta tipo cargo, tela rígida, color celeste</td>
-                  <td class="price">439</td>
-                  <td class="price">449</td>
-                  <td class="variation up">+2,3%</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch alto"><svg viewBox="0 0 24 24" fill="none" stroke="#C93B3B" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
-                  <td><span class="tier alto">Alto</span></td>
-                  <td class="desc-txt">Jean bota campaña, tela rígida, detalle de apliques brillantes en el bolsillo delantero</td>
-                  <td class="price">589</td>
-                  <td class="price">549</td>
-                  <td class="variation down">-6,8%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="cat-block" data-block="jeansdama" data-provider="Índigo" data-linea="Ropa" style="display:none;">
-            <div class="cat-title-row">
-              <span class="cat-title">🔴 EN VIVO — Jeans Dama · Índigo</span>
-              <span class="cat-policy">Capturado hoy con la app M1 · Retail · May-26</span>
-            </div>
-            <table>
-              <thead><tr><th style="width:66px;">Foto</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio</th><th>SKU</th></tr></thead>
-              <tbody id="capturas-en-vivo-jeansdama">
-                <tr style="background:#E8EFFE;">
-                  <td><div class="photo-cell"><div class="swatch medio"><svg viewBox="0 0 24 24" fill="none" stroke="#C9821B" stroke-width="1.6"><path d="M7 3h10l1 5-2 13H8L6 8Z"/></svg></div></div></td>
-                  <td><span class="tier medio">Medio</span></td>
-                  <td class="desc-txt">Entallada — Tela gruesa</td>
-                  <td class="price">Bs 200</td>
-                  <td style="font-family:'Courier New',monospace;">pntazl</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="cat-block" data-block="camisetas" data-provider="Forever" data-linea="Ropa">
-            <div class="cat-title-row">
-              <span class="cat-title">RE Camisetas Fem. — Precio RE Bs 16,93</span>
-              <span class="cat-policy">Política: igual que Mitsuba</span>
-            </div>
-            <table>
-              <tbody>
-                <tr>
-                  <td style="width:66px;"><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
-                  <td style="width:70px;"><span class="tier bajo">Bajo</span></td>
-                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
-                  <td class="price">219</td>
-                  <td class="price">—</td>
-                  <td class="variation pending">sin dato aún</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
-                  <td><span class="tier medio">Medio</span></td>
-                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
-                  <td class="price">219</td>
-                  <td class="price">—</td>
-                  <td class="variation pending">sin dato aún</td>
-                </tr>
-                <tr>
-                  <td><div class="photo-cell"><div class="swatch" style="background:#EEF1F8;"><svg viewBox="0 0 24 24" fill="none" stroke="#B0B7C8" stroke-width="1.6"><path d="M8 4 5 7v13h14V7l-3-3M8 4a4 4 0 0 0 8 0"/></svg></div></div></td>
-                  <td><span class="tier alto">Alto</span></td>
-                  <td class="desc-txt pending">Pendiente de relevamiento con ficha de características</td>
-                  <td class="price">289</td>
-                  <td class="price">—</td>
-                  <td class="variation pending">sin dato aún</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="src-note"><b>Nota:</b> foto es un marcador — llega con la captura del analista (etiqueta o foto en tienda, módulo M1). Ene-26 es el último dato real de la hoja FOREVER; May-26 es la ficha de ejemplo del usuario final. Solo Forever tiene datos cargados en esta demo; el resto queda listado en el desplegable para mostrar cómo escala, marcado como "sin datos". <b>La fila resaltada en azul</b> es el registro real que se capturó en la prueba de la app M1 V2.1 (foto de etiqueta y producto tomadas con la cámara del celular, competidor y precio marcados en la tienda) — se agregó aquí a mano para mostrar cómo se vería una vez exista la conexión API entre M1 y M4; no llegó sola.</div>
+          <div class="panel-head"><h3 id="retail-detail-title">Detalle</h3></div>
         </div>
       </div>
 
@@ -433,7 +284,7 @@
       <div class="view" id="view-directa">
 
         <div class="kpis">
-          <div class="kpi"><div class="lbl">Marcas monitoreadas</div><div class="num">8</div><div class="sub">catálogos de venta directa</div></div>
+          <div class="kpi"><div class="lbl">Competidores monitoreados</div><div class="num">8</div><div class="sub">catálogos de venta directa</div></div>
           <div class="kpi">
             <div class="lbl">Tipo de cambio vigente</div>
             <div class="num">
@@ -441,7 +292,14 @@
                 onchange="onTipoCambioChange(this)"
                 style="width:80px;border:none;background:transparent;font:inherit;color:inherit;padding:0;">
             </div>
-            <div class="sub">Bs por USD — editable</div>
+            <div class="sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span>Bs por USD</span>
+              <button onclick="guardarTipoCambio()"
+                style="padding:4px 10px;border:none;border-radius:6px;background:var(--blue);color:#fff;font-weight:700;font-size:11.5px;cursor:pointer;">
+                Guardar
+              </button>
+              <span id="tc-mensaje" style="font-size:11px;"></span>
+            </div>
           </div>
           <div class="kpi"><div class="lbl">Campañas con historial</div><div class="num">C1–C17</div><div class="sub">2024, 2025 y 2026 en curso</div></div>
           <div class="kpi"><div class="lbl">Categorías de catálogo</div><div class="num">5+</div><div class="sub">Perfumería, Rostro, Maquillaje…</div></div>
@@ -491,38 +349,22 @@
               <option value="Joyería">Joyería</option>
               <option value="Fragancias">Fragancias</option>
               <option value="Alianzas">Alianzas</option>
+              <option value="Cuidado personal">Cuidado personal</option>
             </select>
           </div>
         </div>
 
-        <div class="panel" id="vd-catalogos-panel">
-          <div class="panel-head"><h3>Catálogos de competidores por campaña</h3></div>
-          <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-            <div class="filter-field">
-              <label>Competidor</label>
-              <input id="cat-competidor" type="text" placeholder="ej. Esika"
-                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:150px;">
-            </div>
-            <div class="filter-field">
-              <label>Campaña</label>
-              <input id="cat-campana" type="text" placeholder="ej. C05 2026" list="lista-campanas-vd"
-                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
-            </div>
-            <div class="filter-field">
-              <label>Archivo (PDF/Excel/imagen)</label>
-              <input id="cat-archivo" type="file" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg">
-            </div>
-            <button onclick="subirCatalogo()"
-              style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
-              Subir catálogo
-            </button>
+        <datalist id="lista-campanas-vd"></datalist>
+
+        <div class="panel" id="vd-live-panel" style="display:none;">
+          <div class="panel-head">
+            <h3>🔴 EN VIVO — Capturas reales de Venta Directa</h3>
+            <span class="cat-policy">Sincronizado automáticamente desde la app M1</span>
           </div>
-          <div id="cat-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
           <table>
-            <thead><tr><th>Competidor</th><th>Campaña</th><th>Archivo</th><th>Producto estrella</th></tr></thead>
-            <tbody id="cat-tbody"></tbody>
+            <thead><tr><th style="width:66px;">Foto</th><th>Competidor</th><th>Categoría</th><th>Descripción</th><th>Precio Competidor</th><th>SKU Azzorti</th><th>Homologación Azzorti</th><th>Precio Azzorti</th><th>Variación</th></tr></thead>
+            <tbody id="vd-live-tbody"></tbody>
           </table>
-          <div class="src-note">Aquí solo se sube el catálogo como referencia — el sistema no lo lee automáticamente (cada competidor trae un diseño distinto). Después de subirlo, usa "+ Registrar producto estrella" para anotar a mano cada producto que Mercadeo ya identificó, y el motor de homologación hace el resto.</div>
         </div>
 
         <div class="panel" id="vd-estrella-panel">
@@ -532,7 +374,6 @@
               <label>Campaña</label>
               <input id="est-campana" type="text" placeholder="ej. C10 2026" list="lista-campanas-vd"
                 style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
-              <datalist id="lista-campanas-vd"></datalist>
             </div>
             <div class="filter-field">
               <label>Excel de productos estrella</label>
@@ -544,22 +385,18 @@
             </button>
           </div>
           <div id="est-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
+          <div style="overflow-x:auto;">
           <table>
-            <thead><tr><th style="width:56px;">Foto</th><th>Competidor</th><th>Producto</th><th>Precio competidor</th><th>Comparación</th><th>Precio Azzorti</th><th>Variación</th></tr></thead>
+            <thead><tr>
+              <th style="width:56px;">Foto</th><th>Competidor</th><th>Categoría</th><th>Campaña</th>
+              <th>Descripción</th><th>Precio Competidor</th>
+              <th style="width:56px;">Foto Azzorti</th><th>Campaña</th><th>Referente Azzorti</th><th>Precio Azzorti</th>
+              <th>Variación</th>
+            </tr></thead>
             <tbody id="est-tbody"></tbody>
           </table>
-          <div class="src-note">Esta lista la define Mercadeo (no el motor de similitud): cada producto ya trae asignado su equivalente Azzorti, o queda marcado para comparar contra su propio precio de la campaña anterior cuando no hay un homólogo directo. Importa el mismo archivo cuantas veces haga falta — actualiza los precios en vez de duplicar filas.</div>
-        </div>
-
-        <div class="panel" id="vd-live-panel" style="display:none;">
-          <div class="panel-head">
-            <h3>🔴 EN VIVO — Capturas reales de Venta Directa</h3>
-            <span class="cat-policy">Sincronizado automáticamente desde la app M1</span>
           </div>
-          <table>
-            <thead><tr><th style="width:66px;">Foto</th><th>Marca</th><th>Categoría</th><th>Producto</th><th>Precio</th><th>Homologación Azzorti</th><th>Variación</th></tr></thead>
-            <tbody id="vd-live-tbody"></tbody>
-          </table>
+          <div class="src-note">Esta lista la define Mercadeo (no el motor de similitud): cada producto ya trae asignado su equivalente Azzorti (Referente Azzorti), o queda marcado para comparar contra su propio precio de la campaña anterior cuando no hay un homólogo directo (Referente Azzorti queda en "—"). Se filtra con los mismos Competidor/Campaña/Categoría/Línea de arriba — igual que la tabla EN VIVO. Importa el mismo archivo cuantas veces haga falta — actualiza los precios en vez de duplicar filas.</div>
         </div>
 
       </div>
@@ -601,9 +438,17 @@
           </div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>Precio promedio por competidor · campaña</h3></div>
+          <div class="panel-head"><h3>Evolución de la brecha vs Azzorti (%)</h3></div>
           <div id="hist-chart" style="padding:16px 20px;display:flex;align-items:flex-end;gap:18px;height:220px;overflow-x:auto;"></div>
-          <div class="src-note">Cada barra es el precio promedio de esa combinación Canal · Competidor · Campaña, calculado sobre lo capturado en la app (Retail) o registrado en Productos Estrella (Venta Directa). Filtra por Año/Campaña/Competidor con "Todas" para comparar varias barras a la vez. Nota: las campañas de Retail (ej. "C-10") todavía no guardan el año en el dato mismo — mientras eso no se defina, se asume el año en curso.</div>
+          <div class="src-note">Cada barra es el % promedio de diferencia contra Azzorti (Precio Azzorti − Precio Competidor, sobre Precio Azzorti) de esa combinación Canal · Competidor · Campaña — positivo significa que el competidor está más barato que Azzorti, negativo que está más caro. Solo se promedian productos con homologación confirmada (no los "vs. campaña anterior", que comparan contra el propio precio del competidor, no contra Azzorti). Filtra por Año/Campaña/Competidor con "Todas" para comparar varias barras a la vez.</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Alertas históricas vs Azzorti</h3></div>
+          <table>
+            <thead><tr><th>Canal</th><th>Competidor</th><th>Campaña</th><th>Productos homologados con Azzorti</th><th>Con alerta de umbral</th><th>% vs Azzorti (promedio)</th></tr></thead>
+            <tbody id="hist-alertas-tbody"></tbody>
+          </table>
+          <div class="src-note">"% vs Azzorti" es Precio Azzorti − Precio Competidor sobre Precio Azzorti: positivo (rojo) = el competidor está más barato que Azzorti; negativo (verde) = está más caro. "Con alerta de umbral" cuenta cuántos de los productos homologados de esa combinación superaron el umbral de alerta configurado arriba (en valor absoluto). Ordenado de más a menos alertas, para detectar rápido qué Competidor · Campaña tuvo más movimientos de precio fuera de rango.</div>
         </div>
       </div>
 
@@ -623,7 +468,7 @@
             </div>
             <div class="filter-field">
               <label>Campaña</label>
-              <input id="comp-campana" type="text" placeholder="ej. C-10" list="lista-campanas-vd"
+              <input id="comp-campana" type="text" placeholder="ej. C10 2026" list="lista-campanas-vd"
                 style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
             </div>
             <div class="filter-field">
@@ -639,6 +484,52 @@
         </div>
         <div id="comp-por-competidor"></div>
         <div class="src-note">Incluye tanto los catálogos de la competencia como los de Azzorti (sube con competidor = "Azzorti") — todos quedan repositados aquí por competidor y campaña. Solo se sube el archivo como referencia, no se lee automáticamente.</div>
+
+        <div class="panel" id="comp-estrella-panel">
+          <div class="panel-head"><h3>Productos estrella (histórico completo)</h3></div>
+          <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="filter-field">
+              <label>Campaña</label>
+              <input id="comp-est-campana" type="text" placeholder="ej. C10 2026" list="lista-campanas-vd"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;min-width:130px;">
+            </div>
+            <div class="filter-field">
+              <label>Excel de productos estrella</label>
+              <input id="comp-est-archivo" type="file" accept=".xlsx,.xls">
+            </div>
+            <button onclick="importarProductosEstrellaCompetencia()"
+              style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
+              Importar
+            </button>
+          </div>
+          <div id="comp-est-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
+          <div style="padding:0 20px 12px;display:flex;flex-wrap:wrap;gap:10px;">
+            <div class="filter-field">
+              <label>Filtrar competidor</label>
+              <select id="comp-est-filtro-competidor" onchange="_pintarProductosEstrellaCompetencia()" style="min-width:150px;">
+                <option value="todas">Todas</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <label>Filtrar campaña</label>
+              <select id="comp-est-filtro-campana" onchange="_pintarProductosEstrellaCompetencia()" style="min-width:130px;">
+                <option value="todas">Todas</option>
+              </select>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th style="width:56px;">Foto</th><th>Competidor</th><th>Categoría</th><th>Campaña</th>
+              <th>Descripción</th><th>Precio Competidor</th>
+              <th style="width:56px;">Foto Azzorti</th><th>Campaña</th><th>Referente Azzorti</th><th>Precio Azzorti</th>
+              <th>Variación</th>
+            </tr></thead>
+            <tbody id="comp-est-tbody"></tbody>
+          </table>
+          </div>
+          <div class="src-note">Histórico completo de productos estrella (incluye el archivo "INDEX Precio Sector Venta Directa" con años 2025 y 2026) — sin los filtros del Dashboard, para consulta libre por Competidor/Campaña. Esta tabla y la de Dashboard &gt; Venta Directa comparten el mismo dato — lo que se importa aquí también aparece allá, y viceversa.</div>
+        </div>
       </div>
 
       <!-- ============ REPORTES (vista gerencial exportable) ============ -->
@@ -650,7 +541,7 @@
         <div class="filters-row">
           <div class="filter-field">
             <label>Canal</label>
-            <select id="rep-canal" onchange="_pintarReporte()">
+            <select id="rep-canal" onchange="_recalcularFiltrosReporte(); _pintarReporte();">
               <option value="todas">Todas</option>
               <option value="Retail">Retail</option>
               <option value="VentaDirecta">Venta Directa</option>
@@ -658,13 +549,14 @@
           </div>
           <div class="filter-field">
             <label>Línea</label>
-            <select id="rep-linea" onchange="_pintarReporte()">
+            <select id="rep-linea" onchange="_recalcularFiltrosReporte(); _pintarReporte();">
               <option value="todas">Todas</option>
               <option value="Ropa">Ropa</option>
               <option value="Hogar">Hogar</option>
               <option value="Joyería">Joyería</option>
               <option value="Fragancias">Fragancias</option>
               <option value="Alianzas">Alianzas</option>
+              <option value="Cuidado personal">Cuidado personal</option>
             </select>
           </div>
           <div class="filter-field">
@@ -693,7 +585,7 @@
         <div class="panel">
           <div class="panel-head"><h3>Registros (Retail + Venta Directa)</h3></div>
           <table>
-            <thead><tr><th>Canal</th><th>Competidor</th><th>Categoría</th><th>Línea</th><th>Campaña</th><th>Producto</th><th>Precio competidor</th><th>Comparación</th><th>Variación</th></tr></thead>
+            <thead><tr><th>Canal</th><th>Competidor</th><th>Categoría</th><th>Línea</th><th>Campaña</th><th>Producto</th><th>Precio competidor</th><th>Comparación</th><th>Precio Azzorti</th><th>Variación</th></tr></thead>
             <tbody id="rep-tbody"></tbody>
           </table>
           <div class="src-note">Vista para gerencia: junta capturas de Retail y productos de Venta Directa bajo los mismos 4 filtros (con "Todas"/vacío = sin restricción). El CSV exportado respeta exactamente lo que se ve filtrado en la tabla.</div>
@@ -765,6 +657,11 @@
     if (canal === 'VentaDirecta'){
       if (t.indexOf('fragancia') !== -1) return 'Fragancias';
       if (t.indexOf('joyeria') !== -1 || t.indexOf('joyería') !== -1) return 'Joyería';
+      // Cabello, Cuidado Diario, Rostro y Maquillaje son categorias de
+      // cuidado personal (ver categoriasVentaDirecta en la app) que antes
+      // caian todas en "Otros" al no tener linea propia.
+      if (t.indexOf('cabello') !== -1 || t.indexOf('cuidado diario') !== -1 ||
+          t.indexOf('rostro') !== -1 || t.indexOf('maquillaje') !== -1) return 'Cuidado personal';
       return 'Otros';
     }
     // Retail
@@ -788,6 +685,52 @@
       var campOk = (camp === 'todas') || !block.dataset.campana || (block.dataset.campana === camp);
       block.style.display = (provOk && catOk && lineaOk && campOk) ? '' : 'none';
     });
+    _pintarPromedioPorCategoria();
+  }
+
+  // "Precio promedio por categoría" recalculado según los 4 filtros de
+  // arriba (Competidor/Campaña/Categoría/Línea) - antes era un mockup fijo
+  // que nunca cambiaba con los filtros. Solo se promedian capturas que ya
+  // tienen homologación (comparar Azzorti vs Competencia para el MISMO
+  // producto, no mezclar capturas sin homologar en el promedio).
+  function _pintarPromedioPorCategoria(){
+    var provVal = document.getElementById('sel-proveedor').value;
+    var catVal = document.getElementById('sel-categoria').value;
+    var lineaVal = document.getElementById('sel-linea').value;
+    var campVal = document.getElementById('sel-campana').value;
+    var filtradas = _ultimaListaRetailLive.filter(function(c){
+      var provOk = (provVal === 'todas') || (c.competidor === provVal);
+      var catOk = (catVal === 'todas') || (_slug(c.categoria || '') === catVal);
+      var lineaOk = (lineaVal === 'todas') || (_calcularLinea(c.categoria, c.competidor, 'Retail') === lineaVal);
+      var campOk = (campVal === 'todas') || (c.campana === campVal);
+      return provOk && catOk && lineaOk && campOk && c.homologacion;
+    });
+    var cont = document.getElementById('retail-promedio-chart');
+    var porCategoria = {};
+    filtradas.forEach(function(c){
+      var cat = c.categoria || 'Sin categoría';
+      (porCategoria[cat] = porCategoria[cat] || []).push(c);
+    });
+    var categorias = Object.keys(porCategoria);
+    if(!categorias.length){
+      cont.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:20px;">Sin capturas homologadas para esta combinación de filtros.</div>';
+      return;
+    }
+    var promedios = categorias.map(function(cat){
+      var items = porCategoria[cat];
+      var promAzz = items.reduce(function(s, c){ return s + c.homologacion.precio_azzorti; }, 0) / items.length;
+      var promComp = items.reduce(function(s, c){ return s + c.precio; }, 0) / items.length;
+      return {cat: cat, promAzz: promAzz, promComp: promComp};
+    });
+    var maxValor = Math.max.apply(null, promedios.map(function(p){ return Math.max(p.promAzz, p.promComp); }));
+    cont.innerHTML = promedios.map(function(p){
+      var alturaAzz = Math.max(6, Math.round((p.promAzz / maxValor) * 130));
+      var alturaComp = Math.max(6, Math.round((p.promComp / maxValor) * 130));
+      return '<div class="cat-group"><div class="bars">' +
+        '<div class="bar azz" style="height:' + alturaAzz + 'px;"><span class="bv">' + p.promAzz.toFixed(2) + '</span></div>' +
+        '<div class="bar comp" style="height:' + alturaComp + 'px;"><span class="bv">' + p.promComp.toFixed(2) + '</span></div>' +
+        '</div><div class="cat-label">' + p.cat + '</div></div>';
+    }).join('');
   }
 
   // Categorías/proveedores que sí tienen bloque cargado, para saltar a una
@@ -867,9 +810,8 @@
   // propio filtro por separado, lo que hacía que filtrar arriba no
   // cambiara nada en las tablas de abajo.
   function _refrescarTodoVd(){
-    if (typeof _pintarCatalogos === 'function') _pintarCatalogos();
-    if (typeof _pintarProductosEstrella === 'function') _pintarProductosEstrella();
     if (typeof sincronizarDashboard === 'function') sincronizarDashboard(true);
+    if (typeof _pintarProductosEstrella === 'function') _pintarProductosEstrella();
   }
 
   function onMarcaChange(el){
@@ -937,38 +879,13 @@
   // embebido en el APK (hallazgo de seguridad ya corregido). Cambia la IP
   // por la de tu laptop en la red local antes de la demo (misma IP que
   // pusiste en _backendBaseUrl de lib/main.dart).
-  const BACKEND_URL = 'https://azzorti-captura.onrender.com';
+  const BACKEND_URL = 'http://192.168.20.28:8000';
 
   var _ultimoConteoLive = 0;
   var _vdCombosVistos = new Set();
+  var _ultimaListaRetailLive = []; // para recalcular "Precio promedio por categoría" al vuelo
   var _catalogoSeleccionado = null; // {id, competidor, campana} para el modal de producto estrella
 
-  async function subirCatalogo(){
-    const competidor = document.getElementById('cat-competidor').value.trim();
-    const campana = document.getElementById('cat-campana').value.trim();
-    const archivoInput = document.getElementById('cat-archivo');
-    const msg = document.getElementById('cat-mensaje');
-    if(!competidor || !campana || !archivoInput.files[0]){
-      msg.textContent = '⚠ Completa competidor, campaña y elige un archivo.';
-      return;
-    }
-    const form = new FormData();
-    form.append('competidor', competidor);
-    form.append('campana', campana);
-    form.append('archivo', archivoInput.files[0]);
-    msg.textContent = 'Subiendo…';
-    try {
-      const resp = await fetch(BACKEND_URL + '/catalogos', {method: 'POST', body: form});
-      if(!resp.ok) throw new Error('fallo al subir');
-      msg.textContent = '✓ Catálogo subido.';
-      document.getElementById('cat-competidor').value = '';
-      document.getElementById('cat-campana').value = '';
-      archivoInput.value = '';
-      cargarCatalogos();
-    } catch(e){
-      msg.textContent = '⚠ No se pudo subir — revisa que el backend esté encendido.';
-    }
-  }
 
   async function cargarUmbralAlerta(){
     try {
@@ -1003,6 +920,42 @@
     }
   }
 
+  // Mismo patron que el Umbral de alerta: el TC ya se podia escribir,
+  // pero no se guardaba en ningun lado (se perdia al recargar la pagina)
+  // - ahora tiene su propio boton "Guardar" en el backend.
+  async function cargarTipoCambio(){
+    try {
+      const resp = await fetch(BACKEND_URL + '/configuracion/tipo-cambio', {cache: 'no-store'});
+      if(!resp.ok) return;
+      const data = await resp.json();
+      document.getElementById('input-tc').value = data.tc;
+      _actualizarChanSub();
+    } catch(e) {
+      // sin conexion por ahora - se queda con el valor por defecto del campo
+    }
+  }
+
+  async function guardarTipoCambio(){
+    const valor = parseFloat(document.getElementById('input-tc').value);
+    const msg = document.getElementById('tc-mensaje');
+    if(isNaN(valor) || valor <= 0){
+      msg.textContent = '⚠ Debe ser un número mayor a 0.';
+      return;
+    }
+    try {
+      const resp = await fetch(BACKEND_URL + '/configuracion/tipo-cambio', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tc: valor}),
+      });
+      if(!resp.ok) throw new Error();
+      msg.textContent = '✓ Guardado — aplica desde ahora.';
+      _actualizarChanSub();
+    } catch(e){
+      msg.textContent = '⚠ No se pudo guardar — revisa el backend.';
+    }
+  }
+
   // ====== Pendiente 6: Precios (histórico) ======
   var _ultimaListaHistorico = [];
 
@@ -1013,7 +966,16 @@
       _ultimaListaHistorico = await resp.json();
       const anios = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.anio; }))).sort();
       const campanas = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.campana; }))).sort();
-      const competidores = Array.from(new Set(_ultimaListaHistorico.map(function(h){ return h.competidor; }))).sort();
+      // Dedup sin importar mayusculas/acentos (_normalizar) - mismo motivo
+      // que en _asegurarOpcion: el archivo de Mercadeo trae competidores en
+      // MAYUSCULAS ("ESIKA") y las capturas de la app en formato normal
+      // ("Esika"); un Set comun los trataba como 2 competidores distintos.
+      const vistos = new Set();
+      const competidores = [];
+      _ultimaListaHistorico.map(function(h){ return h.competidor; }).sort().forEach(function(c){
+        const key = _normalizar(c);
+        if(!vistos.has(key)){ vistos.add(key); competidores.push(c); }
+      });
       document.getElementById('hist-anio').innerHTML = '<option value="todas">Todas</option>' +
         anios.map(function(a){ return '<option value="' + a + '">' + a + '</option>'; }).join('');
       document.getElementById('hist-campana').innerHTML = '<option value="todas">Todas</option>' +
@@ -1026,35 +988,67 @@
     }
   }
 
-  function _pintarHistorico(){
+  function _listaHistoricoFiltrada(){
     const canal = document.getElementById('hist-canal').value;
     const anio = document.getElementById('hist-anio').value;
     const campana = document.getElementById('hist-campana').value;
     const competidor = document.getElementById('hist-competidor').value;
-    const lista = _ultimaListaHistorico.filter(function(h){
+    return _ultimaListaHistorico.filter(function(h){
       return (canal === 'todas' || h.canal === canal)
         && (anio === 'todas' || String(h.anio) === anio)
         && (campana === 'todas' || h.campana === campana)
         && (competidor === 'todas' || h.competidor === competidor);
     });
+  }
+
+  function _pintarHistorico(){
+    const lista = _listaHistoricoFiltrada();
     const cont = document.getElementById('hist-chart');
     cont.innerHTML = '';
     if(!lista.length){
-      cont.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:20px;">Sin datos para esta combinación de filtros.</div>';
-      return;
+      cont.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:20px;">Sin productos homologados para esta combinación de filtros.</div>';
+    } else {
+      // Barra roja = competidor mas barato que Azzorti (delta positivo,
+      // punto de atencion); verde = competidor mas caro que Azzorti.
+      const maxAbs = Math.max.apply(null, lista.map(function(h){ return Math.abs(h.delta_pct_promedio); })) || 1;
+      lista.forEach(function(h){
+        const alturaPx = Math.max(10, Math.round((Math.abs(h.delta_pct_promedio) / maxAbs) * 160));
+        const color = h.delta_pct_promedio >= 0 ? 'var(--red)' : 'var(--green)';
+        const grupo = document.createElement('div');
+        grupo.className = 'hist-bar-grupo';
+        grupo.innerHTML =
+          '<div class="hist-bar" style="height:' + alturaPx + 'px;background:' + color + ';">' +
+            '<span class="hist-bar-valor">' + (h.delta_pct_promedio >= 0 ? '+' : '') + h.delta_pct_promedio + '%</span>' +
+          '</div>' +
+          '<div class="hist-bar-label">' + h.competidor + '<br>' + h.campana + '<br>(' + h.canal + ')</div>';
+        cont.appendChild(grupo);
+      });
     }
-    const maxPrecio = Math.max.apply(null, lista.map(function(h){ return h.precio_promedio; }));
-    lista.forEach(function(h){
-      const alturaPx = Math.max(10, Math.round((h.precio_promedio / maxPrecio) * 160));
-      const grupo = document.createElement('div');
-      grupo.className = 'hist-bar-grupo';
-      grupo.innerHTML =
-        '<div class="hist-bar" style="height:' + alturaPx + 'px;">' +
-          '<span class="hist-bar-valor">Bs ' + h.precio_promedio + '</span>' +
-        '</div>' +
-        '<div class="hist-bar-label">' + h.competidor + '<br>' + h.campana + '<br>(' + h.canal + ')</div>';
-      cont.appendChild(grupo);
+    _pintarAlertasHistoricas(lista);
+  }
+
+  function _pintarAlertasHistoricas(lista){
+    const tbody = document.getElementById('hist-alertas-tbody');
+    if(!tbody) return;
+    const ordenada = lista.slice().sort(function(a, b){ return b.cantidad_alertas - a.cantidad_alertas; });
+    tbody.innerHTML = '';
+    ordenada.forEach(function(h){
+      const claseVar = h.delta_pct_promedio >= 0 ? 'up' : 'down';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + h.canal + '</td>' +
+        '<td><span class="brand-pill">' + h.competidor + '</span></td>' +
+        '<td>' + h.campana + '</td>' +
+        '<td>' + h.cantidad_productos + '</td>' +
+        '<td>' + (h.cantidad_alertas > 0
+          ? '<span class="variation up">' + h.cantidad_alertas + ' ⚠️</span>'
+          : '<span class="variation down">0</span>') + '</td>' +
+        '<td><span class="variation ' + claseVar + '">' + (h.delta_pct_promedio >= 0 ? '+' : '') + h.delta_pct_promedio + '%</span></td>';
+      tbody.appendChild(tr);
     });
+    if(!ordenada.length){
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);font-size:12px;padding:16px;">Sin datos para esta combinación de filtros.</td></tr>';
+    }
   }
 
   // ====== Pendiente 6: Competencia (repositorio de catálogos) ======
@@ -1080,7 +1074,7 @@
       document.getElementById('comp-campana').value = '';
       archivoInput.value = '';
       cargarCompetencia();
-      cargarCatalogos(); // el panel viejo de Venta Directa usa la misma fuente
+      cargarCatalogos(); // mantiene sel-marca/sel-campana-vd del Dashboard con las opciones reales
     } catch(e){
       msg.textContent = '⚠ No se pudo subir — revisa que el backend esté encendido.';
     }
@@ -1116,14 +1110,15 @@
                   ? '<button onclick="indexarProductos(' + c.id + ', this)" style="padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11.5px;">Indexar productos</button>'
                   : '<span style="font-size:11.5px;color:var(--muted);">Solo aplica a PDF</span>') +
                   '<div id="productos-cat-' + c.id + '" style="margin-top:6px;font-size:11.5px;color:var(--muted);"></div></td>'
-              : '') +
+              : '<td><button onclick="abrirModalEstrella(' + c.id + ', \'' + competidor.replace(/'/g,"") + '\', \'' + c.campana.replace(/'/g,"") + '\')" ' +
+                  'style="padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11.5px;">+ Registrar producto estrella</button></td>') +
             '</tr>';
         }).join('');
         panel.innerHTML =
           '<div class="panel-head"><h3>' + (esAzzorti ? '⭐ ' : '') + competidor + '</h3>' +
             '<span class="cat-policy">' + catalogos.length + ' catálogo(s)</span></div>' +
           '<table><thead><tr><th>Campaña</th><th>Archivo</th><th>Ofertas identificadas</th>' +
-            (esAzzorti ? '<th>Homologación Venta Directa</th>' : '') +
+            (esAzzorti ? '<th>Homologación Venta Directa</th>' : '<th>Producto estrella</th>') +
           '</tr></thead><tbody>' + filas + '</tbody></table>';
         cont.appendChild(panel);
         catalogos.forEach(function(c){
@@ -1239,50 +1234,70 @@
       ]);
       _ultimaListaReporteRetail = respRetail.ok ? await respRetail.json() : [];
       _ultimaListaReporteVd = respVd.ok ? await respVd.json() : [];
-      // Los 3 desplegables se llenan con lo que realmente existe en los
-      // datos (igual que el resto del dashboard) en vez de ser texto libre
-      // — evita typos y es consistente con Canal/Línea.
-      const categorias = new Set(), campanas = new Set(), competidores = new Set();
-      _ultimaListaReporteRetail.forEach(function(c){
-        if(c.categoria) categorias.add(c.categoria);
-        if(c.campana) campanas.add(c.campana);
-        if(c.competidor) competidores.add(c.competidor);
-      });
-      _ultimaListaReporteVd.forEach(function(p){
-        if(p.categoria) categorias.add(p.categoria);
-        if(p.campana) campanas.add(p.campana);
-        if(p.competidor) competidores.add(p.competidor);
-      });
-      function _opciones(sel, valores){
-        const actual = sel.value;
-        sel.innerHTML = '<option value="todas">Todas</option>' +
-          Array.from(valores).sort().map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join('');
-        if(Array.from(valores).includes(actual)) sel.value = actual;
-      }
-      _opciones(document.getElementById('rep-categoria'), categorias);
-      _opciones(document.getElementById('rep-campana'), campanas);
-      _opciones(document.getElementById('rep-competidor'), competidores);
+      _recalcularFiltrosReporte();
       _pintarReporte();
     } catch(e) {
       // sin conexion por ahora
     }
   }
 
+  // Opciones de un <select> con dedup sin importar mayusculas/acentos
+  // (mismo motivo que en _asegurarOpcion: "FRAGANCIA" del archivo de
+  // Mercadeo vs "Fragancias" del resto del dashboard aparecian como 2
+  // opciones distintas).
+  function _opcionesDedup(sel, valores){
+    const actual = sel.value;
+    const vistos = new Set();
+    const finales = [];
+    valores.slice().sort().forEach(function(v){
+      const key = _normalizar(v);
+      if(!vistos.has(key)){ vistos.add(key); finales.push(v); }
+    });
+    sel.innerHTML = '<option value="todas">Todas</option>' +
+      finales.map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join('');
+    if(finales.some(function(v){ return _normalizar(v) === _normalizar(actual); })) sel.value = actual;
+  }
+
+  // Filtros en cascada (pedido de Yohana): Canal acota que Lineas aparecen,
+  // Linea acota que Categorias aparecen - antes los 3 desplegables se
+  // llenaban una sola vez con TODO el dato combinado (Retail+VD mezclados),
+  // sin importar que Canal/Linea estuvieran seleccionados.
+  function _recalcularFiltrosReporte(){
+    const canal = document.getElementById('rep-canal').value;
+    let filas = [];
+    if(canal === 'todas' || canal === 'Retail') filas = filas.concat(_ultimaListaReporteRetail.map(_filaReporteDesdeRetail));
+    if(canal === 'todas' || canal === 'VentaDirecta') filas = filas.concat(_ultimaListaReporteVd.map(_filaReporteDesdeVd));
+
+    const selLinea = document.getElementById('rep-linea');
+    _opcionesDedup(selLinea, filas.map(function(f){ return f.linea; }).filter(Boolean));
+    const lineaVal = selLinea.value;
+
+    const filasParaCategoria = (lineaVal === 'todas') ? filas : filas.filter(function(f){ return f.linea === lineaVal; });
+    _opcionesDedup(document.getElementById('rep-categoria'), filasParaCategoria.map(function(f){ return f.categoria; }).filter(Boolean));
+    _opcionesDedup(document.getElementById('rep-campana'), filas.map(function(f){ return f.campana; }).filter(Boolean));
+    _opcionesDedup(document.getElementById('rep-competidor'), filas.map(function(f){ return f.competidor; }).filter(Boolean));
+  }
+
   function _filaReporteDesdeRetail(c){
     const linea = _calcularLinea(c.categoria, c.competidor, 'Retail');
+    // Comparación: solo el nombre del producto homologado, sin el "vs
+    // Azzorti (...)" alrededor — el propio encabezado de la columna ya
+    // dice que es una comparación, no hace falta repetirlo en la celda.
     let comparacion = 'Sin homologar';
+    let precioAzzorti = null;
     let variacion = null;
     if(c.homologacion){
-      comparacion = 'vs Azzorti (' + (c.homologacion.azzorti_descripcion || c.homologacion.azzorti_sku) + ')';
+      comparacion = c.homologacion.azzorti_descripcion || c.homologacion.azzorti_sku;
+      precioAzzorti = c.homologacion.precio_azzorti;
       variacion = c.homologacion.delta_pct;
     } else if(c.vs_campana_anterior){
-      comparacion = 'vs campaña ' + c.vs_campana_anterior.campana_anterior;
+      comparacion = 'Sin homólogo — vs. campaña ' + c.vs_campana_anterior.campana_anterior;
       variacion = c.vs_campana_anterior.delta_pct;
     }
     return {
       canal: 'Retail', competidor: c.competidor, categoria: c.categoria, linea: linea,
       campana: c.campana, producto: c.descripcion || '—', precio: c.precio,
-      comparacion: comparacion, variacion: variacion,
+      comparacion: comparacion, precioAzzorti: precioAzzorti, variacion: variacion,
     };
   }
 
@@ -1291,7 +1306,9 @@
     return {
       canal: 'Venta Directa', competidor: p.competidor, categoria: p.categoria, linea: linea,
       campana: p.campana, producto: p.descripcion_competidor, precio: p.precio_competidor,
-      comparacion: p.comparacion, variacion: p.delta_pct,
+      // azzorti_referente ya es solo el nombre (o la explicación cuando no
+      // hay homólogo) - no viene envuelto en "vs Azzorti (...)".
+      comparacion: p.azzorti_referente || p.comparacion, precioAzzorti: p.precio_azzorti, variacion: p.delta_pct,
     };
   }
 
@@ -1334,6 +1351,7 @@
         '<td class="desc-txt">' + f.producto + '</td>' +
         '<td class="price">Bs ' + f.precio + '</td>' +
         '<td class="desc-txt" style="font-size:11.5px;color:var(--muted);">' + f.comparacion + '</td>' +
+        '<td class="price">' + (f.precioAzzorti != null ? 'Bs ' + f.precioAzzorti : '—') + '</td>' +
         '<td>' + variacionHtml + '</td>';
       tbody.appendChild(tr);
     });
@@ -1341,11 +1359,11 @@
 
   function exportarReporteCSV(){
     const filas = _filasReporteFiltradas();
-    const encabezado = ['Canal','Competidor','Categoria','Linea','Campana','Producto','Precio','Comparacion','Variacion_pct'];
+    const encabezado = ['Canal','Competidor','Categoria','Linea','Campana','Producto','Precio','Comparacion','Precio_Azzorti','Variacion_pct'];
     const lineas = [encabezado.join(',')];
     filas.forEach(function(f){
       const campos = [f.canal, f.competidor, f.categoria || '', f.linea, f.campana, f.producto, f.precio,
-        f.comparacion, f.variacion == null ? '' : f.variacion];
+        f.comparacion, f.precioAzzorti == null ? '' : f.precioAzzorti, f.variacion == null ? '' : f.variacion];
       lineas.push(campos.map(function(v){
         const s = String(v).replace(/"/g, '""');
         return /[,"\n]/.test(s) ? '"' + s + '"' : s;
@@ -1372,42 +1390,16 @@
       // Mismo filtro único de arriba: se le agregan las opciones reales
       // de competidor/campaña que traigan los catálogos subidos.
       _ultimaListaCatalogos.forEach(function(cat){
-        _asegurarOpcion('sel-marca', cat.competidor, cat.competidor);
+        // Azzorti no es un competidor (es el catálogo propio, subido con
+        // competidor="Azzorti") - no debe aparecer como opción del filtro.
+        if(_normalizar(cat.competidor) !== 'azzorti'){
+          _asegurarOpcion('sel-marca', cat.competidor, cat.competidor);
+        }
         _asegurarOpcion('sel-campana-vd', cat.campana, cat.campana);
       });
-      _pintarCatalogos();
     } catch(e) {
       // sin conexión con el backend por ahora - se reintenta en el próximo sync
     }
-  }
-
-  function _pintarCatalogos(){
-    const marcaVal = document.getElementById('sel-marca').value;
-    const campanaVal = document.getElementById('sel-campana-vd').value;
-    const lineaVal = document.getElementById('sel-linea-vd').value;
-    const lista = _ultimaListaCatalogos.filter(function(cat){
-      const okMarca = (marcaVal === 'todas') || _coincideAprox(cat.competidor, marcaVal);
-      const okCampana = (campanaVal === 'todas') || _normalizar(cat.campana) === _normalizar(campanaVal);
-      // El catalogo no trae categoria propia (es un archivo, no un
-      // producto) - la linea se calcula solo por competidor (cubre
-      // Alianzas; para Joyeria/Fragancias sin categoria no hay como saber,
-      // asi que un catalogo de un competidor que no es Hipermaxi/Farmacorp
-      // pasa el filtro de linea salvo que se pida una linea especifica).
-      const okLinea = (lineaVal === 'todas') || _calcularLinea('', cat.competidor, 'VentaDirecta') === lineaVal;
-      return okMarca && okCampana && okLinea;
-    });
-    const tbody = document.getElementById('cat-tbody');
-    tbody.innerHTML = '';
-    lista.forEach(function(cat){
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td><span class="brand-pill">' + cat.competidor + '</span></td>' +
-        '<td>' + cat.campana + '</td>' +
-        '<td><a href="' + cat.archivo_url + '" target="_blank" rel="noopener">Ver archivo</a></td>' +
-        '<td><button onclick="abrirModalEstrella(' + cat.id + ', \'' + cat.competidor.replace(/'/g,"") + '\', \'' + cat.campana.replace(/'/g,"") + '\')" ' +
-          'style="padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">+ Registrar producto estrella</button></td>';
-      tbody.appendChild(tr);
-    });
   }
 
   async function importarProductosEstrella(){
@@ -1428,6 +1420,7 @@
       if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
       msg.textContent = '✓ ' + data.mensaje;
       cargarProductosEstrella();
+      sincronizarDashboard(true);
     } catch(e){
       msg.textContent = '⚠ ' + (e.message || 'No se pudo importar — revisa que el backend esté encendido.');
     }
@@ -1450,6 +1443,12 @@
     return na === nb || na.startsWith(nb) || nb.startsWith(na);
   }
 
+  // Extrae el numero de campaña de textos como "C10 2026" o "C-09".
+  function _numeroCampana(campanaTexto){
+    var m = (campanaTexto || '').match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
   async function cargarProductosEstrella(){
     try {
       const resp = await fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'});
@@ -1466,30 +1465,81 @@
         if(p.categoria) _asegurarOpcion('sel-categoria-vd', p.categoria, p.categoria);
       });
       _pintarProductosEstrella();
+      _llenarFiltrosProductosEstrellaCompetencia();
+      _pintarProductosEstrellaCompetencia();
     } catch(e) {
       // sin conexión con el backend por ahora
     }
   }
 
-  function _pintarProductosEstrella(){
-    const marcaVal = document.getElementById('sel-marca').value;
-    const campanaVal = document.getElementById('sel-campana-vd').value;
-    const catVal = document.getElementById('sel-categoria-vd').value;
-    const lineaVal = document.getElementById('sel-linea-vd').value;
-    const lista = _ultimaListaEstrella.filter(function(p){
-      const okCompetidor = (marcaVal === 'todas') || _coincideAprox(p.competidor, marcaVal);
-      const okCampana = (campanaVal === 'todas') || _normalizar(p.campana) === _normalizar(campanaVal);
-      const okCategoria = (catVal === 'todas') || _coincideAprox(p.categoria, catVal);
-      const okLinea = (lineaVal === 'todas') || _calcularLinea(p.categoria, p.competidor, 'VentaDirecta') === lineaVal;
-      return okCompetidor && okCampana && okCategoria && okLinea;
+  // ====== Productos estrella tambien en Competencia (ademas de Dashboard,
+  // no en vez de - pedido explicito de Yohana) - sin los filtros del
+  // Dashboard, con sus propios selects locales para no perderse entre
+  // los +1800 registros del historico 2025/2026. ======
+  async function importarProductosEstrellaCompetencia(){
+    const campana = document.getElementById('comp-est-campana').value.trim();
+    const archivoInput = document.getElementById('comp-est-archivo');
+    const msg = document.getElementById('comp-est-mensaje');
+    if(!campana || !archivoInput.files[0]){
+      msg.textContent = '⚠ Completa la campaña y elige el archivo Excel.';
+      return;
+    }
+    const form = new FormData();
+    form.append('campana', campana);
+    form.append('archivo', archivoInput.files[0]);
+    msg.textContent = 'Importando…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/productos-estrella/importar', {method: 'POST', body: form});
+      const data = await resp.json();
+      if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
+      msg.textContent = '✓ ' + data.mensaje;
+      cargarProductosEstrella();
+      sincronizarDashboard(true);
+    } catch(e){
+      msg.textContent = '⚠ ' + (e.message || 'No se pudo importar — revisa que el backend esté encendido.');
+    }
+  }
+
+  function _llenarFiltrosProductosEstrellaCompetencia(){
+    const selComp = document.getElementById('comp-est-filtro-competidor');
+    const selCamp = document.getElementById('comp-est-filtro-campana');
+    if(!selComp || !selCamp) return;
+    const valComp = selComp.value, valCamp = selCamp.value;
+    const vistos = new Set();
+    const competidores = [];
+    _ultimaListaEstrella.map(function(p){ return p.competidor; }).sort().forEach(function(c){
+      const key = _normalizar(c);
+      if(!vistos.has(key)){ vistos.add(key); competidores.push(c); }
     });
-    const tbody = document.getElementById('est-tbody');
+    const campanas = Array.from(new Set(_ultimaListaEstrella.map(function(p){ return p.campana; }))).sort();
+    selComp.innerHTML = '<option value="todas">Todas</option>' +
+      competidores.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    selCamp.innerHTML = '<option value="todas">Todas</option>' +
+      campanas.map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    if(competidores.includes(valComp)) selComp.value = valComp;
+    if(campanas.includes(valCamp)) selCamp.value = valCamp;
+  }
+
+  function _pintarProductosEstrellaCompetencia(){
+    const tbody = document.getElementById('comp-est-tbody');
+    if(!tbody) return;
+    const compVal = document.getElementById('comp-est-filtro-competidor').value;
+    const campVal = document.getElementById('comp-est-filtro-campana').value;
+    const lista = _ultimaListaEstrella.filter(function(p){
+      const okComp = (compVal === 'todas') || _normalizar(p.competidor) === _normalizar(compVal);
+      const okCamp = (campVal === 'todas') || p.campana === campVal;
+      return okComp && okCamp;
+    }).sort(function(a, b){
+      const ca = _normalizar(a.competidor), cb = _normalizar(b.competidor);
+      if(ca !== cb) return ca < cb ? -1 : 1;
+      return _normalizar(a.campana) < _normalizar(b.campana) ? -1 : 1;
+    });
     tbody.innerHTML = '';
     lista.forEach(function(p){
       const claseVar = (p.delta_pct == null) ? 'pending' : (p.delta_pct >= 0 ? 'up' : 'down');
       const variacionHtml = (p.delta_pct == null)
         ? '<span class="variation pending">—</span>'
-        : '<span class="variation ' + claseVar + '">' + p.delta_pct + '%</span>';
+        : '<span class="variation ' + claseVar + '">' + p.delta_pct.toFixed(2) + '%</span>';
       const fotoHtml = p.foto_url
         ? '<img src="' + p.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
           (p.competidor + ' · ' + p.descripcion_competidor).replace(/'/g,"") + '\')" ' +
@@ -1498,16 +1548,93 @@
       const fotoAzzortiHtml = p.foto_azzorti_url
         ? '<img src="' + p.foto_azzorti_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
           ('Azzorti · ' + (p.azzorti_referente || '')).replace(/'/g,"") + '\')" ' +
-          'style="width:26px;height:26px;object-fit:cover;border-radius:5px;cursor:pointer;vertical-align:middle;margin-right:6px;">'
-        : '';
+          'style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;">'
+        : '<div style="width:40px;height:40px;border-radius:6px;background:var(--paper);"></div>';
+      const campanaAzzortiTxt = p.campana_azzorti || p.campana_anterior || '—';
+      const referenteTxt = p.azzorti_referente || '—';
+      const precioAzzortiTxt = p.precio_azzorti != null
+        ? 'Bs ' + p.precio_azzorti.toFixed(2)
+        : (p.precio_campana_anterior != null ? 'Bs ' + p.precio_campana_anterior.toFixed(2) : '—');
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td>' + fotoHtml + '</td>' +
         '<td><span class="brand-pill">' + p.competidor + '</span></td>' +
+        '<td>' + (p.categoria || '—') + '</td>' +
+        '<td>' + (p.campana || '—') + '</td>' +
         '<td class="desc-txt">' + p.descripcion_competidor + '</td>' +
-        '<td class="price">' + (p.precio_competidor != null ? 'Bs ' + p.precio_competidor : '—') + '</td>' +
-        '<td class="desc-txt" style="font-size:11.5px;color:var(--muted);">' + fotoAzzortiHtml + p.comparacion + '</td>' +
-        '<td class="price">' + (p.precio_azzorti != null ? 'Bs ' + p.precio_azzorti : '—') + '</td>' +
+        '<td class="price">' + (p.precio_competidor != null ? 'Bs ' + p.precio_competidor.toFixed(2) : '—') + '</td>' +
+        '<td>' + fotoAzzortiHtml + '</td>' +
+        '<td>' + campanaAzzortiTxt + '</td>' +
+        '<td class="desc-txt" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + referenteTxt.replace(/"/g,'') + '">' + referenteTxt + '</td>' +
+        '<td class="price">' + precioAzzortiTxt + '</td>' +
+        '<td>' + variacionHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+    if(!lista.length){
+      tbody.innerHTML = '<tr><td colspan="11" style="color:var(--muted);font-size:12px;padding:16px;">Sin datos para esta combinación de filtros.</td></tr>';
+    }
+  }
+
+  function _pintarProductosEstrella(){
+    // Vive en el Dashboard, debajo de EN VIVO - se filtra con los mismos
+    // Competidor/Campaña/Categoría/Línea de arriba, igual que esa tabla.
+    const marcaVdVal = document.getElementById('sel-marca').value;
+    const campanaVdVal = document.getElementById('sel-campana-vd').value;
+    const catVdVal = document.getElementById('sel-categoria-vd').value;
+    const lineaVdVal = document.getElementById('sel-linea-vd').value;
+    const lista = _ultimaListaEstrella.filter(function(p){
+      const okMarca = (marcaVdVal === 'todas') || _coincideAprox(p.competidor, marcaVdVal);
+      const okCampana = (campanaVdVal === 'todas') || _normalizar(p.campana) === _normalizar(campanaVdVal);
+      const okCat = (catVdVal === 'todas') || _coincideAprox(p.categoria, catVdVal);
+      const okLinea = (lineaVdVal === 'todas') || _calcularLinea(p.categoria, p.competidor, 'VentaDirecta') === lineaVdVal;
+      return okMarca && okCampana && okCat && okLinea;
+    }).sort(function(a, b){
+      const ca = _normalizar(a.competidor), cb = _normalizar(b.competidor);
+      if(ca !== cb) return ca < cb ? -1 : 1;
+      return _normalizar(a.campana) < _normalizar(b.campana) ? -1 : 1;
+    });
+    const tbody = document.getElementById('est-tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    lista.forEach(function(p){
+      const claseVar = (p.delta_pct == null) ? 'pending' : (p.delta_pct >= 0 ? 'up' : 'down');
+      const variacionHtml = (p.delta_pct == null)
+        ? '<span class="variation pending">—</span>'
+        : '<span class="variation ' + claseVar + '">' + p.delta_pct.toFixed(2) + '%</span>';
+      const fotoHtml = p.foto_url
+        ? '<img src="' + p.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
+          (p.competidor + ' · ' + p.descripcion_competidor).replace(/'/g,"") + '\')" ' +
+          'style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;">'
+        : '<div style="width:40px;height:40px;border-radius:6px;background:var(--paper);"></div>';
+      const fotoAzzortiHtml = p.foto_azzorti_url
+        ? '<img src="' + p.foto_azzorti_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
+          ('Azzorti · ' + (p.azzorti_referente || '')).replace(/'/g,"") + '\')" ' +
+          'style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;">'
+        : '<div style="width:40px;height:40px;border-radius:6px;background:var(--paper);"></div>';
+      const campanaAzzortiTxt = p.campana_azzorti || p.campana_anterior || '—';
+      // Referente Azzorti: siempre el texto tal cual viene en el archivo de
+      // Mercadeo (columna "Referente Azzorti") — sin homólogo fijo no es un
+      // producto puntual, pero es la explicación real de Mercadeo, no un
+      // resumen nuestro.
+      const referenteTxt = p.azzorti_referente || '—';
+      // Precio Azzorti: solo si es un precio real (homólogo fijo). Sin
+      // homólogo, el archivo solo trae el % (columna Variación) — no se
+      // inventa un precio despejándolo de ese %.
+      const precioAzzortiTxt = p.precio_azzorti != null
+        ? 'Bs ' + p.precio_azzorti.toFixed(2)
+        : (p.precio_campana_anterior != null ? 'Bs ' + p.precio_campana_anterior.toFixed(2) : '—');
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + fotoHtml + '</td>' +
+        '<td><span class="brand-pill">' + p.competidor + '</span></td>' +
+        '<td>' + (p.categoria || '—') + '</td>' +
+        '<td>' + (p.campana || '—') + '</td>' +
+        '<td class="desc-txt">' + p.descripcion_competidor + '</td>' +
+        '<td class="price">' + (p.precio_competidor != null ? 'Bs ' + p.precio_competidor.toFixed(2) : '—') + '</td>' +
+        '<td>' + fotoAzzortiHtml + '</td>' +
+        '<td>' + campanaAzzortiTxt + '</td>' +
+        '<td class="desc-txt" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + referenteTxt.replace(/"/g,'') + '">' + referenteTxt + '</td>' +
+        '<td class="price">' + precioAzzortiTxt + '</td>' +
         '<td>' + variacionHtml + '</td>';
       tbody.appendChild(tr);
     });
@@ -1571,10 +1698,15 @@
 
   function _asegurarOpcion(selectId, valor, etiqueta){
     var sel = document.getElementById(selectId);
-    var existente = Array.from(sel.options).find(function(o){ return o.value === valor; });
+    // Comparacion sin importar mayusculas/acentos (_normalizar) - el
+    // archivo de Mercadeo trae los competidores en MAYUSCULAS ("ESIKA")
+    // mientras que las opciones estaticas del mockup estan en formato
+    // normal ("Esika"); comparar con === los trataba como 2 competidores
+    // distintos y duplicaba la opcion en el filtro.
+    var existente = Array.from(sel.options).find(function(o){ return _normalizar(o.value) === _normalizar(valor); });
     if(!existente){
       var op = document.createElement('option');
-      op.value = valor; op.textContent = '🔴 ' + etiqueta;
+      op.value = valor; op.textContent = etiqueta;
       sel.appendChild(op);
       // Las campañas reales tambien se ofrecen como sugerencia al escribir
       // en los campos "Campaña" de subir catalogo / importar productos
@@ -1595,7 +1727,7 @@
       // en un momento distinto, armando una combinación sin datos reales
       // detrás). Quien llama a esta función decide cuándo seleccionar
       // AMBOS selectores relacionados juntos, en el mismo momento.
-      existente.textContent = '🔴 ' + etiqueta;
+      existente.textContent = etiqueta;
     }
   }
 
@@ -1637,7 +1769,7 @@
         '<span class="cat-policy">Sincronizado automáticamente desde la app M1</span>' +
       '</div>' +
       '<table>' +
-        '<thead><tr><th style="width:66px;">Foto</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio</th><th>SKU</th><th>Homologación Azzorti</th><th>Variación</th></tr></thead>' +
+        '<thead><tr><th style="width:66px;">Foto</th><th>Competidor</th><th style="width:70px;">Punto</th><th>Descripción</th><th>Precio Competidor</th><th>SKU Azzorti</th><th>Homologación Azzorti</th><th>Precio Azzorti</th><th>Variación</th></tr></thead>' +
         '<tbody></tbody>' +
       '</table>';
     // Se inserta ordenado alfabéticamente por categoría junto a los demás
@@ -1683,6 +1815,7 @@
       // dentro de la vista de Retail también. Se separa por canal primero.
       const listaRetail = lista.filter(function(c){ return c.canal !== 'Venta Directa'; });
       const listaVD = lista.filter(function(c){ return c.canal === 'Venta Directa'; });
+      _ultimaListaRetailLive = listaRetail;
 
       // Agrupa por proveedor + categoría + campaña, y arma la tabla de cada
       // grupo desde cero. Antes la campaña no formaba parte de la llave -
@@ -1737,6 +1870,8 @@
               (c.competidor||'?').substring(0,3).toUpperCase() + '</div>';
           let homologHtml = '<span class="variation pending">Sin homologar aún</span>';
           let variacionHtml = '—';
+          let skuAzzortiHtml = '—';
+          let precioAzzortiHtml = '—';
           if (c.homologacion){
             const h = c.homologacion;
             const claseVar = h.alerta_generica ? 'up' : 'down';
@@ -1745,20 +1880,17 @@
               ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzorti.replace(/'/g,"") + '\')" ' +
                 'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
               : '';
-            // Antes solo se mostraba nombre/precio/variación — se agrega el
-            // SKU real de Azzorti y la página del catálogo cuando existe.
+            // Misma estructura que Venta Directa: solo el nombre aquí — el
+            // SKU y el precio de Azzorti ya tienen su propia columna, no
+            // hace falta repetirlos en esta celda.
             homologHtml =
               '<div style="display:flex;align-items:center;">' + fotoAzzortiHtml +
-              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
-              '<br><span style="font-size:10.5px;color:#6B7280;">SKU: ' + h.azzorti_sku +
-              (h.pagina_catalogo ? ' · Pág. ' + h.pagina_catalogo : '') + '</span><br>' +
-              '<span class="price">Bs ' + h.precio_azzorti + '</span></div></div>';
-            // La variación antes iba pegada dentro de la celda de
-            // homologación — ahora es su propia columna (el encabezado
-            // "Variación" ya lo dice, no hace falta repetirlo en la celda).
+              '<b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b></div>';
             variacionHtml =
               '<span class="variation ' + claseVar + '">' + h.delta_pct + '%</span>' +
               (h.alerta_generica ? ' ⚠️' : '');
+            skuAzzortiHtml = h.azzorti_sku || '—';
+            precioAzzortiHtml = 'Bs ' + h.precio_azzorti;
           } else if (c.vs_campana_anterior){
             // Pendiente 3: sin homologación, se compara contra la misma
             // captura de la campaña anterior — antes esto solo pasaba en
@@ -1773,22 +1905,17 @@
               '<span class="variation ' + claseVarAnterior + '">' + va.delta_pct + '%</span>' +
               (va.alerta_generica ? ' ⚠️' : '');
           }
-          // Columna SKU: el de la competencia (si lo digitaron) y, una vez
-          // homologado, también el código Azzorti equivalente — antes solo
-          // se veía el de la competencia, casi siempre vacío.
-          const skuHtml = [
-            c.sku ? c.sku : null,
-            c.homologacion ? 'Azzorti: ' + c.homologacion.azzorti_sku : null,
-          ].filter(Boolean).join('<br>') || '—';
           const tr = document.createElement('tr');
           tr.style.background = '#E8EFFE';
           tr.innerHTML =
             '<td><div class="photo-cell">' + fotoHtml + '</div></td>' +
+            '<td><span class="brand-pill">' + (c.competidor || '—') + '</span></td>' +
             '<td><span class="tier ' + tierClase + '">' + (c.puntoPrecio || '—') + '</span></td>' +
             '<td class="desc-txt">' + desc + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
-            '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuHtml + '</td>' +
+            '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiHtml + '</td>' +
             '<td class="desc-txt">' + homologHtml + '</td>' +
+            '<td class="price">' + precioAzzortiHtml + '</td>' +
             '<td>' + variacionHtml + '</td>';
           tbody.appendChild(tr);
         });
@@ -1852,6 +1979,8 @@
           const nombreProducto = c.descripcion || '—';
           let homologVd = '<span class="variation pending">Sin homologar aún</span>';
           let variacionVd = '—';
+          let skuAzzortiVd = '—';
+          let precioAzzortiVd = '—';
           if (c.homologacion){
             const h = c.homologacion;
             const claseVarVd = h.alerta_generica ? 'up' : 'down';
@@ -1860,17 +1989,30 @@
               ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzortiVd.replace(/'/g,"") + '\')" ' +
                 'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
               : '';
+            // Solo el nombre aquí — el SKU y el precio de Azzorti ya tienen
+            // su propia columna, no hace falta repetirlos en esta celda.
             homologVd =
               '<div style="display:flex;align-items:center;">' + fotoAzzortiVd +
-              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
-              '<br><span style="font-size:10.5px;color:#6B7280;">SKU: ' + h.azzorti_sku +
-              (h.pagina_catalogo ? ' · Pág. ' + h.pagina_catalogo : '') + '</span><br>' +
-              '<span class="price">Bs ' + h.precio_azzorti + '</span></div></div>';
-            // Misma columna aparte que en Retail — sin repetir el rótulo,
-            // que ya está en el encabezado de la columna.
+              '<b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b></div>';
             variacionVd =
               '<span class="variation ' + claseVarVd + '">' + h.delta_pct + '%</span>' +
               (h.alerta_generica ? ' ⚠️' : '');
+            skuAzzortiVd = h.azzorti_sku || '—';
+            precioAzzortiVd = 'Bs ' + h.precio_azzorti;
+          } else if (c.vs_campana_anterior){
+            // Mismo criterio que Retail (Pendiente 3): sin homologación con
+            // Azzorti, se compara contra el precio de la misma captura
+            // (mismo competidor + descripción) de la campaña anterior.
+            const va = c.vs_campana_anterior;
+            const claseVarAnteriorVd = va.alerta_generica ? 'up' : 'down';
+            homologVd =
+              '<span class="desc-txt" style="font-size:11.5px;color:#6B7280;">' +
+              'Sin homólogo Azzorti — vs. campaña ' + va.campana_anterior +
+              ' (Bs ' + va.precio_anterior + ')</span>';
+            variacionVd =
+              '<span class="variation ' + claseVarAnteriorVd + '">' + va.delta_pct + '%</span>' +
+              (va.alerta_generica ? ' ⚠️' : '');
+            precioAzzortiVd = 'Bs ' + va.precio_anterior;
           }
           const trVd = document.createElement('tr');
           trVd.style.background = '#F6EEF5';
@@ -1880,10 +2022,13 @@
             '<td><span class="brand-pill">' + (c.categoria || '—') + '</span></td>' +
             '<td class="desc-txt">' + nombreProducto + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
+            '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiVd + '</td>' +
             '<td class="desc-txt">' + homologVd + '</td>' +
+            '<td class="price">' + precioAzzortiVd + '</td>' +
             '<td>' + variacionVd + '</td>';
           vdTbody.appendChild(trVd);
         });
+
       }
 
       // Refresca la vista según lo que esté seleccionado ahora mismo
@@ -1902,6 +2047,8 @@
   cargarCatalogos();
   cargarProductosEstrella();
   cargarUmbralAlerta();
+  cargarTipoCambio();
+  _pintarPromedioPorCategoria();
   setInterval(sincronizarDashboard, 6000);
 </script>
 

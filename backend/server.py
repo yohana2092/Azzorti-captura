@@ -180,6 +180,13 @@ CREATE TABLE IF NOT EXISTS producto_estrella (
     foto_competidor TEXT,
     foto_azzorti TEXT,
     campana TEXT NOT NULL,
+    -- Campaña que trae el archivo de Mercadeo del lado Azzorti (columna J):
+    -- en HOMOLOGO_FIJO suele ser la misma campaña actual; en
+    -- VS_CAMPANA_ANTERIOR es la campaña contra la que se comparo (hoy, C-09).
+    campana_azzorti TEXT,
+    -- % de variacion que Mercadeo ya calculo a mano en el archivo para las
+    -- filas VS_CAMPANA_ANTERIOR (no hay precio Azzorti que calcular ahi).
+    delta_pct_archivo REAL,
     actualizado_en TEXT NOT NULL,
     UNIQUE (competidor, descripcion_competidor, campana)
 );
@@ -281,43 +288,43 @@ def _umbral_alerta_actual(conn) -> float:
 AZZORTI_PRODUCTOS_SEED = [
     # sku, categoria, descripcion, color, composicion, silueta, manga, precio, campana, pagina_catalogo, foto_archivo
     # Blusas Femeninas (subgrupo real "201 RE-BLUSAS FEM")
-    ("R4874", "Blusas Femeninas", "Blusa Ref.R4874", "Verde", "Poliéster spandex acanalado", "Semiajustada", "Manga corta", 179.99, "C-10", 7, "catalogo_c10/pagina7.png"),
-    ("R6844", "Blusas Femeninas", "Blusa Ref.R6844", None, "Tela tipo gamuza", "Semiajustada", "Manga corta", 209.99, "C-10", 17, "catalogo_c10/pagina17.png"),
-    ("R6856", "Blusas Femeninas", "Blusa Ref.R6856", None, "Tejido doble punto pesado en poliéster algodón con spandex", "Semiajustada", "Manga corta", 189.99, "C-10", 18, "catalogo_c10/pagina18.png"),
+    ("R4874", "Blusas Femeninas", "Blusa Ref.R4874", "Verde", "Poliéster spandex acanalado", "Semiajustada", "Manga corta", 179.99, "C10 2026", 7, "catalogo_c10/pagina7.png"),
+    ("R6844", "Blusas Femeninas", "Blusa Ref.R6844", None, "Tela tipo gamuza", "Semiajustada", "Manga corta", 209.99, "C10 2026", 17, "catalogo_c10/pagina17.png"),
+    ("R6856", "Blusas Femeninas", "Blusa Ref.R6856", None, "Tejido doble punto pesado en poliéster algodón con spandex", "Semiajustada", "Manga corta", 189.99, "C10 2026", 18, "catalogo_c10/pagina18.png"),
     # Camisetas Femeninas (subgrupo real "207 RE-CAMISETAS FEM") — foto
     # recortada individual, no la página completa (las 3 comparten página
     # y mostrar la misma imagen para las 3 confundía la comparación). El
     # catálogo real llama a esto "Polera", no "Camiseta" — se corrige la
     # descripción para que coincida con el nombre real del producto.
-    ("R4484", "Camisetas Femeninas", "Polera Ref.R4484", "Verde", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C-10", 24, "catalogo_c10/crop_R4484.png"),
-    ("R6402", "Camisetas Femeninas", "Polera Ref.R6402", "Beige", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C-10", 24, "catalogo_c10/crop_R6402.png"),
+    ("R4484", "Camisetas Femeninas", "Polera Ref.R4484", "Verde", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C10 2026", 24, "catalogo_c10/crop_R4484.png"),
+    ("R6402", "Camisetas Femeninas", "Polera Ref.R6402", "Beige", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C10 2026", 24, "catalogo_c10/crop_R6402.png"),
     # SKU real = talla M (893460); "Betina" tiene 4 codigos, uno por talla
     # (S=277009, M=893460, L=269897, XL=678779) y la app no captura talla
     # todavia, asi que se usa M como representativo (ver nota pendiente).
-    ("893460", "Camisetas Femeninas", "Polera Betina", "Blanco", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C-10", 24, "catalogo_c10/crop_Betina.png"),
+    ("893460", "Camisetas Femeninas", "Polera Betina", "Blanco", "Poliéster algodón", "Semiajustada", "Manga corta", 139.99, "C10 2026", 24, "catalogo_c10/crop_Betina.png"),
     # Camisetas Masculinas (subgrupo real "207 RE-CAMISETAS MSC"). Foto
     # individual recortada (antes las 4 compartian la pagina completa, lo
     # que las hacia indistinguibles en pantalla). Pagina real impresa = 89,
     # no 91: el indice del PDF trae un desfase de 2 respecto al numero
     # impreso en el catalogo (mismo desfase encontrado en "Betina").
-    ("R4808", "Camisetas Masculinas", "Polera Ref.R4808", "Naranja", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C-10", 89, "catalogo_c10/crop_R4808.png"),
-    ("R4326", "Camisetas Masculinas", "Polera Ref.R4326", "Amarillo", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C-10", 89, "catalogo_c10/crop_R4326.png"),
-    ("R4999", "Camisetas Masculinas", "Polera Ref.R4999", "Verde", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C-10", 89, "catalogo_c10/crop_R4999.png"),
-    ("R4813", "Camisetas Masculinas", "Polera Ref.R4813", "Verde claro", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C-10", 89, "catalogo_c10/crop_R4813.png"),
+    ("R4808", "Camisetas Masculinas", "Polera Ref.R4808", "Naranja", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C10 2026", 89, "catalogo_c10/crop_R4808.png"),
+    ("R4326", "Camisetas Masculinas", "Polera Ref.R4326", "Amarillo", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C10 2026", 89, "catalogo_c10/crop_R4326.png"),
+    ("R4999", "Camisetas Masculinas", "Polera Ref.R4999", "Verde", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C10 2026", 89, "catalogo_c10/crop_R4999.png"),
+    ("R4813", "Camisetas Masculinas", "Polera Ref.R4813", "Verde claro", "Algodón 100%", "Semiajustada", "Manga corta", 159.99, "C10 2026", 89, "catalogo_c10/crop_R4813.png"),
     # Polos Masculinos (subgrupo real "Polos", pág. impresa 76) — categoria
     # nueva, distinta de "Camisetas Masculinas": son polos con cuello y
     # botones/cierre, precio real Bs 249.99 (mas caro que la polera lisa de
     # Bs 159.99). No existian en el catalogo de demo — se agregan porque una
     # captura real de un polo no tenia con que homologar bien (todo lo que
     # habia era poleras cuello redondo, similitud baja aunque fuera correcto).
-    ("R6807", "Polos Masculinos", "Polo Ref.R6807", "Negro", "Poliéster algodón (piqué)", "Semiajustada", "Manga corta", 249.99, "C-10", 76, "catalogo_c10/crop_R6807.png"),
-    ("R6808", "Polos Masculinos", "Polo Ref.R6808", "Blanco", "Poliéster (lanilla)", "Semiajustada", "Manga corta", 249.99, "C-10", 76, "catalogo_c10/crop_R6808.png"),
+    ("R6807", "Polos Masculinos", "Polo Ref.R6807", "Negro", "Poliéster algodón (piqué)", "Semiajustada", "Manga corta", 249.99, "C10 2026", 76, "catalogo_c10/crop_R6807.png"),
+    ("R6808", "Polos Masculinos", "Polo Ref.R6808", "Blanco", "Poliéster (lanilla)", "Semiajustada", "Manga corta", 249.99, "C10 2026", 76, "catalogo_c10/crop_R6808.png"),
     # Crop Top Femenino (subgrupo real "233 RE-CROPTOP FEM", pág. 6) —
     # categoría que faltaba por completo; el sistema nunca podía sugerirla
     # porque la app tampoco la tenía como opción de categoría.
-    ("R5323", "Crop Top Femenino", "Crop Top Ref.R5323", "Vino", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C-10", 6, "catalogo_c10/crop_R5323.png"),
-    ("RM1060", "Crop Top Femenino", "Crop Top Ref.RM1060", "Verde claro", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C-10", 6, "catalogo_c10/crop_RM1060.png"),
-    ("R5325", "Crop Top Femenino", "Crop Top Ref.R5325", "Verde", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C-10", 6, "catalogo_c10/crop_R5325.png"),
+    ("R5323", "Crop Top Femenino", "Crop Top Ref.R5323", "Vino", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C10 2026", 6, "catalogo_c10/crop_R5323.png"),
+    ("RM1060", "Crop Top Femenino", "Crop Top Ref.RM1060", "Verde claro", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C10 2026", 6, "catalogo_c10/crop_RM1060.png"),
+    ("R5325", "Crop Top Femenino", "Crop Top Ref.R5325", "Verde", "Tejido de punto piel de durazno poliéster spandex", "Ajustada", "Sin manga", 119.99, "C10 2026", 6, "catalogo_c10/crop_R5325.png"),
     # Fragancias (Hito 2 / Venta Directa) — de "INDEX PRECIO SECTOR VENTA
     # DIRECTA1.Manual.xlsx", hoja "Azzorti vs Natura y Esika", sección
     # AZZORTI (precio real del ciclo C05). Foto real extraída de la misma
@@ -332,10 +339,10 @@ AZZORTI_PRODUCTOS_SEED = [
     # solo "Primrose"; precio tambien corregido a 219.99). Virtuossa NO
     # aparece en este catalogo (busqueda exhaustiva de texto) - puede que ya
     # no este en esta campana; codigo sigue pendiente de confirmar con Yohana.
-    ("VIRTUOSSA", "Fragancias", "Virtuossa 60 ML", None, None, None, None, 219.99, "VD-C05", None, "venta_directa/virtuossa.png"),
-    ("977213", "Fragancias", "Prim Rose Ama 50 ML", None, None, None, None, 219.99, "VD-C05", None, "venta_directa/primrose.png"),
-    ("755712", "Fragancias", "Short Distance 80 ML", None, None, None, None, 179.99, "VD-C05", None, "venta_directa/shortdistance.png"),
-    ("277983", "Fragancias", "Strom Poder Energía", None, None, None, None, 229.99, "VD-C05", None, "venta_directa/strom.png"),
+    ("VIRTUOSSA", "Fragancias", "Virtuossa 60 ML", None, None, None, None, 219.99, "C05 2026", None, "venta_directa/virtuossa.png"),
+    ("977213", "Fragancias", "Prim Rose Ama 50 ML", None, None, None, None, 219.99, "C05 2026", None, "venta_directa/primrose.png"),
+    ("755712", "Fragancias", "Short Distance 80 ML", None, None, None, None, 179.99, "C05 2026", None, "venta_directa/shortdistance.png"),
+    ("277983", "Fragancias", "Strom Poder Energía", None, None, None, None, 229.99, "C05 2026", None, "venta_directa/strom.png"),
 ]
 
 
@@ -370,6 +377,14 @@ def init_db() -> None:
             pass  # ya existe
         try:
             conn.execute("ALTER TABLE producto_estrella ADD COLUMN foto_azzorti TEXT")
+        except sqlite3.OperationalError:
+            pass  # ya existe
+        try:
+            conn.execute("ALTER TABLE producto_estrella ADD COLUMN campana_azzorti TEXT")
+        except sqlite3.OperationalError:
+            pass  # ya existe
+        try:
+            conn.execute("ALTER TABLE producto_estrella ADD COLUMN delta_pct_archivo REAL")
         except sqlite3.OperationalError:
             pass  # ya existe
         # catalogo_oferta es cache de OCR (se regenera con POST
@@ -463,6 +478,10 @@ class UmbralAlertaIn(BaseModel):
     umbral_pct: float
 
 
+class TipoCambioIn(BaseModel):
+    tc: float
+
+
 @app.get("/configuracion/umbral-alerta")
 def obtener_umbral_alerta():
     with get_conn() as conn:
@@ -486,6 +505,29 @@ def actualizar_umbral_alerta(body: UmbralAlertaIn):
             (str(body.umbral_pct), datetime.now(timezone.utc).isoformat()),
         )
     return {"umbral_pct": body.umbral_pct, "mensaje": "Umbral actualizado."}
+
+
+@app.get("/configuracion/tipo-cambio")
+def obtener_tipo_cambio():
+    with get_conn() as conn:
+        fila = conn.execute("SELECT valor FROM configuracion WHERE clave = 'tipo_cambio'").fetchone()
+    return {"tc": float(fila["valor"]) if fila else 6.96}
+
+
+@app.post("/configuracion/tipo-cambio")
+def actualizar_tipo_cambio(body: TipoCambioIn):
+    """Mismo patron que el umbral de alerta (Pendiente 3): un solo valor
+    editable desde el dashboard, guardado en 'configuracion'. Aplica hacia
+    adelante - no recalcula conversiones ya mostradas de campanas pasadas."""
+    if body.tc <= 0:
+        raise HTTPException(400, "El tipo de cambio debe ser mayor a 0.")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO configuracion (clave, valor, actualizado_en) VALUES ('tipo_cambio', ?, ?) "
+            "ON CONFLICT (clave) DO UPDATE SET valor=excluded.valor, actualizado_en=excluded.actualizado_en",
+            (str(body.tc), datetime.now(timezone.utc).isoformat()),
+        )
+    return {"tc": body.tc, "mensaje": "Tipo de cambio actualizado."}
 
 
 def _guardar_foto_captura(competidor: str, foto_b64: str) -> str:
@@ -557,6 +599,11 @@ def _texto(valor) -> str:
     return valor.strip()
 
 
+# Formato estandar de campaña en todo el sistema: "C10 2026" (2 digitos +
+# año) - los archivos viejos traian "C-10" (sin año, con guion).
+_CAMPANA_ESTANDAR_RE = re.compile(r"^C\d{2} \d{4}$")
+
+
 def _numero(valor):
     """Solo acepta numeros reales - una celda con #VALUE! o vacia se
     guarda como None (precio aun no cargado), nunca se inventa un 0."""
@@ -568,11 +615,15 @@ def _numero(valor):
 def _parsear_productos_estrella(contenido: bytes) -> list[dict]:
     """Lee el Excel real de 'productos estrella' que maneja Mercadeo (ver
     memoria del proyecto: 'Comparativo fragancias azzorti vs competencia').
-    No asume una posicion fija de columnas de precio (las agrega Yohana
-    despues) - las busca por texto de encabezado; competidor/categoria/
-    descripcion/referente si asumen la posicion de su archivo actual
-    (columnas A-E), porque el encabezado de A y B es ambiguo (dice
-    'CATEGORIA' en ambas) y no se puede distinguir solo por texto."""
+    El archivo real repite encabezados iguales dos veces ("PRECIO", "FOTO",
+    "CAMPAÑA" aparecen una vez para el lado del competidor y otra para el
+    lado Azzorti) - buscarlos solo por texto los confundia (el ultimo que
+    calzaba se quedaba con la columna, pisando al primero). Por eso, salvo
+    "descripcion" y "referente" (las unicas dos columnas con texto que no
+    se repite), el resto de columnas se ubican por POSICION relativa a esas
+    dos, que es fija en el archivo real: Competidor(A) Categoria(B)
+    Descripcion(C) Foto(D) Precio(E) Campaña(F) Referente(G) Foto(H)
+    Precio(I) Campaña(J)."""
     wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
     filas: list[dict] = []
     for ws in wb.worksheets:
@@ -591,27 +642,24 @@ def _parsear_productos_estrella(contenido: bytes) -> list[dict]:
 
         col_descripcion = None
         col_referente = None
-        col_precio_competidor = None
-        col_precio_azzorti = None
-        col_foto = None
         for c in range(1, ws.max_column + 1):
             texto = _texto(ws.cell(fila_encabezado, c).value).lower()
             if texto.startswith("descri"):
                 col_descripcion = c
-            elif "referente" in texto or "azzorti" in texto:
-                if "precio" in texto:
-                    col_precio_azzorti = c
-                else:
-                    col_referente = c
-            elif "precio" in texto:
-                col_precio_competidor = c
-            elif "foto" in texto:
-                col_foto = c
+            elif ("referente" in texto or "azzorti" in texto) and "precio" not in texto:
+                col_referente = c
         if not col_descripcion or not col_referente:
             continue  # encabezados que no calzan con el formato esperado
 
         col_competidor = 1  # columna A - siempre el competidor en el archivo real
         col_categoria = col_descripcion - 1
+        col_foto = col_descripcion + 1
+        col_precio_competidor = col_descripcion + 2
+        col_campana_competidor = col_descripcion + 3
+        col_foto_azzorti = col_referente + 1
+        col_precio_azzorti = col_referente + 2
+        col_campana_azzorti = col_referente + 3
+        tiene_bloque_azzorti = col_campana_azzorti <= ws.max_column
 
         ultimo_competidor = None
         for r in range(fila_encabezado + 1, ws.max_row + 1):
@@ -624,21 +672,39 @@ def _parsear_productos_estrella(contenido: bytes) -> list[dict]:
                 continue  # fila vacia/incompleta - se ignora, no se inventa nada
 
             es_vs_anterior = "campaña anterior" in referente.lower() or "campana anterior" in referente.lower()
+            valor_col_azzorti = _numero(ws.cell(r, col_precio_azzorti).value) if tiene_bloque_azzorti else None
             filas.append({
                 "competidor": competidor,
                 "categoria": _texto(ws.cell(r, col_categoria).value) if col_categoria >= 1 else None,
                 "descripcion_competidor": descripcion,
                 "modo": "VS_CAMPANA_ANTERIOR" if es_vs_anterior else "HOMOLOGO_FIJO",
-                "azzorti_referente": None if es_vs_anterior else referente,
-                "precio_competidor": _numero(ws.cell(r, col_precio_competidor).value) if col_precio_competidor else None,
-                "precio_azzorti": _numero(ws.cell(r, col_precio_azzorti).value) if col_precio_azzorti else None,
+                # Se guarda el texto tal cual viene en el archivo en los dos
+                # modos - en VS_CAMPANA_ANTERIOR no es un producto puntual,
+                # pero es la explicación real de Mercadeo (ej. "comparar con
+                # la campaña anterior, fragancias de un punto de precio
+                # mayor al de azzorti") y no hay que reemplazarla por un
+                # texto genérico nuestro.
+                "azzorti_referente": referente,
+                "precio_competidor": _numero(ws.cell(r, col_precio_competidor).value),
+                "campana_competidor": _texto(ws.cell(r, col_campana_competidor).value) or None,
+                # La columna se llama "Precio" en el archivo en los dos
+                # modos - se respeta como precio en los dos y el % se
+                # calcula en el sistema comparandolo contra el precio del
+                # competidor, no se toma un % ya calculado del archivo.
+                "precio_azzorti": valor_col_azzorti,
+                # Algunos archivos traen esta columna en formato viejo
+                # ("C-10", sin año) en vez del estandar ("C10 2026") - se
+                # descarta si no calza con el estandar en vez de guardar un
+                # valor inconsistente; el llamador usa la campaña del
+                # formulario como respaldo (ver /productos-estrella/importar).
+                "campana_azzorti": (
+                    _texto(ws.cell(r, col_campana_azzorti).value)
+                    if tiene_bloque_azzorti and _CAMPANA_ESTANDAR_RE.match(_texto(ws.cell(r, col_campana_azzorti).value))
+                    else None
+                ),
                 "_fila_excel": r,
                 "_col_foto": col_foto,
-                # La foto del referente Azzorti (si viene incrustada) no
-                # esta en la columna del texto sino en la que le sigue -
-                # en el archivo real, E tiene el nombre y F (sin encabezado,
-                # con el "#VALUE!" de una formula rota) trae la imagen.
-                "_col_foto_azzorti": col_referente + 1,
+                "_col_foto_azzorti": col_foto_azzorti,
             })
     return filas
 
@@ -747,6 +813,63 @@ def _extraer_fotos_por_fila(contenido: bytes, nombre_hoja: Optional[str] = None)
     return fotos
 
 
+def _extraer_fotos_ancladas_por_celda(contenido: bytes, nombre_hoja: Optional[str] = None) -> dict[tuple[int, int], bytes]:
+    """Devuelve {(fila, columna) 1-based: bytes_de_imagen} para dibujos
+    flotantes (twoCellAnchor/oneCellAnchor) que SI traen columna en su
+    anclaje <xdr:from><xdr:col> - a diferencia de _extraer_fotos_por_fila
+    (que ignora la columna a proposito y se queda solo con la primera
+    imagen de cada fila, pensado para el caso de una sola foto por fila),
+    esta función distingue 2 fotos ancladas a la MISMA fila pero en
+    columnas distintas (ej. foto del competidor en columna D y foto de
+    Azzorti en columna H de la misma fila) - antes la segunda se perdia
+    silenciosamente."""
+    fotos: dict[tuple[int, int], bytes] = {}
+    try:
+        with zipfile.ZipFile(io.BytesIO(contenido)) as z:
+            nombres = set(z.namelist())
+            if nombre_hoja is not None:
+                sheet_path = _ruta_hoja_por_nombre(z, nombre_hoja)
+                drawing_only = _drawing_de_hoja(z, sheet_path) if sheet_path else None
+                drawing_paths = [drawing_only] if drawing_only else []
+            else:
+                drawing_paths = sorted(n for n in nombres if re.fullmatch(r"xl/drawings/drawing\d+\.xml", n))
+            for drawing_path in drawing_paths:
+                rels_path = drawing_path.replace("drawings/", "drawings/_rels/") + ".rels"
+                if rels_path not in nombres:
+                    continue
+                rel_map = {
+                    rel.get("Id"): rel.get("Target")
+                    for rel in ET.fromstring(z.read(rels_path))
+                }
+                drawing_xml = ET.fromstring(z.read(drawing_path))
+                anchors = drawing_xml.findall(f"{_XDR_NS}twoCellAnchor") + drawing_xml.findall(f"{_XDR_NS}oneCellAnchor")
+                for anchor in anchors:
+                    from_el = anchor.find(f"{_XDR_NS}from")
+                    if from_el is None:
+                        continue
+                    fila_xml = from_el.find(f"{_XDR_NS}row")
+                    col_xml = from_el.find(f"{_XDR_NS}col")
+                    if fila_xml is None or fila_xml.text is None or col_xml is None or col_xml.text is None:
+                        continue
+                    fila_excel = int(fila_xml.text) + 1
+                    col_excel = int(col_xml.text) + 1  # xdr es 0-index, Excel es 1-index
+                    if (fila_excel, col_excel) in fotos:
+                        continue
+                    blip = anchor.find(f".//{_A_NS}blip")
+                    if blip is None:
+                        continue
+                    embed_id = blip.get(f"{_R_NS}embed")
+                    target = rel_map.get(embed_id)
+                    if not target:
+                        continue
+                    media_path = "xl/" + target.replace("../", "")
+                    if media_path in nombres:
+                        fotos[(fila_excel, col_excel)] = z.read(media_path)
+    except Exception:
+        pass  # best-effort: si algo falla, se importa sin estas fotos en vez de tumbar la importacion
+    return fotos
+
+
 def _extraer_fotos_por_celda(contenido: bytes, nombre_hoja: Optional[str] = None) -> dict[tuple[int, int], bytes]:
     """Devuelve {(fila, columna) 1-based: bytes_de_imagen} para fotos
     insertadas como "imagen en celda" (rich value de Excel, distinto al
@@ -760,49 +883,58 @@ def _extraer_fotos_por_celda(contenido: bytes, nombre_hoja: Optional[str] = None
     Si se pasa nombre_hoja, solo se buscan celdas vm= dentro de esa hoja -
     metadata.xml/rdrichvalue.xml/richValueRel.xml son compartidos por todo
     el libro (esos si aplican a cualquier hoja por igual), pero las celdas
-    vm= de cada hoja son propias de esa hoja."""
+    vm= de cada hoja son propias de esa hoja.
+
+    Ademas de "imagen en celda" (rich value), tambien se suman aqui los
+    dibujos flotantes que SI tienen columna en su anclaje (ver
+    _extraer_fotos_ancladas_por_celda) - un mismo archivo puede tener la
+    foto del competidor como dibujo flotante y la de Azzorti tambien como
+    dibujo flotante en otra columna (no siempre es "rich value"), y antes
+    solo se buscaba la tecnica rich value aqui, dejando la de dibujo
+    flotante sin distinguir columna (ver bug real: Estrella.xlsx trae las
+    2 fotos como dibujo con columna, y la de Azzorti se perdia)."""
     fotos: dict[tuple[int, int], bytes] = {}
     try:
         with zipfile.ZipFile(io.BytesIO(contenido)) as z:
             nombres = set(z.namelist())
-            if "xl/metadata.xml" not in nombres or "xl/richData/rdrichvalue.xml" not in nombres:
-                return fotos
-            meta_xml = z.read("xl/metadata.xml").decode("utf-8")
-            bk_list = re.findall(r"<bk>.*?<xlrd:rvb i=\"(\d+)\"/>.*?</bk>", meta_xml, re.DOTALL)
-            rv_xml = z.read("xl/richData/rdrichvalue.xml").decode("utf-8")
-            rv_list = re.findall(r"<rv[^>]*><v>(\d+)</v>", rv_xml)
-            rel_rel_path = "xl/richData/richValueRel.xml"
-            if rel_rel_path not in nombres:
-                return fotos
-            rel_ids = re.findall(r'r:id="(rId\d+)"', z.read(rel_rel_path).decode("utf-8"))
-            rels_path = "xl/richData/_rels/richValueRel.xml.rels"
-            if rels_path not in nombres:
-                return fotos
-            rid_to_media = dict(re.findall(r'Id="(rId\d+)"[^>]*Target="\.\./media/([^"]+)"', z.read(rels_path).decode("utf-8")))
+            if "xl/metadata.xml" in nombres and "xl/richData/rdrichvalue.xml" in nombres:
+                meta_xml = z.read("xl/metadata.xml").decode("utf-8")
+                bk_list = re.findall(r"<bk>.*?<xlrd:rvb i=\"(\d+)\"/>.*?</bk>", meta_xml, re.DOTALL)
+                rv_xml = z.read("xl/richData/rdrichvalue.xml").decode("utf-8")
+                rv_list = re.findall(r"<rv[^>]*><v>(\d+)</v>", rv_xml)
+                rel_rel_path = "xl/richData/richValueRel.xml"
+                rels_path = "xl/richData/_rels/richValueRel.xml.rels"
+                if rel_rel_path in nombres and rels_path in nombres:
+                    rel_ids = re.findall(r'r:id="(rId\d+)"', z.read(rel_rel_path).decode("utf-8"))
+                    rid_to_media = dict(re.findall(r'Id="(rId\d+)"[^>]*Target="\.\./media/([^"]+)"', z.read(rels_path).decode("utf-8")))
 
-            if nombre_hoja is not None:
-                sheet_path = _ruta_hoja_por_nombre(z, nombre_hoja)
-                sheet_paths = [sheet_path] if sheet_path else []
-            else:
-                sheet_paths = sorted(n for n in nombres if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n))
-            for sheet_path in sheet_paths:
-                sheet_xml = z.read(sheet_path).decode("utf-8")
-                for letras, fila_txt, vm in re.findall(r'<c r="([A-Z]+)(\d+)"[^>]*vm="(\d+)"', sheet_xml):
-                    try:
-                        bk_idx = int(vm) - 1
-                        rvb_i = int(bk_list[bk_idx])
-                        rel_idx = int(rv_list[rvb_i])
-                        rid = rel_ids[rel_idx]
-                        media = rid_to_media.get(rid)
-                    except (IndexError, ValueError):
-                        continue
-                    if not media:
-                        continue
-                    media_path = "xl/media/" + media
-                    if media_path in nombres:
-                        fotos[(int(fila_txt), _col_letras_a_numero(letras))] = z.read(media_path)
+                    if nombre_hoja is not None:
+                        sheet_path = _ruta_hoja_por_nombre(z, nombre_hoja)
+                        sheet_paths = [sheet_path] if sheet_path else []
+                    else:
+                        sheet_paths = sorted(n for n in nombres if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n))
+                    for sheet_path in sheet_paths:
+                        sheet_xml = z.read(sheet_path).decode("utf-8")
+                        for letras, fila_txt, vm in re.findall(r'<c r="([A-Z]+)(\d+)"[^>]*vm="(\d+)"', sheet_xml):
+                            try:
+                                bk_idx = int(vm) - 1
+                                rvb_i = int(bk_list[bk_idx])
+                                rel_idx = int(rv_list[rvb_i])
+                                rid = rel_ids[rel_idx]
+                                media = rid_to_media.get(rid)
+                            except (IndexError, ValueError):
+                                continue
+                            if not media:
+                                continue
+                            media_path = "xl/media/" + media
+                            if media_path in nombres:
+                                fotos[(int(fila_txt), _col_letras_a_numero(letras))] = z.read(media_path)
     except Exception:
         pass  # best-effort: si algo falla, se importa sin estas fotos en vez de tumbar la importacion
+    # Se suman los dibujos flotantes con columna - sin pisar un hit real de
+    # "rich value" si por algun motivo coincidieran en la misma celda.
+    for clave, bytes_img in _extraer_fotos_ancladas_por_celda(contenido, nombre_hoja).items():
+        fotos.setdefault(clave, bytes_img)
     return fotos
 
 
@@ -838,8 +970,19 @@ async def importar_productos_estrella(
 
     con_foto_competidor = 0
     con_foto_azzorti = 0
+    sospechosos: list[str] = []
     with get_conn() as conn:
         for f in filas:
+            # Aviso, no bloqueo: hay filas donde la columna "Precio" del
+            # lado Azzorti trae un numero muy chico (ej. 2.86) comparado con
+            # el precio del competidor - se avisa igual, respetando el
+            # valor tal cual venga en el archivo.
+            if (
+                f["precio_azzorti"] is not None
+                and f["precio_competidor"]
+                and f["precio_azzorti"] < f["precio_competidor"] * 0.2
+            ):
+                sospechosos.append(f"{f['competidor']} · {f['descripcion_competidor']} (Bs {f['precio_azzorti']})")
             fila_excel = f["_fila_excel"]
             col_foto = f["_col_foto"]
             col_foto_azzorti = f["_col_foto_azzorti"]
@@ -862,27 +1005,43 @@ async def importar_productos_estrella(
             conn.execute(
                 """INSERT INTO producto_estrella
                 (competidor, categoria, descripcion_competidor, modo, azzorti_referente,
-                 precio_competidor, precio_azzorti, foto_competidor, foto_azzorti, campana, actualizado_en)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 precio_competidor, precio_azzorti, campana_azzorti,
+                 foto_competidor, foto_azzorti, campana, actualizado_en)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (competidor, descripcion_competidor, campana) DO UPDATE SET
                     categoria=excluded.categoria, modo=excluded.modo,
                     azzorti_referente=excluded.azzorti_referente,
                     precio_competidor=excluded.precio_competidor,
                     precio_azzorti=excluded.precio_azzorti,
+                    campana_azzorti=excluded.campana_azzorti,
                     foto_competidor=COALESCE(excluded.foto_competidor, producto_estrella.foto_competidor),
                     foto_azzorti=COALESCE(excluded.foto_azzorti, producto_estrella.foto_azzorti),
                     actualizado_en=excluded.actualizado_en""",
                 (
                     f["competidor"], f["categoria"], f["descripcion_competidor"], f["modo"],
                     f["azzorti_referente"], f["precio_competidor"], f["precio_azzorti"],
+                    # Sin campana_azzorti valida en el archivo: si es
+                    # HOMOLOGO_FIJO se asume que compara contra el catalogo
+                    # Azzorti de la campaña actual (la del formulario) - en
+                    # VS_CAMPANA_ANTERIOR no se asume nada, queda vacio.
+                    f["campana_azzorti"] or (campana if f["modo"] == "HOMOLOGO_FIJO" else None),
                     foto_competidor_nombre, foto_azzorti_nombre,
                     campana, datetime.now(timezone.utc).isoformat(),
                 ),
             )
+    mensaje = (
+        f"{len(filas)} productos estrella importados/actualizados "
+        f"({con_foto_competidor} con foto de competidor, {con_foto_azzorti} con foto Azzorti)."
+    )
+    if sospechosos:
+        mensaje += (
+            f" ⚠ {len(sospechosos)} con precio Azzorti sospechosamente bajo, revisa esa columna en el "
+            f"archivo: {'; '.join(sospechosos[:5])}" + ("..." if len(sospechosos) > 5 else "")
+        )
     return {
-        "mensaje": f"{len(filas)} productos estrella importados/actualizados "
-                   f"({con_foto_competidor} con foto de competidor, {con_foto_azzorti} con foto Azzorti).",
+        "mensaje": mensaje,
         "total": len(filas),
+        "sospechosos": sospechosos,
     }
 
 
@@ -907,24 +1066,43 @@ def listar_productos_estrella(request: Request, campana: Optional[str] = None):
                 f"{request.base_url}static/productos_estrella_fotos/{r['foto_azzorti']}"
                 if r.get("foto_azzorti") else None
             )
-            if r["modo"] == "HOMOLOGO_FIJO":
-                if r["precio_competidor"] is not None and r["precio_azzorti"]:
-                    delta = (r["precio_azzorti"] - r["precio_competidor"]) / r["precio_azzorti"] * 100
-                    r["delta_pct"] = round(delta, 1)
+            r["campana_anterior"] = r.get("campana_azzorti")
+            # El Excel trae varios decimales (ej. 4.05832032) - se redondea
+            # a 2 decimales para mostrar, tanto los precios como el %.
+            if r["precio_competidor"] is not None:
+                r["precio_competidor"] = round(r["precio_competidor"], 2)
+            if r["precio_azzorti"] is not None:
+                r["precio_azzorti"] = round(r["precio_azzorti"], 2)
+            # La columna se llama "Precio" en el archivo en los dos modos -
+            # se respeta como precio y el % se calcula igual en los dos, en
+            # vez de tratarlo distinto según modo.
+            if r["precio_competidor"] is not None and r["precio_azzorti"]:
+                delta = (r["precio_azzorti"] - r["precio_competidor"]) / r["precio_azzorti"] * 100
+                r["delta_pct"] = round(delta, 2)
+                r["precio_campana_anterior"] = None
+                if r["modo"] == "HOMOLOGO_FIJO":
                     r["comparacion"] = "vs Azzorti (" + (r["azzorti_referente"] or "") + ")"
                 else:
-                    r["delta_pct"] = None
-                    r["comparacion"] = "vs Azzorti (" + (r["azzorti_referente"] or "") + ") — falta precio"
+                    r["comparacion"] = "vs campaña anterior (" + (r["campana_azzorti"] or "") + ", " + (r["azzorti_referente"] or "") + ")"
+            elif r["modo"] == "HOMOLOGO_FIJO":
+                r["delta_pct"] = None
+                r["precio_campana_anterior"] = None
+                r["comparacion"] = "vs Azzorti (" + (r["azzorti_referente"] or "") + ") — falta precio"
             else:
+                # Archivos viejos que no traen precio en esa columna: se
+                # busca el precio de la otra campaña ya cargada para el
+                # mismo producto, como respaldo.
                 anterior = conn.execute(
-                    """SELECT precio_competidor FROM producto_estrella
+                    """SELECT precio_competidor, campana FROM producto_estrella
                     WHERE competidor = ? AND descripcion_competidor = ? AND campana != ?
                     ORDER BY actualizado_en DESC LIMIT 1""",
                     (r["competidor"], r["descripcion_competidor"], r["campana"]),
                 ).fetchone()
+                r["precio_campana_anterior"] = round(anterior["precio_competidor"], 2) if anterior and anterior["precio_competidor"] is not None else None
+                r["campana_anterior"] = anterior["campana"] if anterior else r["campana_anterior"]
                 if anterior and anterior["precio_competidor"] and r["precio_competidor"] is not None:
                     delta = (r["precio_competidor"] - anterior["precio_competidor"]) / anterior["precio_competidor"] * 100
-                    r["delta_pct"] = round(delta, 1)
+                    r["delta_pct"] = round(delta, 2)
                     r["comparacion"] = "vs campaña anterior (Bs " + str(anterior["precio_competidor"]) + ")"
                 else:
                     r["delta_pct"] = None
@@ -1267,9 +1445,8 @@ def _sugerir_homologacion_venta_directa(conn, captura: sqlite3.Row, request: Req
     # toallas y hasta texto de ingredientes de otra pagina, solo porque
     # coincidia un numero suelto en el texto OCR.
     candidatos = [p for p in todos if _candidato_coincide_categoria(captura["categoria"], p["seccion"])]
-    texto_captura = " ".join(
-        (captura[campo] or "") for campo in ("categoria", "descripcion", "caracteristicas", "detalle")
-    )
+    texto_principal = " ".join((captura["categoria"] or "", captura["descripcion"] or ""))
+    texto_secundario = " ".join((captura["caracteristicas"] or "", captura["detalle"] or ""))
 
     def _foto_url_producto(pagina: int, codigo: str) -> Optional[str]:
         ruta_foto = CATALOGO_PAGINAS_DIR / f"{catalogo['id']}_{pagina}_{codigo}.png"
@@ -1288,7 +1465,7 @@ def _sugerir_homologacion_venta_directa(conn, captura: sqlite3.Row, request: Req
                 "precio": p["precio"] or 0,
                 "pagina_catalogo": p["pagina"],
                 "foto_url": _foto_url_producto(p["pagina"], p["producto_codigo"]),
-                "score_similitud": round(_score_texto(texto_captura, p["texto_cercano"] or "") * 100, 1),
+                "score_similitud": round(_score_texto(texto_principal, texto_secundario, p["texto_cercano"] or "") * 100, 1),
             }
             for p in candidatos
         ),
@@ -1537,37 +1714,73 @@ def _anio_de_campana(campana: str) -> int:
 
 @app.get("/historico")
 def historico():
-    """Agrega precio promedio por competidor+campaña, para la vista
-    'Precios' (histórico Año -> Campaña -> Competidor) del Pendiente 6. No
-    inventa años para campañas de Retail que no lo especifican - ver
-    _anio_de_campana. El front arma el arbol de navegacion agrupando esta
-    lista plana."""
-    filas = []
+    """Evolución de la Variación % vs Azzorti por competidor+campaña+canal,
+    para la vista 'Precios'. Reemplaza la version anterior (que solo
+    promediaba el precio propio del competidor, sin relacion con Azzorti -
+    Yohana no le encontraba el fin porque no decia nada sobre la brecha con
+    Azzorti). Solo se promedian productos que SI tienen homologacion
+    confirmada contra Azzorti (no los 'vs campaña anterior', que comparan
+    contra el propio precio del competidor, no contra Azzorti). Tambien
+    devuelve cuantos de esos productos dispararon alerta de umbral, para el
+    panel de alertas historicas."""
+    deltas = []
     with get_conn() as conn:
-        for row in conn.execute(
-            "SELECT competidor, campana, AVG(precio) AS promedio, COUNT(*) AS cantidad "
-            "FROM captura WHERE canal != 'Venta Directa' GROUP BY competidor, campana"
+        umbral = _umbral_alerta_actual(conn)
+        for c in conn.execute("SELECT * FROM captura WHERE azzorti_sku_confirmado IS NOT NULL"):
+            precio_azzorti = None
+            if c["canal"] == "Venta Directa":
+                prod = conn.execute(
+                    "SELECT precio FROM catalogo_producto WHERE producto_codigo = ? "
+                    "AND precio IS NOT NULL ORDER BY id DESC LIMIT 1",
+                    (c["azzorti_sku_confirmado"],),
+                ).fetchone()
+                precio_azzorti = prod["precio"] if prod else None
+            else:
+                azz = conn.execute(
+                    "SELECT precio FROM azzorti_producto WHERE sku = ?", (c["azzorti_sku_confirmado"],)
+                ).fetchone()
+                if azz:
+                    precio_azzorti = azz["precio"]
+                else:
+                    prod = conn.execute(
+                        "SELECT precio FROM catalogo_producto WHERE producto_codigo = ? "
+                        "AND precio IS NOT NULL ORDER BY id DESC LIMIT 1",
+                        (c["azzorti_sku_confirmado"],),
+                    ).fetchone()
+                    precio_azzorti = prod["precio"] if prod else None
+            if precio_azzorti and c["precio"] is not None:
+                delta = (precio_azzorti - c["precio"]) / precio_azzorti * 100
+                deltas.append({
+                    "canal": "Retail" if c["canal"] != "Venta Directa" else "VentaDirecta",
+                    "competidor": c["competidor"], "campana": c["campana"],
+                    "delta_pct": delta, "alerta": abs(delta) > umbral,
+                })
+        for p in conn.execute(
+            "SELECT * FROM producto_estrella WHERE modo = 'HOMOLOGO_FIJO' "
+            "AND precio_azzorti IS NOT NULL AND precio_competidor IS NOT NULL"
         ):
-            filas.append({
-                "canal": "Retail",
-                "competidor": row["competidor"],
-                "campana": row["campana"],
-                "anio": _anio_de_campana(row["campana"]),
-                "precio_promedio": round(row["promedio"], 2),
-                "cantidad_productos": row["cantidad"],
+            delta = (p["precio_azzorti"] - p["precio_competidor"]) / p["precio_azzorti"] * 100
+            deltas.append({
+                "canal": "VentaDirecta", "competidor": p["competidor"], "campana": p["campana"],
+                "delta_pct": delta, "alerta": abs(delta) > umbral,
             })
-        for row in conn.execute(
-            "SELECT competidor, campana, AVG(precio_competidor) AS promedio, COUNT(*) AS cantidad "
-            "FROM producto_estrella WHERE precio_competidor IS NOT NULL GROUP BY competidor, campana"
-        ):
-            filas.append({
-                "canal": "VentaDirecta",
-                "competidor": row["competidor"],
-                "campana": row["campana"],
-                "anio": _anio_de_campana(row["campana"]),
-                "precio_promedio": round(row["promedio"], 2),
-                "cantidad_productos": row["cantidad"],
-            })
+
+    grupos: dict = {}
+    for d in deltas:
+        key = (d["canal"], d["competidor"], d["campana"])
+        grupos.setdefault(key, []).append(d)
+    filas = []
+    for (canal, competidor, campana), items in grupos.items():
+        alertas = [i for i in items if i["alerta"]]
+        filas.append({
+            "canal": canal,
+            "competidor": competidor,
+            "campana": campana,
+            "anio": _anio_de_campana(campana),
+            "delta_pct_promedio": round(sum(i["delta_pct"] for i in items) / len(items), 1),
+            "cantidad_productos": len(items),
+            "cantidad_alertas": len(alertas),
+        })
     return filas
 
 
@@ -1587,6 +1800,13 @@ def historico():
 _STOPWORDS_OFERTA = {
     "MAS", "DEL", "DE", "LA", "EL", "LOS", "LAS", "UN", "UNA", "Y", "O",
     "A", "AL", "OFERTA", "OFERTAS", "EN",
+    # Conectores genericos de cualquier descripcion de producto (ej. "con
+    # protector solar") - sin esto, una palabra tan comun como "CON"
+    # empataba por igual contra productos sin ninguna relacion real,
+    # mismo problema ya encontrado con "FEMENINA" en Pendiente de
+    # homologacion Venta Directa.
+    "CON", "SIN", "POR", "PARA", "QUE", "SE", "ES", "SU", "SUS", "MUY",
+    "ESTE", "ESTA", "ESTOS", "ESTAS", "SUS", "LE", "LES", "COMO",
 }
 
 
@@ -1849,8 +2069,11 @@ def _indexar_pagina_productos(data: dict, alto_pagina: float) -> list[dict]:
 # prefiere mostrar de mas a arriesgarse a esconder el producto correcto.
 _CATEGORIA_VD_A_SECCION = {
     "fragancias": ["FRAGANCIA", "FRAGANCIAS"],
-    "maquillaje": ["BELLEZA", "MAQUILLAJE", "ROSTRO"],
-    "rostro": ["BELLEZA", "ROSTRO", "MAQUILLAJE"],
+    # "VOGUE" es la linea de maquillaje real de Azzorti en este catalogo -
+    # esas paginas rotulan el pie con el nombre de la marca, no con la
+    # palabra "Maquillaje" (a diferencia de otras secciones).
+    "maquillaje": ["BELLEZA", "MAQUILLAJE", "ROSTRO", "VOGUE"],
+    "rostro": ["BELLEZA", "ROSTRO", "MAQUILLAJE", "VOGUE"],
     "cabello": ["BELLEZA", "CABELLO", "CUIDADO"],
     "cuidado diario": ["BELLEZA", "CUIDADO"],
     "joyeria": ["JOYERIA", "ACCESORIOS"],
@@ -1871,37 +2094,58 @@ _SINONIMOS_PRODUCTO = {
 }
 
 
-def _normalizar_genero(token: str) -> str:
-    """Sinonimos conocidos + genero gramatical (femenino/masculino,
-    ej. 'FEMENINA' vs 'FEMENINO') para comparar texto libre - separado de
+def _variantes_palabra(token: str) -> set[str]:
+    """Sinonimos conocidos + variantes de plural (POLVOS/POLVO) y genero
+    gramatical (FEMENINA/FEMENINO) para comparar texto libre - separado de
     _coincide_token (que usa la deteccion de ofertas, ya afinada) para no
-    arriesgar esa deteccion con un cambio pensado para otro problema."""
-    t = _SINONIMOS_PRODUCTO.get(token, token)
-    if t.isalpha() and len(t) >= 5 and t[-1] in ("A", "O"):
-        return t[:-1]
-    return t
+    arriesgar esa deteccion con un cambio pensado para otro problema.
+    Devuelve un conjunto de variantes en vez de una sola forma normalizada
+    porque encadenar "quitar plural" y "quitar genero" en un orden fijo
+    fallaba (ej. POLVOS->POLVO por plural, pero POLVO->POLV por genero,
+    terminaban en formas distintas igual)."""
+    base = _SINONIMOS_PRODUCTO.get(token, token)
+    variantes = {base}
+    if base.isalpha():
+        if len(base) >= 4 and base[-1] == "S":
+            variantes.add(base[:-1])
+        for v in list(variantes):
+            if len(v) >= 5 and v[-1] in ("A", "O"):
+                variantes.add(v[:-1])
+    return variantes
 
 
 def _coincide_token_texto_libre(ocr_tokens: set[str], ref_token: str) -> bool:
     if _coincide_token(ocr_tokens, ref_token):
         return True
-    ref_norm = _normalizar_genero(ref_token)
-    return any(_normalizar_genero(t) == ref_norm for t in ocr_tokens)
+    ref_variantes = _variantes_palabra(ref_token)
+    return any(_variantes_palabra(t) & ref_variantes for t in ocr_tokens)
 
 
-def _score_texto(texto_captura: str, texto_catalogo: str) -> float:
-    """Fraccion de las palabras clave del texto de la captura (categoria +
-    descripcion + caracteristicas) que aparecen en el texto OCR cercano a
-    un producto del catalogo - mismo criterio de _tokens_significativos
-    que ya se usa para las ofertas, reutilizado aqui para comparar texto
-    libre en vez de nombres de oferta, con sinonimos/genero de mas
-    (ver _coincide_token_texto_libre)."""
-    tokens_captura = _tokens_significativos(texto_captura)
-    if not tokens_captura:
-        return 0.0
+def _score_texto(texto_principal: str, texto_secundario: str, texto_catalogo: str) -> float:
+    """Fraccion de palabras clave que aparecen en el texto OCR cercano a un
+    producto del catalogo - separado en dos bloques con peso distinto:
+    "principal" (categoria + descripcion, lo mas confiable que escribe el
+    analista - un nombre corto de producto) pesa mas que "secundario"
+    (caracteristicas + detalle, texto libre mas largo y con mas riesgo de
+    palabras genericas). Antes pesaban igual, sin importar cuantas
+    palabras tuviera cada uno (a peticion de Yohana: la descripcion debe
+    influir mas que el texto libre de caracteristicas)."""
     tokens_catalogo = _tokens_significativos(texto_catalogo)
-    encontrados = sum(1 for t in tokens_captura if _coincide_token_texto_libre(tokens_catalogo, t))
-    return encontrados / len(tokens_captura)
+
+    def _fraccion(texto):
+        tokens = _tokens_significativos(texto)
+        if not tokens:
+            return None
+        encontrados = sum(1 for t in tokens if _coincide_token_texto_libre(tokens_catalogo, t))
+        return encontrados / len(tokens)
+
+    frac_principal = _fraccion(texto_principal)
+    frac_secundario = _fraccion(texto_secundario)
+    if frac_principal is None:
+        return frac_secundario or 0.0
+    if frac_secundario is None:
+        return frac_principal
+    return 0.65 * frac_principal + 0.35 * frac_secundario
 
 
 def _parsear_ofertas_referencia(contenido: bytes) -> list[dict]:
