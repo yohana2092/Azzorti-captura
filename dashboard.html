@@ -655,7 +655,7 @@
     if (canal === 'VentaDirecta' && COMPETIDORES_ALIANZAS.indexOf(comp) !== -1) return 'Alianzas';
     var t = (categoriaTexto || '').toLowerCase();
     if (canal === 'VentaDirecta'){
-      if (t.indexOf('fragancia') !== -1) return 'Fragancias';
+      if (_esCategoriaFragancia(t)) return 'Fragancias';
       if (t.indexOf('joyeria') !== -1 || t.indexOf('joyería') !== -1) return 'Joyería';
       // Cabello, Cuidado Diario, Rostro y Maquillaje son categorias de
       // cuidado personal (ver categoriasVentaDirecta en la app) que antes
@@ -1327,7 +1327,7 @@
     }
     return filas.filter(function(f){
       return (linea === 'todas' || f.linea === linea)
-        && (categoria === 'todas' || _coincideAprox(f.categoria, categoria))
+        && (categoria === 'todas' || _coincideCategoriaVd(f.categoria, categoria))
         && (campana === 'todas' || _normalizar(f.campana) === _normalizar(campana))
         && (competidor === 'todas' || _coincideAprox(f.competidor, competidor));
     });
@@ -1441,6 +1441,19 @@
     const na = _normalizar(a), nb = _normalizar(b);
     if(!na || !nb) return false;
     return na === nb || na.startsWith(nb) || nb.startsWith(na);
+  }
+
+  // Natura le dice "Perfumeria" a la misma linea de producto que el resto
+  // de competidores llama "Fragancia" en su Excel - sin esto, filtrar por
+  // "Fragancias" ocultaba a Natura por completo aunque si tenia datos.
+  function _esCategoriaFragancia(categoriaTexto){
+    const t = _normalizar(categoriaTexto);
+    return t.indexOf('fragancia') !== -1 || t.indexOf('perfumeria') !== -1 || t.indexOf('perfumería') !== -1;
+  }
+  // _coincideAprox normal, mas el caso especial Fragancia<->Perfumeria.
+  function _coincideCategoriaVd(categoriaTexto, filtroTexto){
+    return _coincideAprox(categoriaTexto, filtroTexto) ||
+      (_esCategoriaFragancia(filtroTexto) && _esCategoriaFragancia(categoriaTexto));
   }
 
   // Extrae el numero de campaña de textos como "C10 2026" o "C-09".
@@ -1585,7 +1598,7 @@
     const lista = _ultimaListaEstrella.filter(function(p){
       const okMarca = (marcaVdVal === 'todas') || _coincideAprox(p.competidor, marcaVdVal);
       const okCampana = (campanaVdVal === 'todas') || _normalizar(p.campana) === _normalizar(campanaVdVal);
-      const okCat = (catVdVal === 'todas') || _coincideAprox(p.categoria, catVdVal);
+      const okCat = (catVdVal === 'todas') || _coincideCategoriaVd(p.categoria, catVdVal);
       const okLinea = (lineaVdVal === 'todas') || _calcularLinea(p.categoria, p.competidor, 'VentaDirecta') === lineaVdVal;
       return okMarca && okCampana && okCat && okLinea;
     }).sort(function(a, b){
@@ -1965,7 +1978,7 @@
           // Mercadeo o en los catálogos subidos (ej. "Esika" vs "ESIKA").
           const okMarca = (marcaVdVal === 'todas') || _coincideAprox(c.competidor, marcaVdVal);
           const okCampana = (campanaVdVal === 'todas') || _normalizar(c.campana) === _normalizar(campanaVdVal);
-          const okCat = (catVdVal === 'todas') || _coincideAprox(c.categoria, catVdVal);
+          const okCat = (catVdVal === 'todas') || _coincideCategoriaVd(c.categoria, catVdVal);
           const okLinea = (lineaVdVal === 'todas') || _calcularLinea(c.categoria, c.competidor, 'VentaDirecta') === lineaVdVal;
           return okMarca && okCampana && okCat && okLinea;
         });
