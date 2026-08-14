@@ -17,12 +17,12 @@ import 'package:image/image.dart' as img;
 // el historial de git). Esto llama a un backend real (ver /backend/server.py)
 // que persiste en base de datos y valida duplicados de verdad.
 //
-// Antes de la demo: corre el backend con
-//   uvicorn server:app --host 0.0.0.0 --port 8000
-// y cambia _backendBaseUrl por la IP de la laptop en tu red WiFi local
-// (Windows: `ipconfig` -> "Dirección IPv4"). El celular debe estar en la
-// misma red que la laptop.
-const String _backendBaseUrl = 'http://192.168.20.28:8000';
+// Backend expuesto por un tunel de Cloudflare (trycloudflare.com) para
+// poder probar desde cualquier Android sin estar en la misma red WiFi de
+// la laptop - ESTA URL CAMBIA si el proceso de cloudflared se reinicia
+// (es un "quick tunnel" sin cuenta, no un dominio fijo). Si deja de
+// responder, pide la URL nueva y compila un APK nuevo con ese cambio.
+const String _backendBaseUrl = 'https://exactly-administered-afternoon-legitimate.trycloudflare.com';
 
 class ResultadoSync {
   final bool ok;
