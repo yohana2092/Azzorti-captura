@@ -1462,6 +1462,17 @@
     return m ? parseInt(m[1], 10) : null;
   }
 
+  // El APK de Retail no se toco esta noche (para no arriesgar el build a
+  // horas de la demo) y sigue mandando el formato viejo "C-10" en vez del
+  // "C10 2026" ya estandarizado en el resto del dashboard. Sin esto, el
+  // bloque en vivo se crea pero queda oculto: el filtro de Campaña compara
+  // el texto tal cual y "C-10" nunca es igual a "C10 2026".
+  function _normalizarCampanaRetail(campanaTexto){
+    var m = (campanaTexto || '').match(/^C-(\d+)$/i);
+    if(!m) return campanaTexto;
+    return 'C' + (m[1].length < 2 ? '0' + m[1] : m[1]) + ' 2026';
+  }
+
   async function cargarProductosEstrella(){
     try {
       const resp = await fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'});
@@ -1828,6 +1839,7 @@
       // dentro de la vista de Retail también. Se separa por canal primero.
       const listaRetail = lista.filter(function(c){ return c.canal !== 'Venta Directa'; });
       const listaVD = lista.filter(function(c){ return c.canal === 'Venta Directa'; });
+      listaRetail.forEach(function(c){ c.campana = _normalizarCampanaRetail(c.campana); });
       _ultimaListaRetailLive = listaRetail;
 
       // Agrupa por proveedor + categoría + campaña, y arma la tabla de cada
