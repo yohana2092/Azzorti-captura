@@ -22,7 +22,7 @@ import 'package:image/image.dart' as img;
 // la laptop - ESTA URL CAMBIA si el proceso de cloudflared se reinicia
 // (es un "quick tunnel" sin cuenta, no un dominio fijo). Si deja de
 // responder, pide la URL nueva y compila un APK nuevo con ese cambio.
-const String _backendBaseUrl = 'https://achieve-disciplinary-stores-meters.trycloudflare.com';
+const String _backendBaseUrl = 'https://requirements-roberts-limited-famous.trycloudflare.com';
 
 class ResultadoSync {
   final bool ok;
@@ -423,6 +423,26 @@ String _colorDominante(img.Image imagen) {
   final cy0 = (h * 0.20).round();
   final cy1 = (h * 0.92).round();
 
+  // _esPiel es una heurística de tono cálido/rojizo - una prenda color
+  // café/durazno/beige (ej. una chaqueta camel) cae en el MISMO rango que
+  // un brazo o cuello real, así que antes se excluía la prenda entera del
+  // conteo, dejando solo el fondo para decidir el color (bug real: una
+  // chaqueta durazno terminaba sugiriendo "Azul" porque el fondo era lo
+  // único que quedaba votando). Se mide primero qué proporción del
+  // recorte calificaría como "piel" - si es la mayoría, es mucho más
+  // probable que sea tela color piel/durazno/beige que brazos/cuello
+  // reales (una foto de producto normal no muestra tanta piel), así que
+  // en ese caso no se excluye nada.
+  var totalMuestra = 0, totalPiel = 0;
+  for (var y = cy0; y < cy1; y += 3) {
+    for (var x = cx0; x < cx1; x += 3) {
+      final p = imagen.getPixel(x, y);
+      totalMuestra++;
+      if (_esPiel(p.r.toInt(), p.g.toInt(), p.b.toInt())) totalPiel++;
+    }
+  }
+  final excluirPiel = totalMuestra > 0 && (totalPiel / totalMuestra) <= 0.5;
+
   final votos = <String, int>{};
   final votosCromaticos = <String, int>{};
   var total = 0;
@@ -432,7 +452,7 @@ String _colorDominante(img.Image imagen) {
     for (var x = cx0; x < cx1; x += 3) {
       final p = imagen.getPixel(x, y);
       final r = p.r.toInt(), g = p.g.toInt(), b = p.b.toInt();
-      if (_esPiel(r, g, b)) continue;
+      if (excluirPiel && _esPiel(r, g, b)) continue;
       final (color, esCromatico) = clasificar(r, g, b);
       votos[color] = (votos[color] ?? 0) + 1;
       total++;
