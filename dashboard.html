@@ -8,7 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy:#0E1E3A; --navy-light:#16294D;
+    /* Colores corporativos Azzorti (tomados de la plantilla oficial): dorado
+       #DAB508 como acento de marca y un carbón cálido como "oscuro de marca",
+       en vez del azul marino genérico que traía el mockup original. El azul
+       de --blue NO se toca a propósito: es el color de las barras "Azzorti"
+       del gráfico y debe mantenerse igual. */
+    --navy:#1D1912; --navy-light:#2B2419;
     --blue:#2F6FED; --blue-dim:#E8EFFE;
     --amber:#C9821B; --amber-bg:#FDF3E1;
     --green:#1F8F5F; --green-bg:#E7F6EE;
@@ -16,7 +21,8 @@
     --paper:#F1F3F9; --card:#FFFFFF;
     --ink:#151E33; --muted:#6B7280; --line:#E4E7F0;
     --mono:'JetBrains Mono',monospace;
-    --retail-bar:#1D4E66; --vd-bar:#4A1942; --vd-tint:#F6EEF5;
+    --gold:#DAB508; --gold-text:#96790A;
+    --retail-bar:#1D1912; --vd-bar:#DAB508; --vd-tint:#FBF1CE;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
@@ -27,13 +33,16 @@
 
   .app{display:flex;min-height:100vh;}
 
-  .sidebar{width:212px;flex:none;background:var(--navy);color:#C9D3EA;padding:22px 14px;display:flex;flex-direction:column;gap:24px;}
-  .brand{display:flex;align-items:center;gap:8px;color:#fff;font-family:'Sora',sans-serif;font-weight:700;font-size:16px;padding:0 6px;}
-  .brand .zz{color:#6E93F7;}
+  .sidebar{width:212px;flex:none;background:var(--navy);color:#D9D4C6;padding:22px 14px;display:flex;flex-direction:column;gap:24px;}
+  .brand{display:flex;flex-direction:column;gap:3px;padding:2px 6px 4px;}
+  .brand-mark{display:inline-flex;color:#fff;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;letter-spacing:.01em;}
+  .brand-mark .zz{position:relative;display:inline-block;}
+  .brand-mark .zz::after{content:'';position:absolute;left:-2px;right:-2px;top:46%;height:5px;background:var(--gold);border-radius:2px;transform:rotate(-4deg);}
+  .brand-tagline{font-family:'Inter',sans-serif;font-size:8.6px;letter-spacing:.14em;text-transform:uppercase;color:#9C9587;}
   .nav{display:flex;flex-direction:column;gap:3px;}
-  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:#AAB8D6;text-decoration:none;font-size:13.4px;font-weight:500;}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:#B8B2A2;text-decoration:none;font-size:13.4px;font-weight:500;}
   .nav a svg{width:16px;height:16px;flex:none;}
-  .nav a.active{background:rgba(255,255,255,0.09);color:#fff;font-weight:600;}
+  .nav a.active{background:rgba(218,181,8,0.18);color:#fff;font-weight:600;}
   .side-foot{margin-top:auto;font-family:var(--mono);font-size:10.5px;color:#5E6D93;padding:0 6px;line-height:1.6;}
 
   .main{flex:1;padding:24px 32px 60px;min-width:0;}
@@ -45,7 +54,7 @@
   .chan-btn{display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9px;border:none;background:transparent;font-family:'Sora',sans-serif;font-weight:600;font-size:13.5px;color:var(--muted);cursor:pointer;}
   .chan-btn svg{width:16px;height:16px;}
   .chan-btn.active.retail{background:var(--retail-bar);color:#fff;}
-  .chan-btn.active.vd{background:var(--vd-bar);color:#fff;}
+  .chan-btn.active.vd{background:var(--vd-bar);color:var(--navy);}
   .chan-sub{font-size:12px;color:var(--muted);margin:-14px 0 20px;}
 
   .view{display:none;}
@@ -108,7 +117,7 @@
   .variation.down{color:var(--green);}
   .variation.up{color:var(--red);}
   .variation.pending{color:#B0B7C8;font-style:italic;font-weight:400;}
-  .brand-pill{font-family:var(--mono);font-size:10.6px;padding:3px 8px;border-radius:6px;background:var(--vd-tint);color:var(--vd-bar);font-weight:600;}
+  .brand-pill{font-family:var(--mono);font-size:10.6px;padding:3px 8px;border-radius:6px;background:var(--vd-tint);color:var(--gold-text);font-weight:600;}
 
   .photo-cell{display:flex;align-items:center;gap:10px;}
   .swatch{width:36px;height:36px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;}
@@ -146,7 +155,10 @@
 
 <div class="app">
   <div class="sidebar">
-    <div class="brand">A<span class="zz">ZZ</span>ORTI</div>
+    <div class="brand">
+      <div class="brand-mark">A<span class="zz">ZZ</span>ORTI</div>
+      <div class="brand-tagline">Crea tu felicidad</div>
+    </div>
     <div class="nav">
       <a href="#" class="active" id="nav-dashboard" onclick="mostrarSeccion('dashboard');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</a>
       <a href="#" id="nav-precios" onclick="mostrarSeccion('precios');return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Precios</a>
