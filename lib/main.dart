@@ -65,7 +65,13 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
                 c.fotoProducto != null ? base64Encode(c.fotoProducto!) : null,
           }),
         )
-        .timeout(const Duration(seconds: 8));
+        // Antes eran 8s: muy poco para subir una foto por el tunel/red
+        // movil. La app avisaba "no se pudo conectar" aunque el backend
+        // si terminara guardando la captura, y el analista repetia la
+        // captura completa creyendo que habia fallado - eso duplicaba el
+        // registro (el backend ya tiene ademas su propio bloqueo de
+        // duplicados por las dudas).
+        .timeout(const Duration(seconds: 40));
 
     if (resp.statusCode == 201) {
       final data = jsonDecode(resp.body);
@@ -101,7 +107,7 @@ Future<List<Map<String, dynamic>>> pedirSugerenciasHomologacion(
   final url = Uri.parse(
       '$_backendBaseUrl/capturas/$backendId/homologacion/sugerencias');
   try {
-    final resp = await http.get(url).timeout(const Duration(seconds: 8));
+    final resp = await http.get(url).timeout(const Duration(seconds: 20));
     if (resp.statusCode != 200) return [];
     final data = jsonDecode(resp.body);
     return List<Map<String, dynamic>>.from(data['sugerencias'] as List);
@@ -118,7 +124,7 @@ Future<bool> confirmarHomologacion(int backendId, String azzortiSku) async {
         .post(url,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'azzorti_sku': azzortiSku}))
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 20));
     return resp.statusCode == 200;
   } catch (_) {
     return false;
@@ -128,7 +134,7 @@ Future<bool> confirmarHomologacion(int backendId, String azzortiSku) async {
 Future<Map<String, dynamic>?> pedirEvaluacion(int backendId) async {
   final url = Uri.parse('$_backendBaseUrl/capturas/$backendId/evaluacion');
   try {
-    final resp = await http.get(url).timeout(const Duration(seconds: 8));
+    final resp = await http.get(url).timeout(const Duration(seconds: 20));
     if (resp.statusCode != 200) return null;
     return jsonDecode(resp.body) as Map<String, dynamic>;
   } catch (_) {

@@ -25,7 +25,7 @@ import base64
 import re
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -1116,6 +1116,33 @@ def listar_productos_estrella(request: Request, campana: Optional[str] = None):
 
 @app.post("/capturas", status_code=201)
 def crear_captura(c: CapturaIn):
+    # Protege contra el timeout corto del cliente (8s en la app, ver
+    # lib/main.dart): si la subida de la foto tarda mas que eso por el
+    # tunel/red movil, la app le avisa al analista que "no se pudo
+    # conectar" aunque el servidor si la termine guardando - el analista,
+    # creyendo que fallo, repite la captura completa y eso duplica el
+    # registro. Si llega una captura practicamente identica (mismo canal,
+    # campaña, categoria, descripcion y precio) a los pocos minutos, se
+    # devuelve la que ya existe en vez de crear una nueva.
+    with get_conn() as conn:
+        reciente = conn.execute(
+            """SELECT id FROM captura
+               WHERE competidor = ? AND canal = ? AND campana = ? AND categoria = ?
+               AND descripcion = ? AND precio = ?
+               AND creada_en > ?
+               ORDER BY id DESC LIMIT 1""",
+            (
+                c.competidor, c.canal, c.campana, c.categoria,
+                c.descripcion, c.precio,
+                (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(),
+            ),
+        ).fetchone()
+        if reciente:
+            return {
+                "id": reciente["id"],
+                "mensaje": "Ya se habia sincronizado este producto hace unos minutos - no se duplico.",
+            }
+
     foto_archivo = None
     if c.foto_producto_b64:
         try:
