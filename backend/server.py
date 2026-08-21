@@ -1430,7 +1430,11 @@ def _candidatos_moda_azzorti(conn, categoria_captura: str) -> list[sqlite3.Row]:
         WHERE LOWER(TRIM(cc.competidor)) = 'azzorti'
         AND (cp.seccion IS NULL OR UPPER(cp.seccion) LIKE '%MODA%')"""
     ).fetchall()
-    return [f for f in filas if palabra in _sin_acentos((f["texto_cercano"] or "").upper())]
+    return [
+        f for f in filas
+        if palabra in _sin_acentos((f["texto_cercano"] or "").upper())
+        and not _texto_mezclado(f["texto_cercano"])
+    ]
 
 
 def _sugerir_homologacion_venta_directa(conn, captura: sqlite3.Row, request: Request) -> dict:
@@ -1471,7 +1475,11 @@ def _sugerir_homologacion_venta_directa(conn, captura: sqlite3.Row, request: Req
     # una captura de Fragancias terminaba comparandose contra sabanas,
     # toallas y hasta texto de ingredientes de otra pagina, solo porque
     # coincidia un numero suelto en el texto OCR.
-    candidatos = [p for p in todos if _candidato_coincide_categoria(captura["categoria"], p["seccion"])]
+    candidatos = [
+        p for p in todos
+        if _candidato_coincide_categoria(captura["categoria"], p["seccion"])
+        and not _texto_mezclado(p["texto_cercano"])
+    ]
     texto_principal = " ".join((captura["categoria"] or "", captura["descripcion"] or ""))
     texto_secundario = " ".join((captura["caracteristicas"] or "", captura["detalle"] or ""))
 
@@ -2066,6 +2074,33 @@ def _indexar_pagina_productos(data: dict, alto_pagina: float) -> list[dict]:
             y_min, y_max = ancla["y"] - 220, ancla["y"] + 60
         else:
             y_min, y_max = ancla["y"] - 20, ancla["y"] + 250
+        # No cruzar hacia el texto de OTRO producto: en paginas tipo "lista
+        # de precios" con varios articulos numerados muy juntos (apilados o
+        # uno junto al otro en la misma fila), el margen generoso de arriba
+        # mezclaba el texto de dos o tres productos distintos en un mismo
+        # candidato (ej. "3. Vestido Cuba ... 4. Crop Top ... 5. Jean Karol
+        # ..." homologando como si fuera un solo producto). Si hay otra
+        # ancla mas cerca en esa direccion (arriba/abajo o al costado), el
+        # margen se corta justo antes de llegar a ella.
+        for otra in anclas:
+            if otra is ancla:
+                continue
+            if ancla["y"] < otra["y"] < y_max:
+                y_max = min(y_max, otra["y"] - 15)
+            if y_min < otra["y"] < ancla["y"]:
+                y_min = max(y_min, otra["y"] + 15)
+        x_min, x_max = ancla["x"] - 350, ancla["x"] + 350
+        for otra in anclas:
+            if otra is ancla:
+                continue
+            # Solo cuenta como "misma fila" si su ancla cae dentro de la
+            # franja vertical ya recortada de arriba.
+            if not (y_min <= otra["y"] <= y_max):
+                continue
+            if ancla["x"] < otra["x"] < x_max:
+                x_max = min(x_max, otra["x"] - 15)
+            if x_min < otra["x"] < ancla["x"]:
+                x_min = max(x_min, otra["x"] + 15)
         cercanos = []
         for i in range(n):
             texto = data["text"][i].strip()
@@ -2073,7 +2108,7 @@ def _indexar_pagina_productos(data: dict, alto_pagina: float) -> list[dict]:
                 continue
             wx = data["left"][i] + data["width"][i] / 2
             wy = data["top"][i] + data["height"][i] / 2
-            if y_min <= wy <= y_max and abs(wx - ancla["x"]) <= 350:
+            if y_min <= wy <= y_max and x_min <= wx <= x_max:
                 cercanos.append(texto)
         texto_cercano = " ".join(cercanos)
         precio_m = _PRECIO_RE.search(_sin_acentos(texto_cercano.upper()))
@@ -2106,6 +2141,30 @@ _CATEGORIA_VD_A_SECCION = {
     "joyeria": ["JOYERIA", "ACCESORIOS"],
     "hogar": ["HOGAR"],
 }
+
+
+_REF_RE = re.compile(r"REF[.\-]?\s*R?\d{3,}")
+_ITEM_NUM_RE = re.compile(r"\b([1-9])\.\s")
+
+
+def _texto_mezclado(texto_cercano: Optional[str]) -> bool:
+    """Algunas paginas del catalogo (ej. una fila con varias prendas bajo
+    una sola leyenda compartida "3. ... 4. ... 5. ...") no se pueden
+    separar de forma confiable ni con el recorte de
+    _indexar_pagina_productos: el texto OCR de mas de un producto queda
+    mezclado en el mismo candidato. Antes que mostrar una sugerencia que
+    combina dos prendas distintas (visto en pruebas reales: "Vestido" +
+    "Crop Top" en un mismo candidato), se descarta directamente - mejor
+    no sugerir nada que sugerir mal.
+    La señal mas confiable no es cuantas referencias/precios quedan (el
+    recorte por columna ya los reduce a veces a 1) sino que aparezca mas
+    de UN numero de item distinto ("3." y "4." juntos) - una prenda
+    etiquetada solo como "1. ..." por si sola es normal y no se marca."""
+    t = _sin_acentos((texto_cercano or "").upper())
+    referencias = set(_REF_RE.findall(t))
+    precios = set(_PRECIO_RE.findall(t))
+    numeros_item = set(_ITEM_NUM_RE.findall(t))
+    return len(referencias) > 1 or len(precios) > 2 or len(numeros_item) > 1
 
 
 def _candidato_coincide_categoria(categoria_captura: str, seccion_pagina: Optional[str]) -> bool:
