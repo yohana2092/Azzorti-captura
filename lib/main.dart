@@ -541,6 +541,100 @@ class Captura {
       '${creada.hour.toString().padLeft(2, '0')}:${creada.minute.toString().padLeft(2, '0')}';
   int get numFotos =>
       (fotoEtiqueta != null ? 1 : 0) + (fotoProducto != null ? 1 : 0);
+
+  // Persistencia en disco (ver _archivoBorradores) - antes los borradores
+  // solo vivian en memoria (esta lista de Dart), asi que si Android
+  // cerraba la app en segundo plano, se reiniciaba el telefono, o alguien
+  // la cerraba desde "apps recientes", se perdia todo el trabajo del
+  // Momento 1 sin ningun aviso (bug real reportado desde campo).
+  Map<String, dynamic> toJson() => {
+        'fotoEtiqueta': fotoEtiqueta != null ? base64Encode(fotoEtiqueta!) : null,
+        'fotoProducto': fotoProducto != null ? base64Encode(fotoProducto!) : null,
+        'competidor': competidor,
+        'precioTienda': precioTienda,
+        'creada': creada.toIso8601String(),
+        'canal': canal,
+        'campana': campana,
+        'categoria': categoria,
+        'puntoPrecio': puntoPrecio,
+        'descripcionProducto': descripcionProducto,
+        'silueta': silueta,
+        'talla': talla,
+        'composicion1': composicion1,
+        'composicion2': composicion2,
+        'manga': manga,
+        'colorPrenda': colorPrenda,
+        'detalle': detalle,
+        'caracteristicas': caracteristicas,
+        'precioFinal': precioFinal,
+        'estado': estado.name,
+        'backendId': backendId,
+      };
+
+  static Captura fromJson(Map<String, dynamic> j) => Captura(
+        fotoEtiqueta: j['fotoEtiqueta'] != null
+            ? base64Decode(j['fotoEtiqueta'] as String)
+            : null,
+        fotoProducto: j['fotoProducto'] != null
+            ? base64Decode(j['fotoProducto'] as String)
+            : null,
+        competidor: j['competidor'] as String? ?? '',
+        precioTienda: j['precioTienda'] as String? ?? '',
+        creada: DateTime.parse(j['creada'] as String),
+        canal: j['canal'] as String? ?? '',
+        campana: j['campana'] as String? ?? '',
+        categoria: j['categoria'] as String? ?? '',
+        puntoPrecio: j['puntoPrecio'] as String? ?? '',
+        descripcionProducto: j['descripcionProducto'] as String? ?? '',
+        silueta: j['silueta'] as String? ?? '',
+        talla: j['talla'] as String? ?? '',
+        composicion1: j['composicion1'] as String? ?? '',
+        composicion2: j['composicion2'] as String? ?? '',
+        manga: j['manga'] as String? ?? '',
+        colorPrenda: j['colorPrenda'] as String? ?? '',
+        detalle: j['detalle'] as String? ?? '',
+        caracteristicas: j['caracteristicas'] as String? ?? '',
+        precioFinal: j['precioFinal'] as String? ?? '',
+        estado: Estado.values.firstWhere(
+          (e) => e.name == j['estado'],
+          orElse: () => Estado.borrador,
+        ),
+        backendId: j['backendId'] as int?,
+      );
+}
+
+/// Archivo en el almacenamiento propio de la app (sobrevive a que la app se
+/// cierre o el telefono se reinicie; se borra solo si se desinstala la app).
+Future<File> _archivoBorradores() async {
+  final dir = await getApplicationDocumentsDirectory();
+  return File('${dir.path}/borradores.json');
+}
+
+Future<void> guardarCapturasEnDisco(List<Captura> capturas) async {
+  try {
+    final file = await _archivoBorradores();
+    final data = jsonEncode(capturas.map((c) => c.toJson()).toList());
+    await file.writeAsString(data);
+  } catch (_) {
+    // Best-effort: si por algun motivo no se puede escribir a disco, la
+    // app sigue funcionando con lo que tenga en memoria por ahora.
+  }
+}
+
+Future<List<Captura>> cargarCapturasDeDisco() async {
+  try {
+    final file = await _archivoBorradores();
+    if (!await file.exists()) return [];
+    final contenido = await file.readAsString();
+    final lista = jsonDecode(contenido) as List;
+    return lista
+        .map((j) => Captura.fromJson(j as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    // Archivo corrupto o inexistente - se arranca con la lista vacia en
+    // vez de tumbar la app.
+    return [];
+  }
 }
 
 // ====================== APP ======================
@@ -600,15 +694,37 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   final List<Captura> capturas = [];
   String ultimoCompetidor = ''; // se mantiene "pegado" entre capturas
+  bool _cargando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarInicial();
+  }
+
+  Future<void> _cargarInicial() async {
+    final guardadas = await cargarCapturasDeDisco();
+    if (!mounted) return;
+    setState(() {
+      capturas.addAll(guardadas);
+      _cargando = false;
+    });
+  }
+
+  void _persistir() => guardarCapturasEnDisco(capturas);
 
   void guardarBorrador(Captura c) {
     setState(() {
       capturas.insert(0, c);
       ultimoCompetidor = c.competidor;
     });
+    _persistir();
   }
 
-  void refrescar() => setState(() {});
+  void refrescar() {
+    setState(() {});
+    _persistir();
+  }
 
   Future<void> sincronizarTodo() async {
     final pendientes =
@@ -629,6 +745,7 @@ class _HomeShellState extends State<HomeShell> {
       }
     }
     if (!mounted) return;
+    _persistir();
     final mensaje = fallidos == 0
         ? '✓ $exitosos registro(s) sincronizado(s) con el backend'
         : '$exitosos sincronizado(s), $fallidos siguieron sin poder — revisa conexión con el backend';
@@ -637,6 +754,9 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cargando) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final tabs = [
       CapturarTab(
         capturas: capturas,
