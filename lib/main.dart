@@ -2575,6 +2575,45 @@ class CampoTexto extends StatelessWidget {
   }
 }
 
+/// Muestra la foto completa (con pinch-to-zoom) en pantalla, para cuando la
+/// miniatura de 90px no alcanza para reconocer el detalle del producto.
+void _abrirFotoCompleta(BuildContext context, Uint8List bytes, String etiqueta) {
+  Navigator.of(context).push(PageRouteBuilder(
+    opaque: false,
+    barrierColor: Colors.black,
+    pageBuilder: (_, __, ___) => Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.memory(bytes),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Positioned(
+              top: 14,
+              left: 56,
+              child: Text(etiqueta,
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ));
+}
+
 class MiniFoto extends StatelessWidget {
   final String etiqueta;
   final Uint8List? bytes;
@@ -2593,24 +2632,40 @@ class MiniFoto extends StatelessWidget {
           border: Border.all(color: AppColors.line),
         ),
         child: bytes != null
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.memory(bytes!, fit: BoxFit.cover),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      color: Colors.black45,
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(etiqueta,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 9, color: Colors.white)),
+            ? GestureDetector(
+                // Antes esta miniatura de 90px era la unica forma de ver la
+                // foto - en el Momento 2 (Ficha del producto) el analista
+                // ya no se acuerda bien del detalle y necesita verla mas
+                // grande para describir el producto (reportado desde
+                // campo). Tocarla abre la foto completa con zoom.
+                onTap: () => _abrirFotoCompleta(context, bytes!, etiqueta),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(bytes!, fit: BoxFit.cover),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        color: Colors.black45,
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(etiqueta,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 9, color: Colors.white)),
+                      ),
                     ),
-                  ),
-                ],
+                    const Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Icon(Icons.zoom_in,
+                          size: 16, color: Colors.white, shadows: [
+                        Shadow(color: Colors.black, blurRadius: 3),
+                      ]),
+                    ),
+                  ],
+                ),
               )
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
