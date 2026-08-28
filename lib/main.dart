@@ -22,7 +22,7 @@ import 'package:image/image.dart' as img;
 // la laptop - ESTA URL CAMBIA si el proceso de cloudflared se reinicia
 // (es un "quick tunnel" sin cuenta, no un dominio fijo). Si deja de
 // responder, pide la URL nueva y compila un APK nuevo con ese cambio.
-const String _backendBaseUrl = 'https://slope-folk-shot-socks.trycloudflare.com';
+const String _backendBaseUrl = 'https://barbie-possibilities-fiber-henderson.trycloudflare.com';
 
 class ResultadoSync {
   final bool ok;
