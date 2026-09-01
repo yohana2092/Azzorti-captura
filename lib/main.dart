@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -449,37 +450,57 @@ String _colorDominante(img.Image imagen) {
   }
   final excluirPiel = totalMuestra > 0 && (totalPiel / totalMuestra) <= 0.5;
 
-  final votos = <String, int>{};
-  final votosCromaticos = <String, int>{};
-  var total = 0;
-  var totalCromatico = 0;
+  // Cada píxel vota con más peso cuanto más cerca esté del CENTRO del
+  // recorte — las fotos de producto casi siempre centran la prenda, así
+  // que el fondo (que tiende a asomar en las esquinas/bordes, o por los
+  // huecos de un crop top/escote) pesa menos sin necesidad de adivinar si
+  // es cromático o acromático. Antes de esto, un fondo de color vivo
+  // (ej. una puerta rojiza) que ocupara una porción considerable del
+  // recorte le ganaba a una prenda NEGRA real, porque la regla anterior
+  // priorizaba a ciegas cualquier color con matiz por encima de negro/
+  // gris/blanco (bug real: top negro sobre puerta rojiza sugería "Vino").
+  final ccx = (cx0 + cx1) / 2, ccy = (cy0 + cy1) / 2;
+  final maxDist = math.sqrt(math.pow(cx1 - ccx, 2) + math.pow(cy1 - ccy, 2));
+
+  final votos = <String, double>{};
+  final votosCromaticos = <String, double>{};
+  var total = 0.0;
+  var totalCromatico = 0.0;
 
   for (var y = cy0; y < cy1; y += 3) {
     for (var x = cx0; x < cx1; x += 3) {
       final p = imagen.getPixel(x, y);
       final r = p.r.toInt(), g = p.g.toInt(), b = p.b.toInt();
       if (excluirPiel && _esPiel(r, g, b)) continue;
+      final dist = math.sqrt(math.pow(x - ccx, 2) + math.pow(y - ccy, 2));
+      final peso = maxDist > 0 ? 1.0 - 0.6 * (dist / maxDist).clamp(0.0, 1.0) : 1.0;
       final (color, esCromatico) = clasificar(r, g, b);
-      votos[color] = (votos[color] ?? 0) + 1;
-      total++;
+      votos[color] = (votos[color] ?? 0) + peso;
+      total += peso;
       if (esCromatico) {
-        votosCromaticos[color] = (votosCromaticos[color] ?? 0) + 1;
-        totalCromatico++;
+        votosCromaticos[color] = (votosCromaticos[color] ?? 0) + peso;
+        totalCromatico += peso;
       }
     }
   }
   if (votos.isEmpty) return '';
 
-  // Un fondo oscuro/gris parejo (mesa, silla, pared) puede acumular más
-  // píxeles que la prenda si esta no llena todo el encuadre — pero si hay
-  // una porción real de píxeles con color de verdad (no solo negro/gris/
-  // blanco de fondo), esa prenda con color es casi siempre el sujeto de
-  // la foto, no el fondo. Por eso, cuando el color ocupa una porción
-  // considerable del total, se prioriza el color sobre el fondo acromático.
-  if (totalCromatico / total >= 0.15) {
+  final ganadorGeneral = votos.entries.reduce((a, b) => a.value >= b.value ? a : b);
+
+  // Un fondo GRIS/BLANCO parejo (mesa, silla, pared) puede acumular más
+  // peso que la prenda si esta no llena todo el encuadre — pero si hay una
+  // porción real de píxeles con color de verdad, esa prenda con color es
+  // casi siempre el sujeto de la foto, no el fondo. Esto NO aplica cuando
+  // el ganador general ya es NEGRO: a diferencia de gris/blanco, el negro
+  // es un color de prenda real y frecuente, no solo un color de fondo -
+  // preferir a ciegas cualquier matiz de fondo por encima de un negro que
+  // ya ganó por mayoría clara es justo el bug real que se vio en pruebas
+  // (top negro sobre una puerta rojiza sugería "Vino", con Negro ganando
+  // 4 a 1 en votos reales).
+  if (ganadorGeneral.key != 'Negro' && totalCromatico / total >= 0.15) {
     return votosCromaticos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
-  return votos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  return ganadorGeneral.key;
 }
 
 String _capitalizar(String s) =>
