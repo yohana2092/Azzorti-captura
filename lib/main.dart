@@ -269,29 +269,82 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     }
     encontrados.sort((a, b) => a.key.compareTo(b.key));
 
-    // Paso 3: empareja cada porcentaje con la tela más cercana después de él
-    // (tolera que el OCR haya separado el número y la palabra en líneas
-    // distintas por culpa de una etiqueta angosta o texto vertical).
-    final pares = <String>[];
-    for (final p in porcentajes) {
-      // Un 0% no es una composición real — el OCR a veces confunde "1" con
-      // "0" en etiquetas borrosas o con poca luz (ej. "100%" leído "000%").
-      // Mejor no autocompletar nada que mostrar un dato claramente inválido
-      // marcado como "✓ Detectado" cuando en realidad viene mal leído.
-      if ((int.tryParse(p.group(1) ?? '') ?? 0) == 0) continue;
-      String? telaCercana;
-      var mejorDistancia = 1 << 30;
-      for (final e in encontrados) {
-        final distancia = e.key - p.end;
-        if (distancia >= -2 && distancia < mejorDistancia) {
-          mejorDistancia = distancia;
-          telaCercana = e.value;
-        }
-      }
-      if (telaCercana != null) {
-        pares.add('${p.group(1)}% ${_capitalizar(telas[telaCercana]!)}');
+    // Paso 3: empareja cada porcentaje con la tela más cercana, en
+    // CUALQUIER dirección (antes solo se buscaba la tela después del
+    // porcentaje). Una etiqueta angosta cosida en una costura curva (como
+    // el cuello de un crop top) puede hacer que ML Kit entregue los
+    // bloques de texto en un orden distinto al que se lee a simple vista
+    // — bug real visto en pruebas: "95% polyester / 5% spandex" solo
+    // arrojaba el primer componente, el segundo quedaba vacío. El
+    // emparejamiento ahora es "greedy": se toma primero el par
+    // (porcentaje, tela) más cercano de todos los posibles, se marcan
+    // ambos como usados, y se repite — así una tela ya no se descarta
+    // solo porque quedó "antes" del porcentaje en el texto reconocido.
+    // Un 0% no es una composición real — el OCR a veces confunde "1" con
+    // "0" en etiquetas borrosas o con poca luz (ej. "100%" leído "000%").
+    final porcentajesValidos = porcentajes
+        .where((p) => (int.tryParse(p.group(1) ?? '') ?? 0) != 0)
+        .toList();
+
+    // Pase 1: igual que antes, solo tela HACIA ADELANTE (formato real más
+    // común: "95% Poliéster"), de forma greedy para que un porcentaje no
+    // le quite a otro la tela que realmente le corresponde.
+    final candidatosAdelante = <(int, int, int)>[];
+    for (var i = 0; i < porcentajesValidos.length; i++) {
+      final p = porcentajesValidos[i];
+      for (var j = 0; j < encontrados.length; j++) {
+        final distancia = encontrados[j].key - p.end;
+        if (distancia >= -2) candidatosAdelante.add((i, j, distancia));
       }
     }
+    candidatosAdelante.sort((a, b) => a.$3.compareTo(b.$3));
+
+    final pctUsado = <int>{};
+    final telaUsada = <int>{};
+    final parePorPct = <int, String>{};
+    for (final c in candidatosAdelante) {
+      final (i, j, _) = c;
+      if (pctUsado.contains(i) || telaUsada.contains(j)) continue;
+      pctUsado.add(i);
+      telaUsada.add(j);
+      final p = porcentajesValidos[i];
+      final tela = encontrados[j].value;
+      parePorPct[i] = '${p.group(1)}% ${_capitalizar(telas[tela]!)}';
+    }
+
+    // Pase 2 (respaldo): para el/los porcentaje(s) que se quedaron sin
+    // tela adelante, se busca la tela restante más cercana en CUALQUIER
+    // dirección. Cubre el caso real visto en pruebas: una etiqueta angosta
+    // cosida en una costura curva hizo que el OCR entregara "spandex" en
+    // una posición del texto que ya no calificaba como "adelante" del
+    // "5%" — antes eso dejaba el segundo componente vacío por completo.
+    if (pctUsado.length < porcentajesValidos.length) {
+      final candidatosRespaldo = <(int, int, int)>[];
+      for (var i = 0; i < porcentajesValidos.length; i++) {
+        if (pctUsado.contains(i)) continue;
+        final p = porcentajesValidos[i];
+        for (var j = 0; j < encontrados.length; j++) {
+          if (telaUsada.contains(j)) continue;
+          candidatosRespaldo.add((i, j, (encontrados[j].key - p.end).abs()));
+        }
+      }
+      candidatosRespaldo.sort((a, b) => a.$3.compareTo(b.$3));
+      for (final c in candidatosRespaldo) {
+        final (i, j, _) = c;
+        if (pctUsado.contains(i) || telaUsada.contains(j)) continue;
+        pctUsado.add(i);
+        telaUsada.add(j);
+        final p = porcentajesValidos[i];
+        final tela = encontrados[j].value;
+        parePorPct[i] = '${p.group(1)}% ${_capitalizar(telas[tela]!)}';
+      }
+    }
+    // Se mantienen en el orden en que aparecen los porcentajes en el
+    // texto (no en el orden en que se emparejaron), igual que antes.
+    final pares = [
+      for (var i = 0; i < porcentajesValidos.length; i++)
+        if (parePorPct.containsKey(i)) parePorPct[i]!
+    ];
 
     if (pares.isNotEmpty) resultado['componente1'] = pares[0];
     if (pares.length > 1) resultado['componente2'] = pares[1];
