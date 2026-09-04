@@ -1,0 +1,14 @@
+{
+    "name": "azzorti/captura-v1",
+    "description": "Modulo captura_v1 (benchmarking de precios) - puerto a PHP del prototipo Azzorti-captura (server.py).",
+    "require": {
+        "php": ">=7.4",
+        "ext-pdo": "*",
+        "ext-zip": "*",
+        "ext-dom": "*",
+        "ext-mbstring": "*",
+        "ext-imagick": "*",
+        "phpoffice/phpspreadsheet": "^1.29",
+        "chriskacerguis/codeigniter-restserver": "^3.1"
+    }
+}
