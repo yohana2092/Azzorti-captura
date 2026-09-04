@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -269,29 +270,82 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     }
     encontrados.sort((a, b) => a.key.compareTo(b.key));
 
-    // Paso 3: empareja cada porcentaje con la tela más cercana después de él
-    // (tolera que el OCR haya separado el número y la palabra en líneas
-    // distintas por culpa de una etiqueta angosta o texto vertical).
-    final pares = <String>[];
-    for (final p in porcentajes) {
-      // Un 0% no es una composición real — el OCR a veces confunde "1" con
-      // "0" en etiquetas borrosas o con poca luz (ej. "100%" leído "000%").
-      // Mejor no autocompletar nada que mostrar un dato claramente inválido
-      // marcado como "✓ Detectado" cuando en realidad viene mal leído.
-      if ((int.tryParse(p.group(1) ?? '') ?? 0) == 0) continue;
-      String? telaCercana;
-      var mejorDistancia = 1 << 30;
-      for (final e in encontrados) {
-        final distancia = e.key - p.end;
-        if (distancia >= -2 && distancia < mejorDistancia) {
-          mejorDistancia = distancia;
-          telaCercana = e.value;
-        }
-      }
-      if (telaCercana != null) {
-        pares.add('${p.group(1)}% ${_capitalizar(telas[telaCercana]!)}');
+    // Paso 3: empareja cada porcentaje con la tela más cercana, en
+    // CUALQUIER dirección (antes solo se buscaba la tela después del
+    // porcentaje). Una etiqueta angosta cosida en una costura curva (como
+    // el cuello de un crop top) puede hacer que ML Kit entregue los
+    // bloques de texto en un orden distinto al que se lee a simple vista
+    // — bug real visto en pruebas: "95% polyester / 5% spandex" solo
+    // arrojaba el primer componente, el segundo quedaba vacío. El
+    // emparejamiento ahora es "greedy": se toma primero el par
+    // (porcentaje, tela) más cercano de todos los posibles, se marcan
+    // ambos como usados, y se repite — así una tela ya no se descarta
+    // solo porque quedó "antes" del porcentaje en el texto reconocido.
+    // Un 0% no es una composición real — el OCR a veces confunde "1" con
+    // "0" en etiquetas borrosas o con poca luz (ej. "100%" leído "000%").
+    final porcentajesValidos = porcentajes
+        .where((p) => (int.tryParse(p.group(1) ?? '') ?? 0) != 0)
+        .toList();
+
+    // Pase 1: igual que antes, solo tela HACIA ADELANTE (formato real más
+    // común: "95% Poliéster"), de forma greedy para que un porcentaje no
+    // le quite a otro la tela que realmente le corresponde.
+    final candidatosAdelante = <(int, int, int)>[];
+    for (var i = 0; i < porcentajesValidos.length; i++) {
+      final p = porcentajesValidos[i];
+      for (var j = 0; j < encontrados.length; j++) {
+        final distancia = encontrados[j].key - p.end;
+        if (distancia >= -2) candidatosAdelante.add((i, j, distancia));
       }
     }
+    candidatosAdelante.sort((a, b) => a.$3.compareTo(b.$3));
+
+    final pctUsado = <int>{};
+    final telaUsada = <int>{};
+    final parePorPct = <int, String>{};
+    for (final c in candidatosAdelante) {
+      final (i, j, _) = c;
+      if (pctUsado.contains(i) || telaUsada.contains(j)) continue;
+      pctUsado.add(i);
+      telaUsada.add(j);
+      final p = porcentajesValidos[i];
+      final tela = encontrados[j].value;
+      parePorPct[i] = '${p.group(1)}% ${_capitalizar(telas[tela]!)}';
+    }
+
+    // Pase 2 (respaldo): para el/los porcentaje(s) que se quedaron sin
+    // tela adelante, se busca la tela restante más cercana en CUALQUIER
+    // dirección. Cubre el caso real visto en pruebas: una etiqueta angosta
+    // cosida en una costura curva hizo que el OCR entregara "spandex" en
+    // una posición del texto que ya no calificaba como "adelante" del
+    // "5%" — antes eso dejaba el segundo componente vacío por completo.
+    if (pctUsado.length < porcentajesValidos.length) {
+      final candidatosRespaldo = <(int, int, int)>[];
+      for (var i = 0; i < porcentajesValidos.length; i++) {
+        if (pctUsado.contains(i)) continue;
+        final p = porcentajesValidos[i];
+        for (var j = 0; j < encontrados.length; j++) {
+          if (telaUsada.contains(j)) continue;
+          candidatosRespaldo.add((i, j, (encontrados[j].key - p.end).abs()));
+        }
+      }
+      candidatosRespaldo.sort((a, b) => a.$3.compareTo(b.$3));
+      for (final c in candidatosRespaldo) {
+        final (i, j, _) = c;
+        if (pctUsado.contains(i) || telaUsada.contains(j)) continue;
+        pctUsado.add(i);
+        telaUsada.add(j);
+        final p = porcentajesValidos[i];
+        final tela = encontrados[j].value;
+        parePorPct[i] = '${p.group(1)}% ${_capitalizar(telas[tela]!)}';
+      }
+    }
+    // Se mantienen en el orden en que aparecen los porcentajes en el
+    // texto (no en el orden en que se emparejaron), igual que antes.
+    final pares = [
+      for (var i = 0; i < porcentajesValidos.length; i++)
+        if (parePorPct.containsKey(i)) parePorPct[i]!
+    ];
 
     if (pares.isNotEmpty) resultado['componente1'] = pares[0];
     if (pares.length > 1) resultado['componente2'] = pares[1];
@@ -450,37 +504,57 @@ String _colorDominante(img.Image imagen) {
   }
   final excluirPiel = totalMuestra > 0 && (totalPiel / totalMuestra) <= 0.5;
 
-  final votos = <String, int>{};
-  final votosCromaticos = <String, int>{};
-  var total = 0;
-  var totalCromatico = 0;
+  // Cada píxel vota con más peso cuanto más cerca esté del CENTRO del
+  // recorte — las fotos de producto casi siempre centran la prenda, así
+  // que el fondo (que tiende a asomar en las esquinas/bordes, o por los
+  // huecos de un crop top/escote) pesa menos sin necesidad de adivinar si
+  // es cromático o acromático. Antes de esto, un fondo de color vivo
+  // (ej. una puerta rojiza) que ocupara una porción considerable del
+  // recorte le ganaba a una prenda NEGRA real, porque la regla anterior
+  // priorizaba a ciegas cualquier color con matiz por encima de negro/
+  // gris/blanco (bug real: top negro sobre puerta rojiza sugería "Vino").
+  final ccx = (cx0 + cx1) / 2, ccy = (cy0 + cy1) / 2;
+  final maxDist = math.sqrt(math.pow(cx1 - ccx, 2) + math.pow(cy1 - ccy, 2));
+
+  final votos = <String, double>{};
+  final votosCromaticos = <String, double>{};
+  var total = 0.0;
+  var totalCromatico = 0.0;
 
   for (var y = cy0; y < cy1; y += 3) {
     for (var x = cx0; x < cx1; x += 3) {
       final p = imagen.getPixel(x, y);
       final r = p.r.toInt(), g = p.g.toInt(), b = p.b.toInt();
       if (excluirPiel && _esPiel(r, g, b)) continue;
+      final dist = math.sqrt(math.pow(x - ccx, 2) + math.pow(y - ccy, 2));
+      final peso = maxDist > 0 ? 1.0 - 0.6 * (dist / maxDist).clamp(0.0, 1.0) : 1.0;
       final (color, esCromatico) = clasificar(r, g, b);
-      votos[color] = (votos[color] ?? 0) + 1;
-      total++;
+      votos[color] = (votos[color] ?? 0) + peso;
+      total += peso;
       if (esCromatico) {
-        votosCromaticos[color] = (votosCromaticos[color] ?? 0) + 1;
-        totalCromatico++;
+        votosCromaticos[color] = (votosCromaticos[color] ?? 0) + peso;
+        totalCromatico += peso;
       }
     }
   }
   if (votos.isEmpty) return '';
 
-  // Un fondo oscuro/gris parejo (mesa, silla, pared) puede acumular más
-  // píxeles que la prenda si esta no llena todo el encuadre — pero si hay
-  // una porción real de píxeles con color de verdad (no solo negro/gris/
-  // blanco de fondo), esa prenda con color es casi siempre el sujeto de
-  // la foto, no el fondo. Por eso, cuando el color ocupa una porción
-  // considerable del total, se prioriza el color sobre el fondo acromático.
-  if (totalCromatico / total >= 0.15) {
+  final ganadorGeneral = votos.entries.reduce((a, b) => a.value >= b.value ? a : b);
+
+  // Un fondo GRIS/BLANCO parejo (mesa, silla, pared) puede acumular más
+  // peso que la prenda si esta no llena todo el encuadre — pero si hay una
+  // porción real de píxeles con color de verdad, esa prenda con color es
+  // casi siempre el sujeto de la foto, no el fondo. Esto NO aplica cuando
+  // el ganador general ya es NEGRO: a diferencia de gris/blanco, el negro
+  // es un color de prenda real y frecuente, no solo un color de fondo -
+  // preferir a ciegas cualquier matiz de fondo por encima de un negro que
+  // ya ganó por mayoría clara es justo el bug real que se vio en pruebas
+  // (top negro sobre una puerta rojiza sugería "Vino", con Negro ganando
+  // 4 a 1 en votos reales).
+  if (ganadorGeneral.key != 'Negro' && totalCromatico / total >= 0.15) {
     return votosCromaticos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
-  return votos.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  return ganadorGeneral.key;
 }
 
 String _capitalizar(String s) =>
