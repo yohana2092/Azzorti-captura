@@ -886,12 +886,10 @@
 
 <script>
   // ====== Sincronización automática M1 -> M4 ======
-  // Lee el backend real (ver /backend/server.py) en vez del capturas.json
-  // que se escribía en un repositorio público de GitHub con un token
-  // embebido en el APK (hallazgo de seguridad ya corregido). Cambia la IP
-  // por la de tu laptop en la red local antes de la demo (misma IP que
-  // pusiste en _backendBaseUrl de lib/main.dart).
-  const BACKEND_URL = 'https://barbie-possibilities-fiber-henderson.trycloudflare.com';
+  // Backend real: modulo captura_v1 (PHP), mismo valor que _backendBaseUrl
+  // en lib/main.dart. Ver C:\Trabajo\azzorti-captura-backend-deploy\php\README.md
+  // para el detalle del despliegue.
+  const BACKEND_URL = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
 
   var _ultimoConteoLive = 0;
   var _vdCombosVistos = new Set();
@@ -901,7 +899,7 @@
 
   async function cargarUmbralAlerta(){
     try {
-      const resp = await fetch(BACKEND_URL + '/configuracion/umbral-alerta', {cache: 'no-store'});
+      const resp = await fetch(BACKEND_URL + '/configuracion/umbral_alerta', {cache: 'no-store'});
       if(!resp.ok) return;
       const data = await resp.json();
       document.getElementById('input-umbral').value = data.umbral_pct;
@@ -918,7 +916,7 @@
       return;
     }
     try {
-      const resp = await fetch(BACKEND_URL + '/configuracion/umbral-alerta', {
+      const resp = await fetch(BACKEND_URL + '/configuracion/umbral_alerta', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({umbral_pct: valor}),
@@ -937,7 +935,7 @@
   // - ahora tiene su propio boton "Guardar" en el backend.
   async function cargarTipoCambio(){
     try {
-      const resp = await fetch(BACKEND_URL + '/configuracion/tipo-cambio', {cache: 'no-store'});
+      const resp = await fetch(BACKEND_URL + '/configuracion/tipo_cambio', {cache: 'no-store'});
       if(!resp.ok) return;
       const data = await resp.json();
       document.getElementById('input-tc').value = data.tc;
@@ -955,7 +953,7 @@
       return;
     }
     try {
-      const resp = await fetch(BACKEND_URL + '/configuracion/tipo-cambio', {
+      const resp = await fetch(BACKEND_URL + '/configuracion/tipo_cambio', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({tc: valor}),
@@ -1124,6 +1122,8 @@
                   '<div id="productos-cat-' + c.id + '" style="margin-top:6px;font-size:11.5px;color:var(--muted);"></div></td>'
               : '<td><button onclick="abrirModalEstrella(' + c.id + ', \'' + competidor.replace(/'/g,"") + '\', \'' + c.campana.replace(/'/g,"") + '\')" ' +
                   'style="padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11.5px;">+ Registrar producto estrella</button></td>') +
+            '<td><button onclick="eliminarCatalogo(' + c.id + ', this)" ' +
+              'style="padding:4px 10px;border:1px solid #c0392b;border-radius:6px;background:#fff;color:#c0392b;cursor:pointer;font-size:11.5px;">🗑 Eliminar</button></td>' +
             '</tr>';
         }).join('');
         panel.innerHTML =
@@ -1131,6 +1131,7 @@
             '<span class="cat-policy">' + catalogos.length + ' catálogo(s)</span></div>' +
           '<table><thead><tr><th>Campaña</th><th>Archivo</th><th>Ofertas identificadas</th>' +
             (esAzzorti ? '<th>Homologación Venta Directa</th>' : '<th>Producto estrella</th>') +
+            '<th>Acciones</th>' +
           '</tr></thead><tbody>' + filas + '</tbody></table>';
         cont.appendChild(panel);
         catalogos.forEach(function(c){
@@ -1146,12 +1147,37 @@
     }
   }
 
+  async function eliminarCatalogo(catalogoId, btnEl){
+    if(!confirm('¿Eliminar este catálogo? Se borran también sus ofertas/productos indexados y el archivo subido. Esta acción no se puede deshacer.')){
+      return;
+    }
+    btnEl.disabled = true;
+    const textoOriginal = btnEl.textContent;
+    btnEl.textContent = 'Eliminando…';
+    try {
+      const resp = await fetch(BACKEND_URL + '/catalogos/eliminar/' + catalogoId, {method: 'POST'});
+      if(!resp.ok){
+        const data = await resp.json().catch(function(){ return {}; });
+        alert(data.message || 'No se pudo eliminar el catálogo.');
+        btnEl.disabled = false;
+        btnEl.textContent = textoOriginal;
+        return;
+      }
+      cargarCompetencia();
+      cargarCatalogos();
+    } catch(e) {
+      alert('Sin conexión con el backend.');
+      btnEl.disabled = false;
+      btnEl.textContent = textoOriginal;
+    }
+  }
+
   // ====== Pendiente 8: identificación de ofertas (OCR por página del catálogo PDF) ======
   async function _pintarOfertasDeCatalogo(catalogoId){
     const cont = document.getElementById('ofertas-cat-' + catalogoId);
     if(!cont) return;
     try {
-      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/ofertas', {cache: 'no-store'});
+      const resp = await fetch(BACKEND_URL + '/catalogos/ofertas/' + catalogoId, {cache: 'no-store'});
       if(!resp.ok) return;
       const filas = await resp.json();
       const detectadas = filas.filter(function(f){ return f.oferta_detectada; });
@@ -1181,7 +1207,7 @@
     btnEl.textContent = 'Analizando…';
     if(cont) cont.textContent = 'Leyendo cada página del catálogo (puede tardar uno o dos minutos)…';
     try {
-      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/detectar-ofertas', {method: 'POST'});
+      const resp = await fetch(BACKEND_URL + '/catalogos/detectar_ofertas/' + catalogoId, {method: 'POST'});
       const data = await resp.json();
       if(!resp.ok){
         if(cont) cont.textContent = data.detail || 'No se pudo analizar el catálogo.';
@@ -1201,7 +1227,7 @@
     const cont = document.getElementById('productos-cat-' + catalogoId);
     if(!cont) return;
     try {
-      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/productos-resumen', {cache: 'no-store'});
+      const resp = await fetch(BACKEND_URL + '/catalogos/productos_resumen/' + catalogoId, {cache: 'no-store'});
       if(!resp.ok) return;
       const data = await resp.json();
       cont.textContent = data.total_productos
@@ -1212,22 +1238,47 @@
     }
   }
 
+  // Tandas de 10 páginas para no pegarle al timeout del gateway (504) en
+  // catálogos largos (~300 páginas tardarían ~12min en un solo request -
+  // confirmado que el servidor se corta antes de terminar, y no sigue
+  // solo en el fondo). Bajado de 15 a 10 al subir el DPI del OCR de 150
+  // a 200 (Ocr_helper::DPI) - cada página pesa más y tarda más, así que
+  // se achica la tanda para mantener un tiempo similar por request.
+  const PAGINAS_POR_TANDA = 10;
+
   async function indexarProductos(catalogoId, btnEl){
     const cont = document.getElementById('productos-cat-' + catalogoId);
     btnEl.disabled = true;
     const textoOriginal = btnEl.textContent;
     btnEl.textContent = 'Indexando…';
-    if(cont) cont.textContent = 'Leyendo cada página del catálogo (puede tardar varios minutos en catálogos largos)…';
     try {
-      const resp = await fetch(BACKEND_URL + '/catalogos/' + catalogoId + '/indexar-productos', {method: 'POST'});
-      const data = await resp.json();
-      if(!resp.ok){
-        if(cont) cont.textContent = data.detail || 'No se pudo indexar el catálogo.';
-        return;
+      let desde = 0;
+      let numPaginas = null;
+      while (numPaginas === null || desde < numPaginas) {
+        const hasta = desde + PAGINAS_POR_TANDA - 1;
+        if(cont) {
+          cont.textContent = numPaginas
+            ? 'Indexando página ' + (desde + 1) + ' a ' + Math.min(hasta + 1, numPaginas) + ' de ' + numPaginas + '…'
+            : 'Indexando página ' + (desde + 1) + ' a ' + (hasta + 1) + '…';
+        }
+        const resp = await fetch(
+          BACKEND_URL + '/catalogos/indexar_productos/' + catalogoId
+            + '?desde=' + desde + '&hasta=' + hasta,
+          {method: 'POST'}
+        );
+        const data = await resp.json();
+        if(!resp.ok){
+          if(cont) cont.textContent = (data.message || data.detail || 'No se pudo indexar el catálogo.')
+            + ' (se guardó lo indexado hasta la página ' + desde + ').';
+          return;
+        }
+        numPaginas = data.num_paginas;
+        desde = data.pagina_hasta + 1;
+        if(data.completo) break;
       }
       await _pintarEstadoIndexado(catalogoId);
     } catch(e) {
-      if(cont) cont.textContent = 'Sin conexión con el backend.';
+      if(cont) cont.textContent = 'Sin conexión con el backend (se guardó lo indexado hasta el corte).';
     } finally {
       btnEl.disabled = false;
       btnEl.textContent = textoOriginal;
@@ -1242,7 +1293,7 @@
     try {
       const [respRetail, respVd] = await Promise.all([
         fetch(BACKEND_URL + '/capturas', {cache: 'no-store'}),
-        fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'}),
+        fetch(BACKEND_URL + '/productosestrella', {cache: 'no-store'}),
       ]);
       _ultimaListaReporteRetail = respRetail.ok ? await respRetail.json() : [];
       _ultimaListaReporteVd = respVd.ok ? await respVd.json() : [];
@@ -1427,7 +1478,7 @@
     form.append('archivo', archivoInput.files[0]);
     msg.textContent = 'Importando…';
     try {
-      const resp = await fetch(BACKEND_URL + '/productos-estrella/importar', {method: 'POST', body: form});
+      const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
       const data = await resp.json();
       if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
       msg.textContent = '✓ ' + data.mensaje;
@@ -1487,7 +1538,7 @@
 
   async function cargarProductosEstrella(){
     try {
-      const resp = await fetch(BACKEND_URL + '/productos-estrella', {cache: 'no-store'});
+      const resp = await fetch(BACKEND_URL + '/productosestrella', {cache: 'no-store'});
       if(!resp.ok) return;
       _ultimaListaEstrella = await resp.json();
       // El filtro de arriba (Competidor/Campaña/Categoría) es el UNICO
@@ -1525,7 +1576,7 @@
     form.append('archivo', archivoInput.files[0]);
     msg.textContent = 'Importando…';
     try {
-      const resp = await fetch(BACKEND_URL + '/productos-estrella/importar', {method: 'POST', body: form});
+      const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
       const data = await resp.json();
       if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
       msg.textContent = '✓ ' + data.mensaje;

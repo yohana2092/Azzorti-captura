@@ -1,0 +1,14 @@
+[Unit]
+Description=Azzorti Benchmarking - Backend (FastAPI/uvicorn)
+After=network.target
+
+[Service]
+# Ajusta estas 3 rutas/usuario a como quede en tu servidor.
+User=azzorti
+WorkingDirectory=/opt/azzorti-backend
+ExecStart=/opt/azzorti-backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

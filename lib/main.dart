@@ -17,12 +17,13 @@ import 'package:image/image.dart' as img;
 // el historial de git). Esto llama a un backend real (ver /backend/server.py)
 // que persiste en base de datos y valida duplicados de verdad.
 //
-// Backend expuesto por un tunel de Cloudflare (trycloudflare.com) para
-// poder probar desde cualquier Android sin estar en la misma red WiFi de
-// la laptop - ESTA URL CAMBIA si el proceso de cloudflared se reinicia
-// (es un "quick tunnel" sin cuenta, no un dominio fijo). Si deja de
-// responder, pide la URL nueva y compila un APK nuevo con ese cambio.
-const String _backendBaseUrl = 'https://barbie-possibilities-fiber-henderson.trycloudflare.com';
+// Backend real: modulo captura_v1 (PHP), desplegado dentro de la
+// instalacion hmvc/ del servidor real (ver
+// C:\Trabajo\azzorti-captura-backend-deploy\php\README.md para el detalle
+// completo del despliegue). Reemplaza el tunel de Cloudflare que apuntaba
+// al prototipo Python en una laptop (URL temporal, se caia con cada
+// reinicio de cloudflared).
+const String _backendBaseUrl = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
 
 class ResultadoSync {
   final bool ok;
@@ -105,7 +106,7 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
 Future<List<Map<String, dynamic>>> pedirSugerenciasHomologacion(
     int backendId) async {
   final url = Uri.parse(
-      '$_backendBaseUrl/capturas/$backendId/homologacion/sugerencias');
+      '$_backendBaseUrl/capturas/homologacion_sugerencias/$backendId');
   try {
     final resp = await http.get(url).timeout(const Duration(seconds: 20));
     if (resp.statusCode != 200) return [];
@@ -118,7 +119,7 @@ Future<List<Map<String, dynamic>>> pedirSugerenciasHomologacion(
 
 Future<bool> confirmarHomologacion(int backendId, String azzortiSku) async {
   final url = Uri.parse(
-      '$_backendBaseUrl/capturas/$backendId/homologacion/confirmar');
+      '$_backendBaseUrl/capturas/homologacion_confirmar/$backendId');
   try {
     final resp = await http
         .post(url,
@@ -132,7 +133,7 @@ Future<bool> confirmarHomologacion(int backendId, String azzortiSku) async {
 }
 
 Future<Map<String, dynamic>?> pedirEvaluacion(int backendId) async {
-  final url = Uri.parse('$_backendBaseUrl/capturas/$backendId/evaluacion');
+  final url = Uri.parse('$_backendBaseUrl/capturas/evaluacion/$backendId');
   try {
     final resp = await http.get(url).timeout(const Duration(seconds: 20));
     if (resp.statusCode != 200) return null;
