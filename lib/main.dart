@@ -261,15 +261,32 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
     final porcentajes = regexPorcentaje.allMatches(texto).toList();
 
     // Paso 2: todas las telas conocidas con su posición en el texto.
+    // Ademas de la palabra completa, se acepta que le falten hasta 2
+    // letras al final (solo para nombres largos, 7+ letras) - caso real
+    // visto en pruebas: el OCR leyo "SPANDE" en vez de "spandex" (la
+    // etiqueta estaba borrosa/angosta) y antes eso hacia que la tela ni
+    // apareciera como candidata. En nombres cortos (nylon, lino, seda,
+    // etc.) no se acepta el recorte para no confundir con otra palabra
+    // corta cualquiera por casualidad.
     final textoMin = texto.toLowerCase();
     final encontrados = <MapEntry<int, String>>[];
+    final posicionesUsadas = <int>{};
     for (final t in telas.keys) {
-      var desde = 0;
-      while (true) {
-        final i = textoMin.indexOf(t, desde);
-        if (i == -1) break;
-        encontrados.add(MapEntry(i, t));
-        desde = i + t.length;
+      final variantes = <String>{t};
+      if (t.length >= 7) {
+        variantes.add(t.substring(0, t.length - 1));
+        variantes.add(t.substring(0, t.length - 2));
+      }
+      for (final variante in variantes) {
+        var desde = 0;
+        while (true) {
+          final i = textoMin.indexOf(variante, desde);
+          if (i == -1) break;
+          desde = i + variante.length;
+          if (posicionesUsadas.contains(i)) continue;
+          posicionesUsadas.add(i);
+          encontrados.add(MapEntry(i, t));
+        }
       }
     }
     encontrados.sort((a, b) => a.key.compareTo(b.key));
@@ -353,6 +370,24 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
 
     if (pares.isNotEmpty) resultado['componente1'] = pares[0];
     if (pares.length > 1) resultado['componente2'] = pares[1];
+
+    // Pase 3 (respaldo): si sobro una tela reconocida sin ningun
+    // porcentaje cercano, se completa solo el NOMBRE (sin inventar un
+    // numero) para que la persona nada mas tenga que escribir el %
+    // leyendo la etiqueta fisica, en vez de partir de un campo vacio.
+    // Caso real: la etiqueta traia "82% Nylon" y despues "86 Spande" -
+    // sin el simbolo "%" nunca hay forma de saber con certeza cual es
+    // el numero real (86 + 82 no da 100%, asi que probablemente el OCR
+    // leyo mal el numero tambien) - mejor no adivinarlo que mostrar un
+    // porcentaje que puede estar mal.
+    if (resultado['componente2']!.isEmpty) {
+      for (var j = 0; j < encontrados.length; j++) {
+        if (telaUsada.contains(j)) continue;
+        final tela = encontrados[j].value;
+        resultado['componente2'] = _capitalizar(telas[tela]!);
+        break;
+      }
+    }
   } catch (_) {
     // Si la foto sale ilegible o algo falla, no se autocompleta nada.
   }
