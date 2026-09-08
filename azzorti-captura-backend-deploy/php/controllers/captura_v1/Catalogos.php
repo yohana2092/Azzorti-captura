@@ -353,4 +353,29 @@ class Catalogos extends RestController {
             ], $productos),
         ], 200);
     }
+
+    /**
+     * TEMPORAL - BORRAR DESPUES DE USAR (igual que diagnostico_pagina).
+     * Chequea si el servidor tiene alguna herramienta para leer la
+     * posicion REAL de las fotos embebidas en el PDF del catalogo, en
+     * vez de adivinar el recorte por la posicion del texto OCR cercano
+     * (falla cuando la foto y el texto de un producto no ocupan un
+     * espacio parecido en la pagina - confirmado con casos reales).
+     * Solo lee comandos de sistema, no toca base de datos ni archivos.
+     */
+    function diagnostico_herramientas_get() {
+        $chequear = function ($cmd) {
+            $salida = shell_exec($cmd . ' 2>&1');
+            $salida = $salida === null ? '' : trim($salida);
+            return $salida === '' ? '(no encontrado)' : mb_substr($salida, 0, 300);
+        };
+        $this->response([
+            'mutool' => $chequear('command -v mutool && mutool -v'),
+            'pdfimages' => $chequear('command -v pdfimages && pdfimages -v'),
+            'pdftotext' => $chequear('command -v pdftotext && pdftotext -v'),
+            'python3' => $chequear('command -v python3 && python3 --version'),
+            'python3_fitz' => $chequear('python3 -c "import fitz; print(1)"'),
+            'gs' => $chequear('command -v gs && gs -version'),
+        ], 200);
+    }
 }
