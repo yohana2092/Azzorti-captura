@@ -225,6 +225,10 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
         await recognizer.processImage(InputImage.fromFilePath(path));
     await recognizer.close();
     final texto = recognizedText.text;
+    // Texto crudo tal cual lo entrego ML Kit - se muestra chiquito en la
+    // Ficha del producto para poder diagnosticar de una vez por que un
+    // componente no se detecta, en vez de seguir adivinando a ciegas.
+    resultado['debug_texto'] = texto;
 
     // Diccionario de telas conocidas (para emparejar con el % más cercano,
     // en vez de exigir que estén pegados en la misma línea — el OCR de
@@ -1618,6 +1622,7 @@ class FichaPrecioScreen extends StatefulWidget {
 class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
   bool analizando = true;
   bool etiquetaDioDatos = false; // true si el OCR sí llenó composición
+  String debugTextoEtiqueta = ''; // texto crudo leido por el OCR (diagnostico)
   bool colorSugerido = false; // true si el color vino de analizar la foto
 
   String? silueta;
@@ -1668,6 +1673,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
       comp1Ctrl.text = r['componente1'] ?? '';
       comp2Ctrl.text = r['componente2'] ?? '';
       etiquetaDioDatos = comp1Ctrl.text.isNotEmpty;
+      debugTextoEtiqueta = r['debug_texto'] ?? '';
     }
 
     if (c.fotoProducto != null) {
@@ -1782,6 +1788,27 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               auto: comp2Ctrl.text.isNotEmpty,
             ),
             const SizedBox(height: 16),
+            if (debugTextoEtiqueta.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('Texto leído de la etiqueta (para revisar con soporte)',
+                      style: TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(debugTextoEtiqueta,
+                          style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                    ),
+                  ],
+                ),
+              ),
           ],
           const Etiqueta('COLOR'),
           const SizedBox(height: 8),
