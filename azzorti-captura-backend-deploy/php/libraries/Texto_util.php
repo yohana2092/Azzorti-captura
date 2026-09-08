@@ -525,19 +525,67 @@ class Texto_util {
         $seccion = $this->seccion_de_pagina($datos, $alto_pagina);
         $n = count($datos['text']);
 
+        // Agrupar palabras en "lineas" visuales (centro Y a menos de la
+        // mitad de su alto de diferencia) ANTES de asignar por
+        // cercania, y asignar la LINEA COMPLETA a la ancla mas cercana
+        // a su centro - en vez de asignar cada palabra por separado.
+        // Confirmado en produccion (pagina con 2 productos lado a lado,
+        // variantes de color de un mismo estilo, compartiendo una sola
+        // linea de descripcion de tela impresa entre ambos): con
+        // asignacion por palabra, esa linea quedaba partida al medio
+        // entre las 2 anclas vecinas ("poliester" para un producto,
+        // "con spandex" para el de al lado), y NINGUNO de los dos
+        // quedaba con la descripcion completa. Agrupando por linea, la
+        // oracion entera va a UN solo producto (el mas cercano a su
+        // centro) - el otro se queda sin esa linea, pero no con un
+        // fragmento roto.
+        $indices_por_top = range(0, $n - 1);
+        usort($indices_por_top, fn($a, $b) => $datos['top'][$a] <=> $datos['top'][$b]);
+        $lineas = [];
+        foreach ($indices_por_top as $i) {
+            if (trim($datos['text'][$i]) === '') {
+                continue;
+            }
+            $wy = $datos['top'][$i] + $datos['height'][$i] / 2;
+            $tolerancia = max(6, $datos['height'][$i] / 2);
+            $linea_encontrada = null;
+            foreach ($lineas as $li => $linea) {
+                if (abs($linea['y'] - $wy) <= $tolerancia) {
+                    $linea_encontrada = $li;
+                    break;
+                }
+            }
+            if ($linea_encontrada === null) {
+                $lineas[] = ['idx' => [$i], 'y' => $wy];
+            } else {
+                $lineas[$linea_encontrada]['idx'][] = $i;
+                $suma_y = 0;
+                foreach ($lineas[$linea_encontrada]['idx'] as $j) {
+                    $suma_y += $datos['top'][$j] + $datos['height'][$j] / 2;
+                }
+                $lineas[$linea_encontrada]['y'] = $suma_y / count($lineas[$linea_encontrada]['idx']);
+            }
+        }
+
         $cercanos_por_codigo = [];
         foreach ($anclas as $a) {
             $cercanos_por_codigo[$a['codigo']] = [];
         }
-        for ($i = 0; $i < $n; $i++) {
-            $texto = trim($datos['text'][$i]);
-            if ($texto === '') {
-                continue;
+        foreach ($lineas as $linea) {
+            $suma_x = 0;
+            $suma_y = 0;
+            $cnt = count($linea['idx']);
+            foreach ($linea['idx'] as $i) {
+                $suma_x += $datos['left'][$i] + $datos['width'][$i] / 2;
+                $suma_y += $datos['top'][$i] + $datos['height'][$i] / 2;
             }
-            $wx = $datos['left'][$i] + $datos['width'][$i] / 2;
-            $wy = $datos['top'][$i] + $datos['height'][$i] / 2;
-            $codigo = $this->producto_mas_cercano($anclas, $wx, $wy);
-            $cercanos_por_codigo[$codigo][] = $texto;
+            $codigo = $this->producto_mas_cercano($anclas, $suma_x / $cnt, $suma_y / $cnt);
+            // Orden de lectura izquierda-a-derecha dentro de la linea.
+            $idx_ordenados = $linea['idx'];
+            usort($idx_ordenados, fn($a, $b) => $datos['left'][$a] <=> $datos['left'][$b]);
+            foreach ($idx_ordenados as $i) {
+                $cercanos_por_codigo[$codigo][] = trim($datos['text'][$i]);
+            }
         }
 
         $resultados = [];
@@ -551,6 +599,7 @@ class Texto_util {
                 'producto_codigo' => $ancla['codigo'],
                 'texto_cercano' => mb_substr($texto_cercano, 0, 500),
                 'precio' => $precio,
+                'x' => $ancla['x'],
                 'y' => $ancla['y'],
                 'seccion' => $seccion,
             ];

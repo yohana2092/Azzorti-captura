@@ -356,6 +356,29 @@ instalacion no quita `index.php` de la URL, hay que llamar
   `Texto_util::producto_mas_cercano()` que ya existia para
   detectar-ofertas) — mas robusto para cualquier layout, pero es una
   mejora real sobre el original, no una traduccion 1:1.
+- **Ajuste posterior sobre esa misma funcion**: la asignacion Voronoi
+  por PALABRA (no por linea) todavia partia al medio una descripcion
+  compartida entre 2 productos lado a lado en la misma fila (ej. 2
+  variantes de color de un mismo estilo, con una sola linea de
+  composicion de tela impresa entre ambos) — confirmado en produccion
+  con `diagnostico_pagina`: "poliester" quedaba con un producto y "con
+  spandex" con el de al lado, y ninguno de los 2 tenia la tela completa
+  para homologar (score de composicion cercano a 0). Se cambio a
+  agrupar las palabras en lineas visuales primero (mismo renglon =
+  centro Y a menos de medio alto de palabra de diferencia) y asignar la
+  LINEA completa a la ancla mas cercana a su centro, no palabra por
+  palabra — la oracion queda entera en un solo producto en vez de
+  partida entre 2.
+- **El recorte de foto por producto** (`Catalogos::indexar_productos_post`)
+  tenia el mismo problema en la otra direccion: dividia SOLO por Y (una
+  franja de pagina completa por codigo), asi que 2+ productos en la
+  misma fila recibian el mismo recorte de ancho completo — incluida
+  cualquier foto de modelo de la fila (confirmado: "aparece la cara de
+  la modelo" en candidatos de una pagina de 2x2). Ahora primero agrupa
+  los codigos en "filas" (Y parecido) y, dentro de cada fila, tambien
+  divide por X (punto medio entre codigos vecinos ordenados
+  horizontalmente) — con un solo producto por fila el resultado es
+  identico al recorte anterior.
 
 ## 7. Checklist antes de conectar la app Flutter real
 

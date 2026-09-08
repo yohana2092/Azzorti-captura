@@ -189,23 +189,69 @@ class Catalogos extends RestController {
             $productos_pagina = $this->texto_util->indexar_pagina_productos($datos, $render['alto']);
 
             if ($productos_pagina) {
-                // Recorte por producto: franjas horizontales usando el
-                // punto medio entre posiciones Y de codigos consecutivos
-                // (server.py lineas 2454-2465).
+                // Recorte por producto. Antes se dividia SOLO por Y (una
+                // franja de ancho completo por codigo), asumiendo un
+                // producto por fila. En paginas con 2+ productos lado a
+                // lado (variantes de color de un mismo estilo, muy comun
+                // en catalogos de moda) esto le daba a AMBOS productos de
+                // la fila el mismo recorte de pagina completa - incluida
+                // la foto de modelo/cara de al lado (confirmado con el
+                // caso real: pagina con 4 productos en 2x2, cada uno
+                // terminaba con la foto de la fila entera).
+                //
+                // Ahora se agrupan primero los productos en "filas"
+                // (codigos cuyo Y esta a menos de UMBRAL_FILA_PX de
+                // diferencia se consideran a la misma altura visual), se
+                // divide el limite vertical entre filas igual que antes,
+                // y DENTRO de cada fila se divide tambien por X (punto
+                // medio entre codigos consecutivos ordenados por
+                // posicion horizontal). Con un solo producto por fila
+                // esto no cambia nada respecto al comportamiento
+                // anterior (no hay con quien dividir en X).
+                const UMBRAL_FILA_PX = 80;
                 $ordenados = $productos_pagina;
                 usort($ordenados, fn($a, $b) => $a['y'] <=> $b['y']);
+                $filas = [];
+                $filaActual = [];
+                $yFilaActual = null;
+                foreach ($ordenados as $p) {
+                    if ($yFilaActual === null || abs($p['y'] - $yFilaActual) <= UMBRAL_FILA_PX) {
+                        $filaActual[] = $p;
+                    } else {
+                        $filas[] = $filaActual;
+                        $filaActual = [$p];
+                    }
+                    $yFilaActual = $p['y'];
+                }
+                if ($filaActual) {
+                    $filas[] = $filaActual;
+                }
+
                 $im = new Imagick($render['ruta']);
-                $n = count($ordenados);
-                foreach ($ordenados as $i => $p) {
-                    $arriba = $i === 0 ? 0 : ($ordenados[$i - 1]['y'] + $p['y']) / 2;
-                    $abajo = $i === $n - 1 ? $render['alto'] : ($p['y'] + $ordenados[$i + 1]['y']) / 2;
+                $numFilas = count($filas);
+                foreach ($filas as $fi => $fila) {
+                    $yProm = array_sum(array_column($fila, 'y')) / count($fila);
+                    $yPromAnterior = $fi === 0 ? null : array_sum(array_column($filas[$fi - 1], 'y')) / count($filas[$fi - 1]);
+                    $yPromSiguiente = $fi === $numFilas - 1 ? null : array_sum(array_column($filas[$fi + 1], 'y')) / count($filas[$fi + 1]);
+                    $arriba = $yPromAnterior === null ? 0 : ($yPromAnterior + $yProm) / 2;
+                    $abajo = $yPromSiguiente === null ? $render['alto'] : ($yProm + $yPromSiguiente) / 2;
                     $y0 = max(0, (int) round($arriba - 10));
                     $y1 = min($render['alto'], (int) round($abajo + 10));
-                    $recorte = clone $im;
-                    $recorte->cropImage($render['ancho'], max(1, $y1 - $y0), 0, $y0);
-                    $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');
-                    $recorte->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}.png");
-                    $recorte->clear();
+
+                    $filaOrdenadaX = $fila;
+                    usort($filaOrdenadaX, fn($a, $b) => $a['x'] <=> $b['x']);
+                    $m = count($filaOrdenadaX);
+                    foreach ($filaOrdenadaX as $i => $p) {
+                        $izquierda = $i === 0 ? 0 : ($filaOrdenadaX[$i - 1]['x'] + $p['x']) / 2;
+                        $derecha = $i === $m - 1 ? $render['ancho'] : ($p['x'] + $filaOrdenadaX[$i + 1]['x']) / 2;
+                        $x0 = max(0, (int) round($izquierda - 10));
+                        $x1 = min($render['ancho'], (int) round($derecha + 10));
+                        $recorte = clone $im;
+                        $recorte->cropImage(max(1, $x1 - $x0), max(1, $y1 - $y0), $x0, $y0);
+                        $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');
+                        $recorte->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}.png");
+                        $recorte->clear();
+                    }
                 }
                 $im->clear();
             }
