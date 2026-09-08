@@ -238,6 +238,20 @@ class M_homologacion extends CI_Model {
             ];
         }
 
+        // Los productos indexados del PDF (candidatos_moda) no tienen
+        // color/silueta/manga estructurados - antes SOLO puntuaban por
+        // composicion de tela (score_similitud da como maximo 25 de 100
+        // si esos 3 campos quedan vacios), asi que aunque la tela
+        // coincidiera perfecto el score nunca pasaba de 25%, y con
+        // texto_cercano incompleto (ver fix de indexar_pagina_productos)
+        // terminaba mas cerca de 0%. Se agrega un componente de
+        // coincidencia por nombre/descripcion (mismo score_texto que ya
+        // usa Venta Directa) sobre el texto OCR cercano al codigo, para
+        // que un producto que realmente se parece por nombre y tela
+        // pueda puntuar mas alto, no solo por tela.
+        $texto_principal_moda = trim(($captura['categoria'] ?? '') . ' ' . ($captura['descripcion'] ?? ''));
+        $texto_secundario_moda = trim(($captura['caracteristicas'] ?? '') . ' ' . ($captura['detalle'] ?? ''));
+
         $sugerencias_moda = [];
         foreach ($candidatos_moda as $p) {
             $foto_url = null;
@@ -246,6 +260,8 @@ class M_homologacion extends CI_Model {
                 $foto_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
             }
             $pseudo_producto = ['color' => null, 'silueta' => null, 'composicion' => $p->texto_cercano, 'manga' => null];
+            $score_composicion = $this->score_similitud($captura, $pseudo_producto);
+            $score_nombre = round($this->texto_util->score_texto($texto_principal_moda, $texto_secundario_moda, $p->texto_cercano ?? '') * 60, 1);
             $sugerencias_moda[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
@@ -257,7 +273,7 @@ class M_homologacion extends CI_Model {
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => $p->pagina,
                 'foto_url' => $foto_url,
-                'score_similitud' => $this->score_similitud($captura, $pseudo_producto),
+                'score_similitud' => round(min(100, $score_nombre + $score_composicion), 1),
             ];
         }
 
@@ -271,8 +287,10 @@ class M_homologacion extends CI_Model {
                 . 'de Azzorti (mismo catálogo que usa Venta Directa). Ranking por '
                 . 'color, silueta, composición y manga — nunca por código, ya que '
                 . 'la competencia no comparte SKU con Azzorti. Los productos indexados '
-                . 'del PDF no tienen color/silueta/manga estructurados, así que solo '
-                . 'puntúan por composición (tela).',
+                . 'del PDF no tienen color/silueta/manga estructurados, así que puntúan '
+                . 'por composición (tela) más coincidencia de nombre/descripción contra '
+                . 'el texto OCR cercano al código — nunca por foto (la foto solo se '
+                . 'muestra para confirmar a simple vista, no se compara automáticamente).',
             'sugerencias' => $sugerencias,
         ];
     }
