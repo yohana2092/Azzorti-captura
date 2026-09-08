@@ -146,7 +146,15 @@ class M_homologacion extends CI_Model {
                 && !$this->texto_util->texto_mezclado($p->texto_cercano);
         });
         $texto_principal = trim(($captura['categoria'] ?? '') . ' ' . ($captura['descripcion'] ?? ''));
-        $texto_secundario = trim(($captura['caracteristicas'] ?? '') . ' ' . ($captura['detalle'] ?? ''));
+        // Se agrega composicion1/2 al texto secundario (antes solo
+        // caracteristicas+detalle) para que la tela que se cargo en la
+        // app tambien cuente al buscar - Venta Directa no tiene ficha de
+        // atributos estructurados del lado del catalogo (todo es texto
+        // OCR cercano al codigo), asi que la unica forma de que la
+        // composicion "cuente" es buscar sus palabras (poliester,
+        // algodon, spandex...) como cualquier otra palabra clave.
+        $texto_secundario = trim(($captura['caracteristicas'] ?? '') . ' ' . ($captura['detalle'] ?? '')
+            . ' ' . ($captura['composicion1'] ?? '') . ' ' . ($captura['composicion2'] ?? ''));
 
         $sugerencias = [];
         foreach ($candidatos as $p) {
@@ -181,10 +189,11 @@ class M_homologacion extends CI_Model {
 
         return [
             'captura_id' => $captura['id'],
-            'criterio' => "Comparado por palabras clave contra el catálogo de Azzorti "
-                . "'{$catalogo->archivo}' (campaña {$catalogo->campana}) — no hay ficha de "
-                . 'atributos por producto en Venta Directa como sí la hay en Retail, así que la '
-                . 'coincidencia es aproximada (texto OCR cercano al código de cada producto).',
+            'criterio' => "Comparado por palabras clave (categoría, descripción, características, "
+                . "detalle y composición) contra el catálogo de Azzorti '{$catalogo->archivo}' "
+                . "(campaña {$catalogo->campana}) — no hay ficha de atributos por producto en "
+                . 'Venta Directa como sí la hay en Retail, así que la coincidencia es aproximada '
+                . '(texto OCR cercano al código de cada producto), nunca por foto.',
             'sugerencias' => $sugerencias,
         ];
     }
@@ -221,8 +230,23 @@ class M_homologacion extends CI_Model {
             ))
             : [];
 
+        // Igual que en candidatos_moda mas abajo: el nombre/descripcion
+        // cargado en la app tambien debe contar aca, no solo los 4
+        // atributos estructurados (color/silueta/composicion/manga).
+        // Se suma como un bono chico (hasta 20 puntos) en vez de pesar
+        // igual que en candidatos_moda: aca SI hay atributos
+        // estructurados confiables (cargados a mano en el catalogo de
+        // muestra), asi que son la base del puntaje: un producto con los
+        // 4 atributos exactos ya llega a 100 igual que antes; el nombre
+        // sirve para desempatar/mejorar coincidencias PARCIALES de
+        // atributos, no para reemplazarlos.
+        $texto_principal_muestra = trim(($captura['categoria'] ?? '') . ' ' . ($captura['descripcion'] ?? ''));
+        $texto_secundario_muestra = trim(($captura['caracteristicas'] ?? '') . ' ' . ($captura['detalle'] ?? ''));
+
         $sugerencias_muestra = [];
         foreach ($candidatos as $p) {
+            $score_atributos = $this->score_similitud($captura, $p);
+            $score_nombre = round($this->texto_util->score_texto($texto_principal_muestra, $texto_secundario_muestra, $p->descripcion ?? '') * 20, 1);
             $sugerencias_muestra[] = [
                 'sku' => $p->sku,
                 'categoria' => $p->categoria,
@@ -234,7 +258,7 @@ class M_homologacion extends CI_Model {
                 'precio' => $p->precio,
                 'pagina_catalogo' => $p->pagina_catalogo,
                 'foto_url' => $p->foto_archivo ? $this->archivo_util->url_publica($p->foto_archivo, $base_url) : null,
-                'score_similitud' => $this->score_similitud($captura, $p),
+                'score_similitud' => round(min(100, $score_atributos + $score_nombre), 1),
             ];
         }
 
@@ -285,12 +309,12 @@ class M_homologacion extends CI_Model {
             'criterio' => 'Filtrado por categoría, combinando el catálogo de muestra '
                 . '(azzorti_producto) con productos reales indexados del catálogo PDF '
                 . 'de Azzorti (mismo catálogo que usa Venta Directa). Ranking por '
-                . 'color, silueta, composición y manga — nunca por código, ya que '
-                . 'la competencia no comparte SKU con Azzorti. Los productos indexados '
-                . 'del PDF no tienen color/silueta/manga estructurados, así que puntúan '
-                . 'por composición (tela) más coincidencia de nombre/descripción contra '
-                . 'el texto OCR cercano al código — nunca por foto (la foto solo se '
-                . 'muestra para confirmar a simple vista, no se compara automáticamente).',
+                . 'color, silueta, composición y manga (base del puntaje en la muestra, '
+                . 'ya cargados a mano) más coincidencia de nombre/descripción/características '
+                . '— nunca por código ni por foto, ya que la competencia no comparte SKU con '
+                . 'Azzorti y la foto solo se muestra para confirmar a simple vista. Los '
+                . 'productos indexados del PDF no tienen color/silueta/manga estructurados, '
+                . 'así que ahí el nombre/descripción pesa más que en la muestra.',
             'sugerencias' => $sugerencias,
         ];
     }

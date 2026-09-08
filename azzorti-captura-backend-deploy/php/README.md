@@ -369,6 +369,21 @@ instalacion no quita `index.php` de la URL, hay que llamar
   LINEA completa a la ancla mas cercana a su centro, no palabra por
   palabra — la oracion queda entera en un solo producto en vez de
   partida entre 2.
+- **El puntaje de similitud** (`M_homologacion`) originalmente solo
+  comparaba por atributos (color/silueta/composicion/manga) en Retail,
+  o solo por palabras clave de categoria/descripcion/caracteristicas/
+  detalle en Venta Directa - sin cruzar ambos criterios. Se corrigio
+  para que TODO lo cargado en la app cuente en los 3 casos: Venta
+  Directa ahora tambien busca las palabras de composicion1/2 (antes
+  solo caracteristicas+detalle); Retail "muestra" (candidatos con
+  atributos reales, cargados a mano) suma un bono chico de nombre/
+  descripcion (hasta 20 pts) ademas de sus 4 atributos; Retail "moda"
+  (productos indexados del PDF, sin atributos estructurados) combina
+  composicion (hasta 25 pts) con nombre/descripcion (hasta 60 pts), ya
+  que ahi el nombre es la señal mas confiable. Nunca se compara por
+  foto - la foto es solo para confirmacion visual humana, no hay
+  reconocimiento de imagenes en ningun punto del sistema (ver seccion
+  de "pendiente" para el detalle de por que).
 - **El recorte de foto por producto** (`Catalogos::indexar_productos_post`)
   tenia el mismo problema en la otra direccion: dividia SOLO por Y (una
   franja de pagina completa por codigo), asi que 2+ productos en la
