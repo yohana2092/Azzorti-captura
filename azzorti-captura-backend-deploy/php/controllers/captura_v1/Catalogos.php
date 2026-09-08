@@ -208,14 +208,14 @@ class Catalogos extends RestController {
                 // posicion horizontal). Con un solo producto por fila
                 // esto no cambia nada respecto al comportamiento
                 // anterior (no hay con quien dividir en X).
-                const UMBRAL_FILA_PX = 80;
+                $umbral_fila_px = 80;
                 $ordenados = $productos_pagina;
                 usort($ordenados, fn($a, $b) => $a['y'] <=> $b['y']);
                 $filas = [];
                 $filaActual = [];
                 $yFilaActual = null;
                 foreach ($ordenados as $p) {
-                    if ($yFilaActual === null || abs($p['y'] - $yFilaActual) <= UMBRAL_FILA_PX) {
+                    if ($yFilaActual === null || abs($p['y'] - $yFilaActual) <= $umbral_fila_px) {
                         $filaActual[] = $p;
                     } else {
                         $filas[] = $filaActual;
