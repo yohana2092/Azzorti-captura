@@ -251,6 +251,27 @@ class Catalogos extends RestController {
                         $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');
                         $recorte->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}.png");
                         $recorte->clear();
+
+                        // Recorte "grande" (vista previa, mas margen): el
+                        // recorte de arriba a veces sale muy ajustado y se
+                        // queda solo con el precio/texto en vez de la
+                        // prenda - confirmado con casos reales (pagina con
+                        // foto de cuerpo completo y texto chico al pie).
+                        // Este segundo recorte agranda sobre todo hacia
+                        // ARRIBA (ahi suele estar la foto real, el texto
+                        // queda mas abajo) para dar mas chance de que la
+                        // prenda sea visible al abrir la vista previa,
+                        // aunque la miniatura chica no la muestre.
+                        $altoCaja = $y1 - $y0;
+                        $anchoCaja = $x1 - $x0;
+                        $y0g = max(0, (int) round($y0 - $altoCaja));
+                        $y1g = $y1;
+                        $x0g = max(0, (int) round($x0 - $anchoCaja * 0.3));
+                        $x1g = min($render['ancho'], (int) round($x1 + $anchoCaja * 0.3));
+                        $recorteGrande = clone $im;
+                        $recorteGrande->cropImage(max(1, $x1g - $x0g), max(1, $y1g - $y0g), $x0g, $y0g);
+                        $recorteGrande->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}_grande.png");
+                        $recorteGrande->clear();
                     }
                 }
                 $im->clear();
