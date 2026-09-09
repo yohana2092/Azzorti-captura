@@ -330,6 +330,16 @@ class Catalogos extends RestController {
             $this->response(['status' => false, 'message' => 'Archivo no encontrado'], 404);
             return;
         }
+        // Diagnostico extra: cuantas imagenes trae INCRUSTADAS la pagina
+        // en el PDF original (no el recorte que armamos nosotros) - para
+        // saber si conviene extraerlas directo del PDF en vez de adivinar
+        // un recorte por posicion de texto. pdfimages es 1-based (-f/-l).
+        $pagina_1based = $pagina + 1;
+        $pdfimages_lista = shell_exec(
+            'pdfimages -list -f ' . escapeshellarg($pagina_1based) . ' -l ' . escapeshellarg($pagina_1based)
+            . ' ' . escapeshellarg($ruta) . ' 2>&1'
+        );
+
         $render = $this->ocr_helper->renderizar_pagina($ruta, $pagina);
         $datos = $this->ocr_helper->datos_ocr($render['ruta']);
         $palabras = count(array_filter($datos['text'], fn($t) => trim($t) !== ''));
@@ -340,6 +350,7 @@ class Catalogos extends RestController {
 
         $this->response([
             'pagina_probada' => $pagina,
+            'pdfimages_list' => trim((string) $pdfimages_lista),
             'render_ancho_alto' => "{$render['ancho']}x{$render['alto']}",
             'palabras_ocr_encontradas' => $palabras,
             'texto_muestra' => mb_substr(implode(' ', $datos['text']), 0, 500),
