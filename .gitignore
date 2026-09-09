@@ -32,6 +32,12 @@ backend/server.log
 # no hace falta versionarlas y son pesadas (cientos de MB).
 backend/static/
 
+# Entorno local de pruebas del backend PHP (ver local_test/README.md) -
+# es solo para probar ANTES de subir al servidor real, nunca se sube.
+local_test/data/
+local_test/temporales/
+local_test/archivos/
+
 # Sistema
 .DS_Store
 Thumbs.db
