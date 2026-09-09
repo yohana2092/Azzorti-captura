@@ -2250,6 +2250,8 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
                       final score = (s['score_similitud'] as num).toDouble();
                       final seleccionado = skuSeleccionado == sku;
                       final fotoUrl = s['foto_url'] as String?;
+                      final fotoGrandeUrl =
+                          (s['foto_grande_url'] as String?) ?? fotoUrl;
                       final pagina = s['pagina_catalogo'];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -2278,16 +2280,36 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
                                   onChanged: (v) =>
                                       setState(() => skuSeleccionado = v),
                                 ),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: fotoUrl != null
-                                      ? Image.network(fotoUrl,
-                                          width: 56,
-                                          height: 56,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              _SinFoto())
-                                      : _SinFoto(),
+                                GestureDetector(
+                                  onTap: fotoGrandeUrl == null
+                                      ? null
+                                      : () => _abrirFotoUrlCompleta(context,
+                                          fotoGrandeUrl,
+                                          s['descripcion'] ?? sku),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: fotoUrl != null
+                                            ? Image.network(fotoUrl,
+                                                width: 56,
+                                                height: 56,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    _SinFoto())
+                                            : _SinFoto(),
+                                      ),
+                                      if (fotoGrandeUrl != null)
+                                        const Icon(Icons.zoom_in,
+                                            color: Colors.white, size: 16,
+                                            shadows: [
+                                              Shadow(
+                                                  color: Colors.black54,
+                                                  blurRadius: 4)
+                                            ]),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
@@ -2714,6 +2736,57 @@ class CampoTexto extends StatelessWidget {
 
 /// Muestra la foto completa (con pinch-to-zoom) en pantalla, para cuando la
 /// miniatura de 90px no alcanza para reconocer el detalle del producto.
+/// Igual que _abrirFotoCompleta pero para una foto que vive en el
+/// servidor (candidatos de homologación) en vez de una foto tomada en
+/// el celular — el recorte automático a veces sale muy ajustado y se
+/// queda con el precio/texto en vez de la prenda; esta versión más
+/// grande (foto_grande_url, con más margen alrededor) da más chance de
+/// que la prenda real sea visible al abrir, aunque la miniatura chica
+/// no la muestre.
+void _abrirFotoUrlCompleta(BuildContext context, String url, String etiqueta) {
+  Navigator.of(context).push(PageRouteBuilder(
+    opaque: false,
+    barrierColor: Colors.black,
+    pageBuilder: (_, __, ___) => Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.network(
+                  url,
+                  errorBuilder: (_, __, ___) => const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('No se pudo cargar la imagen del catálogo.',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Positioned(
+              top: 14,
+              left: 56,
+              child: Text(etiqueta,
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ));
+}
+
 void _abrirFotoCompleta(BuildContext context, Uint8List bytes, String etiqueta) {
   Navigator.of(context).push(PageRouteBuilder(
     opaque: false,
