@@ -388,8 +388,15 @@ Future<Map<String, String>> leerEtiqueta(Uint8List bytes) async {
         break;
       }
     }
-  } catch (_) {
-    // Si la foto sale ilegible o algo falla, no se autocompleta nada.
+  } catch (e) {
+    // Antes esto quedaba en silencio total - se veia IGUAL que "la foto
+    // no tenia texto legible" (los 2 casos dejan resultado vacio), asi
+    // que si el problema real era un error tecnico (no la foto en si)
+    // no habia forma de distinguirlo desde la app. Ahora el error se
+    // guarda en el mismo campo de diagnostico que ya se muestra en
+    // Ficha del producto - si esto aparece, es un error real (no "la
+    // foto no se leyo bien").
+    resultado['debug_texto'] = '[No se pudo leer la etiqueta: $e]';
   }
   return resultado;
 }
