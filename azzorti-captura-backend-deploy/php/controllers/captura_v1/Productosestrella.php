@@ -140,4 +140,30 @@ class Productosestrella extends RestController {
         $umbral = $this->m_schema->umbral_alerta_actual();
         $this->response($this->m_producto_estrella->listar($campana, $umbral, $this->base_url_modulo()), 200);
     }
+
+    /**
+     * TEMPORAL - SOLO DIAGNOSTICO, BORRAR DESPUES DE USAR.
+     * GET /productosestrella/diagnostico_columnas?tabla=prod_estr -
+     * lista las columnas REALES que tiene una tabla en el catalogo de
+     * sistema de Informix (syscolumns/systables), para comparar contra
+     * las columnas que espera el SELECT de M_producto_estrella::listar()
+     * cuando GET /productosestrella da error 500 en produccion (se
+     * reporto que antes funcionaba y dejo de andar - probable
+     * desalineacion entre la tabla real y lo que el codigo espera, no
+     * un error de sintaxis SQL, ya verificado localmente).
+     */
+    function diagnostico_columnas_get() {
+        $this->load->library('informix_util');
+        $tabla = $this->get('tabla') ?: 'prod_estr';
+        $tabla_lit = $this->informix_util->literal($tabla);
+        try {
+            $columnas = $this->db->query(
+                'SELECT c.colname, c.coltype, c.collength FROM syscolumns c '
+                . "JOIN systables t ON c.tabid = t.tabid WHERE t.tabname = {$tabla_lit} ORDER BY c.colno"
+            )->result_array();
+            $this->response(['tabla' => $tabla, 'columnas' => $columnas], 200);
+        } catch (\Throwable $e) {
+            $this->response(['tabla' => $tabla, 'error' => $e->getMessage()], 200);
+        }
+    }
 }

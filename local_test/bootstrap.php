@@ -138,6 +138,13 @@ class LocalDbResult {
     public function result() {
         return $this->filas;
     }
+    public function result_array() {
+        return array_map(fn($f) => (array) $f, $this->filas);
+    }
+    public function row_array() {
+        $f = $this->filas[0] ?? null;
+        return $f === null ? null : (array) $f;
+    }
 }
 
 /** Reemplazo LOCAL de la conexion a Informix ($this->db en produccion).
