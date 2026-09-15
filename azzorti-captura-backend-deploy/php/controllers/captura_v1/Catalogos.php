@@ -302,6 +302,25 @@ class Catalogos extends RestController {
     }
 
     /**
+     * TEMPORAL - SOLO DIAGNOSTICO, BORRAR DESPUES DE USAR.
+     * GET /catalogos/diagnostico_buscar_codigo/{id}?codigo=4272 - busca
+     * un pedazo de codigo de producto dentro de lo YA indexado
+     * (cata_prod), para saber si un producto puntual que un usuario dice
+     * que "no aparece en homologacion" fue detectado como ancla durante
+     * el indexado o no (caso real: el mismo bug de OCR que confundio
+     * "R4874" con "R487lo" podria estar bloqueando otros codigos).
+     */
+    function diagnostico_buscar_codigo_get($catalogo_id) {
+        $this->load->library('informix_util');
+        $codigo = $this->get('codigo') ?: '';
+        $filas = $this->db->query(
+            'SELECT prod_codi, pagi, secc, prec, txt_cerc FROM cata_prod WHERE cata_id = ' . (int) $catalogo_id
+            . ' AND prod_codi LIKE ' . $this->informix_util->literal('%' . $codigo . '%')
+        )->result_array();
+        $this->response(['codigo_buscado' => $codigo, 'encontrados' => $filas], 200);
+    }
+
+    /**
      * POST /catalogos/eliminar/{id} - borra el catalogo (cata_comp), sus
      * productos/ofertas indexados (cata_prod/cata_ofer, para no chocar
      * con la llave foranea) y los archivos fisicos asociados (el PDF
