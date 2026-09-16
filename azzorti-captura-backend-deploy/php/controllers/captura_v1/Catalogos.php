@@ -257,17 +257,28 @@ class Catalogos extends RestController {
                         // queda solo con el precio/texto en vez de la
                         // prenda - confirmado con casos reales (pagina con
                         // foto de cuerpo completo y texto chico al pie).
-                        // Este segundo recorte agranda sobre todo hacia
-                        // ARRIBA (ahi suele estar la foto real, el texto
-                        // queda mas abajo) para dar mas chance de que la
-                        // prenda sea visible al abrir la vista previa,
-                        // aunque la miniatura chica no la muestre.
+                        // Un primer intento (agrandar 1x la altura de la
+                        // caja solo hacia arriba) resulto INSUFICIENTE -
+                        // confirmado con casos reales de produccion donde
+                        // la vista previa agrandada seguia mostrando solo
+                        // piernas/tacones o la cara, sin llegar a la
+                        // prenda. Se agranda mucho mas (1.5x hacia arriba,
+                        // 0.5x extra hacia abajo, mitad del ancho a cada
+                        // lado) para dar mejor chance de que la prenda
+                        // quede dentro del recorte, aunque a veces incluya
+                        // tambien parte de la foto del producto vecino -
+                        // preferible a mostrar solo precio/texto. Sigue
+                        // siendo una adivinanza geometrica (no hay forma
+                        // de saber la posicion real de la foto sin
+                        // reconocimiento visual, ver conversacion) - un
+                        // margen mas generoso reduce el problema pero no
+                        // lo elimina del todo.
                         $altoCaja = $y1 - $y0;
                         $anchoCaja = $x1 - $x0;
-                        $y0g = max(0, (int) round($y0 - $altoCaja));
-                        $y1g = $y1;
-                        $x0g = max(0, (int) round($x0 - $anchoCaja * 0.3));
-                        $x1g = min($render['ancho'], (int) round($x1 + $anchoCaja * 0.3));
+                        $y0g = max(0, (int) round($y0 - $altoCaja * 1.5));
+                        $y1g = min($render['alto'], (int) round($y1 + $altoCaja * 0.5));
+                        $x0g = max(0, (int) round($x0 - $anchoCaja * 0.5));
+                        $x1g = min($render['ancho'], (int) round($x1 + $anchoCaja * 0.5));
                         $recorteGrande = clone $im;
                         $recorteGrande->cropImage(max(1, $x1g - $x0g), max(1, $y1g - $y0g), $x0g, $y0g);
                         $recorteGrande->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}_grande.png");
