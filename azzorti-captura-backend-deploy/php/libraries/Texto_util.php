@@ -370,7 +370,21 @@ class Texto_util {
         $n = count($datos['text']);
         for ($i = 0; $i < $n; $i++) {
             $limpio = $this->limpiar_palabra($datos['text'][$i]);
-            if (preg_match(self::REF_RE, $limpio, $m) && $m[0] === $limpio) {
+            // Antes exigia que TODO el token limpio fuera exactamente el
+            // patron de referencia ($m[0] === $limpio) - caso real que se
+            // perdia: "Ref.R4874" leido por el OCR como "Ref.R487lo" (el
+            // ultimo digito confundido con 2 letras), que limpiar_palabra
+            // deja como "REFR487LO" - el patron matchea "REFR487" pero el
+            // "LO" sobrante rompia la igualdad exacta, asi que ese
+            // producto nunca generaba ancla y se perdia de homologacion.
+            // Ahora se tolera que sobren hasta 2 caracteres al final (el
+            // caso real visto es "LO", 2 letras) - se sigue exigiendo que
+            // el patron empiece justo al principio del token, para no
+            // aceptar un codigo de referencia escondido en medio de un
+            // texto largo cualquiera.
+            if (preg_match(self::REF_RE, $limpio, $m)
+                && strpos($limpio, $m[0]) === 0
+                && mb_strlen($limpio) - mb_strlen($m[0]) <= 2) {
                 $anclas[] = [
                     'codigo' => $m[1],
                     'x' => $datos['left'][$i] + $datos['width'][$i] / 2,
@@ -381,7 +395,9 @@ class Texto_util {
             if (preg_match('/^RE[FI]?$/', $limpio)) {
                 for ($j = $i + 1; $j < min($i + 3, $n); $j++) {
                     $siguiente = $this->limpiar_palabra($datos['text'][$j]);
-                    if (preg_match('/^R?(\d{3,})$/', $siguiente, $m2)) {
+                    // Misma tolerancia que arriba, para "Ref." y el
+                    // numero en tokens separados.
+                    if (preg_match('/^R?(\d{3,})[A-Z]{0,2}$/', $siguiente, $m2)) {
                         // Se ancla en la posicion de "Ref." (token $i), no
                         // en la del numero (token $j): el numero suele
                         // quedar en el extremo derecho de la etiqueta del
