@@ -170,7 +170,7 @@ class M_homologacion extends CI_Model {
             $sugerencias[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => $p->texto_cercano ? mb_substr($p->texto_cercano, 0, 80) : $p->producto_codigo,
+                'descripcion' => $p->texto_cercano ? $this->texto_util->descripcion_limpia($p->texto_cercano) : $p->producto_codigo,
                 'color' => null,
                 'composicion' => null,
                 'silueta' => null,
@@ -301,7 +301,7 @@ class M_homologacion extends CI_Model {
             $sugerencias_moda[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => ($p->texto_cercano ? mb_substr($p->texto_cercano, 0, 80) : '') ?: $p->producto_codigo,
+                'descripcion' => ($p->texto_cercano ? $this->texto_util->descripcion_limpia($p->texto_cercano) : '') ?: $p->producto_codigo,
                 'color' => null,
                 'composicion' => $p->texto_cercano,
                 'silueta' => null,

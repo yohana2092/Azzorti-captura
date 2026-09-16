@@ -621,4 +621,62 @@ class Texto_util {
 
         return count($referencias) > 1 || count($precios) > 2 || count($numeros_item) > 1;
     }
+
+    /**
+     * Limpia texto_cercano para mostrar como "descripcion" de un
+     * candidato de homologacion - antes se mostraban los primeros 80
+     * caracteres TAL CUAL (codigos de referencia, precios mal leidos,
+     * numeros de talla/inventario, todo mezclado), ilegible para
+     * comparar a simple vista. Saca los patrones de puro ruido (Ref.,
+     * precio, numeros largos, tallas sueltas, codigos alfanumericos
+     * tipo "ABA59B") y deja lo que queda - normalmente la palabra de
+     * categoria (Blusa/Vestido/etc.) + la frase de tejido/silueta, que
+     * es la parte realmente legible de este OCR. No queda perfecto (el
+     * texto de origen tiene su propio techo de calidad), pero es mucho
+     * mas legible que el bloque completo.
+     */
+    public function descripcion_limpia($texto_cercano) {
+        if ($texto_cercano === null || trim($texto_cercano) === '') {
+            return '';
+        }
+        $t = $texto_cercano;
+        // Precio (Bs./Bss. + numero) - se saca el simbolo de moneda
+        // aunque el numero que sigue haya salido corrupto (letras
+        // mezcladas con digitos, comillas, grados - muy comun en este
+        // OCR), porque ya no aporta nada legible de todas formas.
+        $t = preg_replace('/\bBss?\.?\s*[\d][\dA-Za-z\x{00ba}\x{00aa}\'\-.,\s]{0,10}\d\b/iu', '', $t);
+        // Codigo de referencia (Ref.R1234, REF.R6844, ReÍ.R1234...).
+        $t = preg_replace('/RE[FI][.\-]?\s*R?\d{2,}[A-Za-z]{0,3}/iu', '', $t);
+        // Numeros sueltos de 4+ digitos (inventario/talla).
+        $t = preg_replace('/\b\d{4,}\b/', '', $t);
+        // Letra de talla suelta (XS, S, M, L, XL, XXL).
+        $t = preg_replace('/\b(XS|S|M|L|XL|XXL)\b/', '', $t);
+        // Marcador de item al inicio ("1.", "5.", "2." - no "10.", que
+        // el OCR casi siempre lee como "lo." con letras).
+        $t = preg_replace('/\b\d{1,2}\.\s+/', '', $t);
+        // Codigo alfanumerico corto (ej. "ABA59B", "626A1B", "737AOA",
+        // "20L9") - mezcla letras y digitos sin espacio, tipico de
+        // codigo de lote/color/talla, no de una palabra real.
+        $t = preg_replace('/\b(?=\w*\d)(?=\w*[A-Za-z])\w{4,}\b/u', '', $t);
+        $t = preg_replace('/\?\?+/', '', $t);
+        $t = preg_replace('/(?<=\s)\.(?=\s|$)/', '', $t);
+        $t = preg_replace('/^\d+\s+(?=[A-ZÁÉÍÓÚÑ])/u', '', $t);
+        $t = preg_replace('/\s{2,}/', ' ', $t);
+        $t = preg_replace('/^[\s.,\x{2013}\x{2014}\-\x{00a1}\x{00bf}\x{00a9}:;?]+|[\s.,\x{2013}\x{2014}\-\x{00a1}\x{00bf}\x{00a9}:;?]+$/u', '', $t);
+        $t = trim($t);
+        if ($t === '') {
+            // Si no quedo nada legible, mejor mostrar el original
+            // recortado que un campo vacio.
+            return mb_substr(trim($texto_cercano), 0, 80);
+        }
+        if (mb_strlen($t) > 90) {
+            $corte = mb_substr($t, 0, 90);
+            $ultimo_espacio = mb_strrpos($corte, ' ');
+            if ($ultimo_espacio !== false && $ultimo_espacio > 40) {
+                $corte = mb_substr($corte, 0, $ultimo_espacio);
+            }
+            $t = rtrim($corte) . '…';
+        }
+        return $t;
+    }
 }
