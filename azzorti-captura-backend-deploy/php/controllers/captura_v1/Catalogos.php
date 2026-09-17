@@ -445,6 +445,22 @@ class Catalogos extends RestController {
                 . 'require APPPATH."controllers/captura_v1/Catalogos.php"; '
                 . 'var_dump(method_exists("Catalogos", "diagnostico_buscar_codigo_get"));\' 2>&1'
             ),
+            // Importar productos estrella (Excel) da "Unexpected end of
+            // JSON input" en el navegador - eso pasa cuando el servidor
+            // devuelve una respuesta VACIA, tipico de un error fatal de
+            // PHP silenciado (ini_set('display_errors','0')) antes de
+            // llegar a responder. Sospecha principal: PhpSpreadsheet
+            // (composer.json) no esta instalado/autocargado en este
+            // servidor - se verifica directo.
+            'composer_autoload_existe' => $chequear(
+                'test -f /disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/vendor/autoload.php '
+                . '&& echo "si existe" || echo "NO EXISTE"'
+            ),
+            'phpspreadsheet_disponible' => $chequear(
+                'php -r \'$a = "/disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/vendor/autoload.php"; '
+                . 'if (!file_exists($a)) { echo "sin autoload.php"; exit; } require $a; '
+                . 'var_dump(class_exists("PhpOffice\\\\PhpSpreadsheet\\\\IOFactory"));\' 2>&1'
+            ),
         ], 200);
     }
 }
