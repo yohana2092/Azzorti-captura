@@ -120,18 +120,6 @@ class M_homologacion extends CI_Model {
      */
     public function sugerir_venta_directa($captura, $base_url) {
         $captura = (array) $captura;
-        $foto_pagina_url_fn = function ($catalogo_id, $pagina, $codigo) use ($base_url) {
-            $nombre = "{$catalogo_id}_{$pagina}_{$codigo}.png";
-            return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
-        };
-        // Version con mas margen (sobre todo hacia arriba, donde suele
-        // estar la foto real) para que al abrir la vista previa haya mas
-        // chance de ver la prenda, aunque la miniatura chica se haya
-        // quedado solo con el precio/texto - ver Catalogos::indexar_productos_post.
-        $foto_pagina_url_grande_fn = function ($catalogo_id, $pagina, $codigo) use ($base_url) {
-            $nombre = "{$catalogo_id}_{$pagina}_{$codigo}_grande.png";
-            return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
-        };
         $catalogo = $this->m_catalogo->catalogo_azzorti_mas_reciente($captura['campana'], $captura['creada_en'] ?? null);
         if (!$catalogo) {
             return [
@@ -170,15 +158,20 @@ class M_homologacion extends CI_Model {
             $sugerencias[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => $p->texto_cercano ? $this->texto_util->descripcion_limpia($p->texto_cercano) : $p->producto_codigo,
+                'descripcion' => $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo),
                 'color' => null,
                 'composicion' => null,
                 'silueta' => null,
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => (int) $p->pagina,
-                'foto_url' => $foto_pagina_url_fn($catalogo->id, $p->pagina, $p->producto_codigo),
-                'foto_grande_url' => $foto_pagina_url_grande_fn($catalogo->id, $p->pagina, $p->producto_codigo),
+                // Sin foto: el recorte automatico de la pagina del PDF
+                // no es confiable (a veces muestra la cara/piernas de la
+                // modelo en vez de la prenda, confirmado con casos
+                // reales) - mejor no mostrar nada que mostrar una foto
+                // que puede confundir en vez de ayudar a comparar.
+                'foto_url' => null,
+                'foto_grande_url' => null,
                 'score_similitud' => $score,
             ];
         }
@@ -287,29 +280,25 @@ class M_homologacion extends CI_Model {
 
         $sugerencias_moda = [];
         foreach ($candidatos_moda as $p) {
-            $foto_url = null;
-            $foto_grande_url = null;
-            if ($catalogo_azzorti) {
-                $nombre = "{$catalogo_azzorti->id}_{$p->pagina}_{$p->producto_codigo}.png";
-                $foto_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
-                $nombre_grande = "{$catalogo_azzorti->id}_{$p->pagina}_{$p->producto_codigo}_grande.png";
-                $foto_grande_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_grande, $base_url);
-            }
             $pseudo_producto = ['color' => null, 'silueta' => null, 'composicion' => $p->texto_cercano, 'manga' => null];
             $score_composicion = $this->score_similitud($captura, $pseudo_producto);
             $score_nombre = round($this->texto_util->score_texto($texto_principal_moda, $texto_secundario_moda, $p->texto_cercano ?? '') * 60, 1);
             $sugerencias_moda[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => ($p->texto_cercano ? $this->texto_util->descripcion_limpia($p->texto_cercano) : '') ?: $p->producto_codigo,
+                'descripcion' => $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo),
                 'color' => null,
                 'composicion' => $p->texto_cercano,
                 'silueta' => null,
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => $p->pagina,
-                'foto_url' => $foto_url,
-                'foto_grande_url' => $foto_grande_url,
+                // Sin foto: mismo motivo que en Venta Directa - el
+                // recorte automatico no es confiable, mejor no mostrar
+                // nada que mostrar la cara/piernas de la modelo en vez
+                // de la prenda.
+                'foto_url' => null,
+                'foto_grande_url' => null,
                 'score_similitud' => round(min(100, $score_nombre + $score_composicion), 1),
             ];
         }
@@ -324,10 +313,11 @@ class M_homologacion extends CI_Model {
                 . 'de Azzorti (mismo catálogo que usa Venta Directa). Ranking por '
                 . 'color, silueta, composición y manga (base del puntaje en la muestra, '
                 . 'ya cargados a mano) más coincidencia de nombre/descripción/características '
-                . '— nunca por código ni por foto, ya que la competencia no comparte SKU con '
-                . 'Azzorti y la foto solo se muestra para confirmar a simple vista. Los '
-                . 'productos indexados del PDF no tienen color/silueta/manga estructurados, '
-                . 'así que ahí el nombre/descripción pesa más que en la muestra.',
+                . '— nunca por código ni por foto (la competencia no comparte SKU con Azzorti, '
+                . 'y no hay reconocimiento de imágenes en el sistema). Los productos de la '
+                . 'muestra traen foto real cargada a mano; los indexados del PDF no muestran '
+                . 'foto porque el recorte automático de la página no es confiable — mejor no '
+                . 'mostrar ninguna que mostrar una que no corresponda a la prenda.',
             'sugerencias' => $sugerencias,
         ];
     }

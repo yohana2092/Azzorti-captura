@@ -246,43 +246,21 @@ class Catalogos extends RestController {
                         $derecha = $i === $m - 1 ? $render['ancho'] : ($p['x'] + $filaOrdenadaX[$i + 1]['x']) / 2;
                         $x0 = max(0, (int) round($izquierda - 10));
                         $x1 = min($render['ancho'], (int) round($derecha + 10));
+                        // Recorte por producto - sigue haciendo falta
+                        // para la pantalla de evaluacion de precio (ver
+                        // M_captura::evaluar()), aunque homologacion ya
+                        // no muestra esta foto (el recorte automatico no
+                        // es confiable para elegir un equivalente -
+                        // decision explicita: mejor no mostrar ninguna
+                        // foto que mostrar una que no sea la prenda). Se
+                        // dejo de generar el recorte "grande" (vista
+                        // previa con mas margen) que se habia agregado
+                        // antes - ya no lo usa nadie.
                         $recorte = clone $im;
                         $recorte->cropImage(max(1, $x1 - $x0), max(1, $y1 - $y0), $x0, $y0);
                         $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');
                         $recorte->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}.png");
                         $recorte->clear();
-
-                        // Recorte "grande" (vista previa, mas margen): el
-                        // recorte de arriba a veces sale muy ajustado y se
-                        // queda solo con el precio/texto en vez de la
-                        // prenda - confirmado con casos reales (pagina con
-                        // foto de cuerpo completo y texto chico al pie).
-                        // Un primer intento (agrandar 1x la altura de la
-                        // caja solo hacia arriba) resulto INSUFICIENTE -
-                        // confirmado con casos reales de produccion donde
-                        // la vista previa agrandada seguia mostrando solo
-                        // piernas/tacones o la cara, sin llegar a la
-                        // prenda. Se agranda mucho mas (1.5x hacia arriba,
-                        // 0.5x extra hacia abajo, mitad del ancho a cada
-                        // lado) para dar mejor chance de que la prenda
-                        // quede dentro del recorte, aunque a veces incluya
-                        // tambien parte de la foto del producto vecino -
-                        // preferible a mostrar solo precio/texto. Sigue
-                        // siendo una adivinanza geometrica (no hay forma
-                        // de saber la posicion real de la foto sin
-                        // reconocimiento visual, ver conversacion) - un
-                        // margen mas generoso reduce el problema pero no
-                        // lo elimina del todo.
-                        $altoCaja = $y1 - $y0;
-                        $anchoCaja = $x1 - $x0;
-                        $y0g = max(0, (int) round($y0 - $altoCaja * 1.5));
-                        $y1g = min($render['alto'], (int) round($y1 + $altoCaja * 0.5));
-                        $x0g = max(0, (int) round($x0 - $anchoCaja * 0.5));
-                        $x1g = min($render['ancho'], (int) round($x1 + $anchoCaja * 0.5));
-                        $recorteGrande = clone $im;
-                        $recorteGrande->cropImage(max(1, $x1g - $x0g), max(1, $y1g - $y0g), $x0g, $y0g);
-                        $recorteGrande->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_{$p['producto_codigo']}_grande.png");
-                        $recorteGrande->clear();
                     }
                 }
                 $im->clear();
