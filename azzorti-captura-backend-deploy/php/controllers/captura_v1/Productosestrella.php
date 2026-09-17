@@ -167,4 +167,33 @@ class Productosestrella extends RestController {
             $this->response(['tabla' => $tabla, 'error' => $e->getMessage()], 200);
         }
     }
+
+    /**
+     * TEMPORAL - SOLO DIAGNOSTICO, BORRAR DESPUES DE USAR.
+     * GET /productosestrella/diagnostico_librerias - importar el Excel
+     * de productos estrella da "Unexpected end of JSON input" en el
+     * navegador (respuesta vacia) - tipico de un error fatal de PHP
+     * silenciado (ini_set('display_errors','0')) antes de responder.
+     * Sospecha principal: PhpSpreadsheet (composer.json), que usa
+     * M_producto_estrella::parsear() para leer el Excel, no esta
+     * instalado/autocargado en este servidor. Se chequea directo.
+     */
+    function diagnostico_librerias_get() {
+        $chequear = function ($cmd) {
+            $salida = shell_exec($cmd . ' 2>&1');
+            $salida = $salida === null ? '' : trim($salida);
+            return $salida === '' ? '(sin salida)' : mb_substr($salida, 0, 300);
+        };
+        $this->response([
+            'composer_autoload_existe' => $chequear(
+                'test -f ' . escapeshellarg(APPPATH . 'vendor/autoload.php')
+                . ' && echo "si existe" || echo "NO EXISTE"'
+            ),
+            'phpspreadsheet_disponible' => $chequear(
+                'php -r \'$a = ' . escapeshellarg(APPPATH . 'vendor/autoload.php') . '; '
+                . 'if (!file_exists($a)) { echo "sin autoload.php"; exit; } require $a; '
+                . 'var_dump(class_exists("PhpOffice\\\\PhpSpreadsheet\\\\IOFactory"));\''
+            ),
+        ], 200);
+    }
 }
