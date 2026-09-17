@@ -451,6 +451,22 @@ class Catalogos extends RestController {
                 'grep -c diagnostico_buscar_codigo '
                 . '/disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/controllers/captura_v1/Catalogos.php'
             ),
+            // Un metodo nuevo (diagnostico_buscar_codigo) no dispara -
+            // cae siempre en index_get() aunque el archivo lo tenga. Se
+            // busca si el routes.php compartido de hmvc/ tiene alguna
+            // regla que capture "catalogos/..." antes de llegar al
+            // enrutamiento nativo (aunque en teoria no deberia, segun
+            // el resto de metodos que si funcionan).
+            'routes_relacionadas_a_catalogos' => $chequear(
+                'grep -n catalogos /disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/config/routes.php'
+            ),
+            'php_version' => $chequear('php -v'),
+            'metodo_existe_reflexion' => $chequear(
+                'php -r \'define("BASEPATH", true); define("APPPATH", '
+                . '"/disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/"); '
+                . 'require APPPATH."controllers/captura_v1/Catalogos.php"; '
+                . 'var_dump(method_exists("Catalogos", "diagnostico_buscar_codigo_get"));\' 2>&1'
+            ),
         ], 200);
     }
 }
