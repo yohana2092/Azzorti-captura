@@ -120,6 +120,10 @@ class M_homologacion extends CI_Model {
      */
     public function sugerir_venta_directa($captura, $base_url) {
         $captura = (array) $captura;
+        $foto_pagina_url_fn = function ($catalogo_id, $pagina, $codigo) use ($base_url) {
+            $nombre = "{$catalogo_id}_{$pagina}_{$codigo}.png";
+            return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
+        };
         $catalogo = $this->m_catalogo->catalogo_azzorti_mas_reciente($captura['campana'], $captura['creada_en'] ?? null);
         if (!$catalogo) {
             return [
@@ -165,12 +169,11 @@ class M_homologacion extends CI_Model {
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => (int) $p->pagina,
-                // Sin foto: el recorte automatico de la pagina del PDF
-                // no es confiable (a veces muestra la cara/piernas de la
-                // modelo en vez de la prenda, confirmado con casos
-                // reales) - mejor no mostrar nada que mostrar una foto
-                // que puede confundir en vez de ayudar a comparar.
-                'foto_url' => null,
+                // Se volvio a mostrar la foto (recorte automatico de la
+                // pagina) a pedido explicito - a veces no muestra la
+                // prenda exacta (cara/piernas/precio en vez de la
+                // prenda), pero se prefiere mostrar algo antes que nada.
+                'foto_url' => $foto_pagina_url_fn($catalogo->id, $p->pagina, $p->producto_codigo),
                 'foto_grande_url' => null,
                 'score_similitud' => $score,
             ];
@@ -195,7 +198,9 @@ class M_homologacion extends CI_Model {
                 . "detalle y composición) contra el catálogo de Azzorti '{$catalogo->archivo}' "
                 . "(campaña {$catalogo->campana}) — no hay ficha de atributos por producto en "
                 . 'Venta Directa como sí la hay en Retail, así que la coincidencia es aproximada '
-                . '(texto OCR cercano al código de cada producto), nunca por foto.',
+                . '(texto OCR cercano al código de cada producto). La foto es un recorte '
+                . 'automático de la página — a veces no muestra la prenda exacta, revisar '
+                . 'contra "Pág. N del catálogo" si hay dudas.',
             'sugerencias' => $sugerencias,
         ];
     }
@@ -280,6 +285,11 @@ class M_homologacion extends CI_Model {
 
         $sugerencias_moda = [];
         foreach ($candidatos_moda as $p) {
+            $foto_url = null;
+            if ($catalogo_azzorti) {
+                $nombre = "{$catalogo_azzorti->id}_{$p->pagina}_{$p->producto_codigo}.png";
+                $foto_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
+            }
             $pseudo_producto = ['color' => null, 'silueta' => null, 'composicion' => $p->texto_cercano, 'manga' => null];
             $score_composicion = $this->score_similitud($captura, $pseudo_producto);
             $score_nombre = round($this->texto_util->score_texto($texto_principal_moda, $texto_secundario_moda, $p->texto_cercano ?? '') * 60, 1);
@@ -293,11 +303,11 @@ class M_homologacion extends CI_Model {
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => $p->pagina,
-                // Sin foto: mismo motivo que en Venta Directa - el
-                // recorte automatico no es confiable, mejor no mostrar
-                // nada que mostrar la cara/piernas de la modelo en vez
-                // de la prenda.
-                'foto_url' => null,
+                // Se volvio a mostrar la foto a pedido explicito - a
+                // veces no muestra la prenda exacta, pero se prefiere
+                // mostrar algo antes que nada (ver conversacion sobre
+                // reconocimiento visual, descartado por costo).
+                'foto_url' => $foto_url,
                 'foto_grande_url' => null,
                 'score_similitud' => round(min(100, $score_nombre + $score_composicion), 1),
             ];
@@ -313,11 +323,10 @@ class M_homologacion extends CI_Model {
                 . 'de Azzorti (mismo catálogo que usa Venta Directa). Ranking por '
                 . 'color, silueta, composición y manga (base del puntaje en la muestra, '
                 . 'ya cargados a mano) más coincidencia de nombre/descripción/características '
-                . '— nunca por código ni por foto (la competencia no comparte SKU con Azzorti, '
-                . 'y no hay reconocimiento de imágenes en el sistema). Los productos de la '
-                . 'muestra traen foto real cargada a mano; los indexados del PDF no muestran '
-                . 'foto porque el recorte automático de la página no es confiable — mejor no '
-                . 'mostrar ninguna que mostrar una que no corresponda a la prenda.',
+                . '— nunca por código, ya que la competencia no comparte SKU con Azzorti. Los '
+                . 'productos de la muestra traen foto real cargada a mano; los indexados del '
+                . 'PDF muestran un recorte automático de la página que a veces no corresponde '
+                . 'exactamente a la prenda — revisar contra "Pág. N del catálogo" si hay dudas.',
             'sugerencias' => $sugerencias,
         ];
     }
