@@ -48,7 +48,7 @@ class M_historico extends CI_Model {
 
         $estrella = $this->db->query(
             "SELECT comp AS competidor, camp AS campana, prec_azzo AS precio_azzorti, "
-            . "prec_comp AS precio_competidor FROM prod_estr WHERE modo = 'HOMOLOGO_FIJO' "
+            . "prec_comp AS precio_competidor FROM capt_prod_estr WHERE modo = 'HOMOLOGO_FIJO' "
             . 'AND prec_azzo IS NOT NULL AND prec_comp IS NOT NULL'
         )->result();
         foreach ($estrella as $p) {

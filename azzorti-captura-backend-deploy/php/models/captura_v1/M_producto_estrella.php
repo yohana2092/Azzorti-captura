@@ -131,21 +131,23 @@ class M_producto_estrella extends CI_Model {
         return $this->informix_util->literal($v);
     }
 
-    /** server.py lineas 1005-1031 (UPSERT). Tabla real: prod_estr. */
+    /** server.py lineas 1005-1031 (UPSERT). Tabla real: capt_prod_estr
+     * (renombrada de "prod_estr" - ese nombre choca con una tabla real
+     * de manufactura que ya existe en la base compartida, ver schema.sql). */
     public function upsert($f, $foto_competidor_nombre, $foto_azzorti_nombre, $campana_form) {
         $campana_azzorti = $f['campana_azzorti'] ?: ($f['modo'] === 'HOMOLOGO_FIJO' ? $campana_form : null);
         $ahora = $this->ahora_iso();
         $where_sql = 'comp = ' . $this->lit($f['competidor']) . ' AND desc_comp = ' . $this->lit($f['descripcion_competidor'])
             . ' AND camp = ' . $this->lit($campana_form);
 
-        if ($this->informix_util->existe_fila('prod_estr', $where_sql)) {
+        if ($this->informix_util->existe_fila('capt_prod_estr', $where_sql)) {
             // COALESCE(NULL, col) = col: se escribe el literal NULL igual
             // que en cualquier otro campo (ver Informix_util::literal) -
             // el resultado semantico de "no pisar la foto existente si la
             // nueva importacion no trae una" es identico.
             $foto_competidor_sql = $foto_competidor_nombre === null ? 'foto_comp' : 'COALESCE(' . $this->lit($foto_competidor_nombre) . ', foto_comp)';
             $foto_azzorti_sql = $foto_azzorti_nombre === null ? 'foto_azzo' : 'COALESCE(' . $this->lit($foto_azzorti_nombre) . ', foto_azzo)';
-            $sql = 'UPDATE prod_estr SET cate = ' . $this->lit($f['categoria']) . ', modo = ' . $this->lit($f['modo'])
+            $sql = 'UPDATE capt_prod_estr SET cate = ' . $this->lit($f['categoria']) . ', modo = ' . $this->lit($f['modo'])
                 . ', azzo_refe = ' . $this->lit($f['azzorti_referente'])
                 . ', prec_comp = ' . $this->lit($f['precio_competidor']) . ', prec_azzo = ' . $this->lit($f['precio_azzorti'])
                 . ', camp_azzo = ' . $this->lit($campana_azzorti)
@@ -154,7 +156,7 @@ class M_producto_estrella extends CI_Model {
                 . ' WHERE ' . $where_sql;
             $this->db->query($sql);
         } else {
-            $sql = 'INSERT INTO prod_estr '
+            $sql = 'INSERT INTO capt_prod_estr '
                 . '(comp, cate, desc_comp, modo, azzo_refe, '
                 . 'prec_comp, prec_azzo, camp_azzo, foto_comp, foto_azzo, '
                 . 'camp, fact) VALUES (' . implode(', ', [
@@ -170,7 +172,7 @@ class M_producto_estrella extends CI_Model {
      * para el mismo producto (respaldo para archivos viejos VS_CAMPANA_ANTERIOR). */
     public function precio_otra_campana($competidor, $descripcion_competidor, $campana_actual) {
         return $this->db->query(
-            'SELECT FIRST 1 prec_comp AS precio_competidor, camp AS campana FROM prod_estr '
+            'SELECT FIRST 1 prec_comp AS precio_competidor, camp AS campana FROM capt_prod_estr '
             . 'WHERE comp = ' . $this->lit($competidor) . ' AND desc_comp = ' . $this->lit($descripcion_competidor)
             . ' AND camp != ' . $this->lit($campana_actual)
             . ' ORDER BY fact DESC'
@@ -183,7 +185,7 @@ class M_producto_estrella extends CI_Model {
             . 'azzo_refe AS azzorti_referente, prec_comp AS precio_competidor, prec_azzo AS precio_azzorti, '
             . 'foto_comp AS foto_competidor, foto_azzo AS foto_azzorti, camp AS campana, '
             . 'camp_azzo AS campana_azzorti, fact AS actualizado_en '
-            . 'FROM prod_estr WHERE 1=1';
+            . 'FROM capt_prod_estr WHERE 1=1';
         if ($campana) {
             $sql .= ' AND camp = ' . $this->lit($campana);
         }

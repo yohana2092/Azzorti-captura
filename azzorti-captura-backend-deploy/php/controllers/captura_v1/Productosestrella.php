@@ -143,18 +143,19 @@ class Productosestrella extends RestController {
 
     /**
      * TEMPORAL - SOLO DIAGNOSTICO, BORRAR DESPUES DE USAR.
-     * GET /productosestrella/diagnostico_columnas?tabla=prod_estr -
+     * GET /productosestrella/diagnostico_columnas?tabla=capt_prod_estr -
      * lista las columnas REALES que tiene una tabla en el catalogo de
-     * sistema de Informix (syscolumns/systables), para comparar contra
-     * las columnas que espera el SELECT de M_producto_estrella::listar()
-     * cuando GET /productosestrella da error 500 en produccion (se
-     * reporto que antes funcionaba y dejo de andar - probable
-     * desalineacion entre la tabla real y lo que el codigo espera, no
-     * un error de sintaxis SQL, ya verificado localmente).
+     * sistema de Informix (syscolumns/systables). CAUSA YA ENCONTRADA
+     * Y CORREGIDA: la tabla se llamaba "prod_estr" a secas, y la
+     * empresa ya tenia una tabla real con ese mismo nombre para otra
+     * cosa (manufactura/estructura de producto) - se renombro a
+     * "capt_prod_estr" en todo el modulo. Se deja este diagnostico por
+     * si hace falta confirmar la tabla nueva despues de subir, o para
+     * investigar otro choque de nombres similar en el futuro.
      */
     function diagnostico_columnas_get() {
         $this->load->library('informix_util');
-        $tabla = $this->get('tabla') ?: 'prod_estr';
+        $tabla = $this->get('tabla') ?: 'capt_prod_estr';
         $tabla_lit = $this->informix_util->literal($tabla);
         try {
             $columnas = $this->db->query(

@@ -64,7 +64,16 @@ CREATE TABLE cata_comp (
     PRIMARY KEY (id)
 );
 
-CREATE TABLE prod_estr (
+CREATE TABLE capt_prod_estr (
+    -- Nombre "capt_prod_estr" (no "prod_estr" a secas): se descubrio en
+    -- produccion que la empresa YA TIENE una tabla real llamada
+    -- "prod_estr" para otra cosa (estructura de producto/manufactura,
+    -- columnas como codi_hijo/cant_hijo/nive_depe - nada que ver con
+    -- "producto estrella" de Mercadeo). Como M_schema solo crea una
+    -- tabla si "no existe todavia", esa tabla ajena bloqueaba a la
+    -- nuestra por completo (ni leia ni escribia, siempre 500) -
+    -- confirmado comparando columnas reales via el catalogo de sistema
+    -- de Informix. Prefijo "capt_" para que no choque con nada mas.
     id SERIAL,
     comp VARCHAR(50) NOT NULL,
     cate VARCHAR(50),
