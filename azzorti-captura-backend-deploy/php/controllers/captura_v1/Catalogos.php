@@ -438,6 +438,19 @@ class Catalogos extends RestController {
             'python3' => $chequear('command -v python3 && python3 --version'),
             'python3_fitz' => $chequear('python3 -c "import fitz; print(1)"'),
             'gs' => $chequear('command -v gs && gs -version'),
+            // Ruta real confirmada por un error de PHP anterior (ver
+            // CONTEXTO_SESION.md) - para saber si el servidor tiene de
+            // verdad la version mas nueva de ESTE MISMO archivo despues
+            // de subirlo (un metodo nuevo, diagnostico_buscar_codigo, no
+            // esta respondiendo aunque el archivo deberia tenerlo).
+            'catalogos_php_info' => $chequear(
+                'stat -c "tamano=%s bytes, modificado=%y" '
+                . '/disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/controllers/captura_v1/Catalogos.php'
+            ),
+            'catalogos_php_tiene_buscar_codigo' => $chequear(
+                'grep -c diagnostico_buscar_codigo '
+                . '/disco1/paginas/servicioweb2bol.azzorti.co/hmvc/application/controllers/captura_v1/Catalogos.php'
+            ),
         ], 200);
     }
 }
