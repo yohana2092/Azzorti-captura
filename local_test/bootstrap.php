@@ -30,6 +30,16 @@ define('BASEPATH', true);
 define('APPPATH', __DIR__ . '/application');
 define('MODULE_PATH', dirname(__DIR__) . '/azzorti-captura-backend-deploy/php');
 
+// PhpSpreadsheet (para probar Productosestrella::importar_post) -
+// instalado localmente con Composer dentro de la carpeta del modulo
+// (ver local_test/README.md). Si todavia no se instalo, simplemente no
+// se carga - todo lo que no dependa de leer un Excel sigue funcionando
+// igual.
+$autoload_composer = MODULE_PATH . '/vendor/autoload.php';
+if (file_exists($autoload_composer)) {
+    require_once $autoload_composer;
+}
+
 define('RUTA_ARCHIVOS', __DIR__ . '/archivos/');
 define('RUTA_TEMPORALES', __DIR__ . '/temporales/');
 if (!is_dir(RUTA_TEMPORALES)) {

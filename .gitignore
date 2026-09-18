@@ -38,6 +38,14 @@ local_test/data/
 local_test/temporales/
 local_test/archivos/
 local_test/server.log
+local_test/tools/composer.phar
+
+# Dependencias de Composer instaladas LOCALMENTE para poder probar (ver
+# local_test/README.md) - el servidor real tiene su propia instalacion
+# separada de estas mismas librerias, esta carpeta es solo para esta
+# compu y es pesada (cientos de archivos).
+azzorti-captura-backend-deploy/php/vendor/
+azzorti-captura-backend-deploy/php/composer.lock
 
 # Sistema
 .DS_Store
