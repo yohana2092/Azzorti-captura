@@ -7,7 +7,14 @@
     <application
         android:label="Azzorti Captura"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- TEMPORAL: Android bloquea trafico http:// (no https) por
+             defecto - hace falta esto para hablar con el backend LOCAL
+             mientras no se puede subir al servidor real (ver
+             _backendBaseUrl en lib/main.dart y local_test/README.md).
+             Sacar este atributo (o volver a "false") cuando se vuelva
+             a apuntar al servidor real, que si usa https. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

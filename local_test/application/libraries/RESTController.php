@@ -28,8 +28,17 @@ class RestController {
     }
 
     protected function response($data, $http_code = 200) {
-        echo "\n----- HTTP {$http_code} -----\n";
-        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+        // Bajo el servidor HTTP local (router.php) esto tiene que ser
+        // JSON real con status code real, para que la app/dashboard lo
+        // puedan leer igual que al servidor de produccion. Si headers()
+        // ya no se puede llamar (ej. corriendo desde un script CLI de
+        // prueba en vez del servidor HTTP), se ignora en silencio y
+        // solo se imprime el JSON.
+        if (!headers_sent()) {
+            http_response_code($http_code);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     protected function get($key) {

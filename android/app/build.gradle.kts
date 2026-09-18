@@ -31,6 +31,15 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Esta version de Android Gradle Plugin ya no acepta el
+            // archivo "proguard-android.txt" (sin optimizar) - hay que
+            // usar el "-optimize" si o si, pero se desactiva la parte
+            // riesgosa a mano con "-dontoptimize" en proguard-rules.pro:
+            // las optimizaciones agresivas de R8 pueden romper librerias
+            // que usan reflection en tiempo real (como Google ML Kit)
+            // aunque COMPILEN bien - causo un crash real en el celular
+            // (NullPointerException leyendo la etiqueta) que no aparecia
+            // al compilar, solo al usar la app instalada.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

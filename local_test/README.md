@@ -54,6 +54,50 @@ notó).
    (En una terminal nueva de Windows alcanza con abrir una consola
    nueva — el instalador ya dejó `php` en el PATH del sistema).
 
+## Servidor local real (para probar desde la app del celular o el dashboard)
+
+Además de los scripts de prueba (`php archivo.php`), se puede prender
+un servidor de verdad que responde por HTTP, para que la APP DEL
+CELULAR y el DASHBOARD le hablen directamente — sin depender de subir
+nada al servidor real.
+
+1. Cargar datos de ejemplo (una sola vez, o cuando se quiera reiniciar):
+   ```
+   php seed.php
+   ```
+2. Prender el servidor (queda corriendo, dejar la ventana abierta o
+   correrlo en segundo plano):
+   ```
+   php -S 0.0.0.0:8765 router.php
+   ```
+3. **Dashboard**: abrir `dashboard.html` en el navegador de la MISMA
+   compu — ya está configurado para hablarle a `http://localhost:8765`.
+4. **App del celular**: el celular tiene que estar conectado a la
+   MISMA red WiFi que esta compu. La app ya está compilada apuntando a
+   `http://172.16.14.12:8765` (la IP de esta compu al momento de
+   armar esto — si cambia de red, hay que avisarle a Claude para que
+   actualice la IP y recompile el APK).
+5. **Firewall de Windows**: la primera vez, Windows puede bloquear la
+   conexión desde el celular. Si no conecta, correr esto en PowerShell
+   COMO ADMINISTRADOR (clic derecho > "Ejecutar como administrador"):
+   ```powershell
+   New-NetFirewallRule -DisplayName "Azzorti Backend Local" -Direction Inbound -Protocol TCP -LocalPort 8765 -Action Allow -Profile Any
+   ```
+
+**Limitaciones de este servidor local** (mismas de siempre, ver
+sección de arriba): no puede indexar catálogos PDF (necesita
+Tesseract/Imagick, no instalados) ni importar el Excel de productos
+estrella (necesita PhpSpreadsheet, no instalado) — para esas dos cosas
+puntuales sigue haciendo falta el servidor real. Todo lo demás
+(capturas, homologación, configuración) funciona igual.
+
+**Antes de volver a usar el servidor real**: hay que revertir 3
+cambios temporales que se hicieron para este modo local:
+- `_backendBaseUrl` en `lib/main.dart` (volver a la URL real).
+- `BACKEND_URL` en `dashboard.html` (volver a la URL real).
+- `android:usesCleartextTraffic="true"` en
+  `android/app/src/main/AndroidManifest.xml` (sacarlo o poner "false").
+
 ## Si algo da un error raro que no tiene que ver con el cambio que hiciste
 
 Puede ser que el nuevo código use algo de CodeIgniter que esta

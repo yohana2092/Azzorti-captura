@@ -37,6 +37,7 @@ backend/static/
 local_test/data/
 local_test/temporales/
 local_test/archivos/
+local_test/server.log
 
 # Sistema
 .DS_Store

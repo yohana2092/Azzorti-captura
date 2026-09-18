@@ -889,7 +889,10 @@
   // Backend real: modulo captura_v1 (PHP), mismo valor que _backendBaseUrl
   // en lib/main.dart. Ver C:\Trabajo\azzorti-captura-backend-deploy\php\README.md
   // para el detalle del despliegue.
-  const BACKEND_URL = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
+  // TEMPORAL: backend LOCAL (ver local_test/README.md) - volver a
+  // 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1' cuando se
+  // pueda subir al servidor real de nuevo.
+  const BACKEND_URL = 'http://localhost:8765';
 
   var _ultimoConteoLive = 0;
   var _vdCombosVistos = new Set();
