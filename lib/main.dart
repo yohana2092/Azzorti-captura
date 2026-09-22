@@ -24,14 +24,15 @@ import 'package:image/image.dart' as img;
 // completo del despliegue). Reemplaza el tunel de Cloudflare que apuntaba
 // al prototipo Python en una laptop (URL temporal, se caia con cada
 // reinicio de cloudflared).
-// TEMPORAL: apuntando al backend LOCAL (compu de Yohana en la red WiFi,
-// mientras no hay forma de subir al servidor real) - ver
-// local_test/README.md. Volver a
+// TEMPORAL: apuntando al backend LOCAL de Yohana via tunel de
+// Cloudflare (mientras no hay forma de subir al servidor real) - ver
+// local_test/README.md. Ya no depende de estar en la misma red WiFi
+// (el tunel es publico, por eso funciona desde cualquier lado) ni del
+// Firewall de Windows. Volver a
 // 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1' antes de
-// entregar una version para uso real (esta IP solo funciona en la
-// misma red WiFi que esa compu, y solo mientras el servidor local este
-// prendido).
-const String _backendBaseUrl = 'http://172.16.14.12:8765';
+// entregar una version para uso real - y esta URL cambia cada vez que
+// se reinicia el tunel, hay que actualizarla si deja de funcionar.
+const String _backendBaseUrl = 'https://primarily-convergence-orders-safe.trycloudflare.com';
 
 class ResultadoSync {
   final bool ok;

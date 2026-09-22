@@ -35,23 +35,27 @@ servidor de la empresa.
 
 ## Cómo prender el servidor (para usar desde la app o el dashboard)
 
-1. Doble clic en `iniciar_servidor.bat` (o abrir una terminal en esta
-   carpeta y correr `php -S 0.0.0.0:8765 router.php`). Dejar esa
-   ventana abierta — cerrarla apaga el servidor.
-2. **Dashboard**: abrir `dashboard.html` en el navegador de la MISMA
-   compu — ya está configurado para hablarle a `http://localhost:8765`.
-3. **App del celular**: el celular tiene que estar conectado a la
-   MISMA red WiFi que esta compu. La app ya está compilada apuntando a
-   `http://172.16.14.12:8765` (la IP de esta compu al momento de
-   armar esto — si cambia de red, avisale a Claude para que actualice
-   la IP y recompile el APK).
-4. **Firewall de Windows**: la primera vez, Windows puede bloquear la
-   conexión desde el celular. Si no conecta, correr esto en PowerShell
-   COMO ADMINISTRADOR (clic derecho sobre PowerShell > "Ejecutar como
-   administrador"):
-   ```powershell
-   New-NetFirewallRule -DisplayName "Azzorti Backend Local" -Direction Inbound -Protocol TCP -LocalPort 8765 -Action Allow -Profile Any
-   ```
+Hacen falta DOS ventanas abiertas a la vez:
+
+1. Doble clic en `iniciar_servidor.bat` — prende el backend en tu
+   compu (puerto 8765).
+2. Doble clic en `iniciar_tunel.bat` — abre un túnel público (de
+   Cloudflare) hacia ese backend. Esto reemplaza usar la IP de tu red
+   WiFi directamente: el Firewall de Windows bloquea esa conexión en
+   esta compu (tu usuario no tiene permisos de administrador para
+   arreglarlo), así que se usa un túnel en su lugar — de paso, ya no
+   hace falta estar en la misma red WiFi que el celular.
+3. **Dashboard**: abrir `dashboard.html` en el navegador de la MISMA
+   compu — ya está configurado con la URL del túnel.
+4. **App del celular**: ya está compilada con la misma URL del túnel,
+   funciona desde cualquier red (no hace falta la misma WiFi).
+
+⚠️ **Cada vez que se reinicia `iniciar_tunel.bat`, la URL pública
+CAMBIA** (Cloudflare da una nueva al azar, no se puede fijar sin pagar
+un plan). Si cerraste esa ventana o reiniciaste la compu, avisale a
+Claude para que actualice la URL nueva en 3 archivos y recompile el
+APK — mientras tanto la app/dashboard van a fallar con errores de
+conexión.
 
 Si querés reiniciar los datos de prueba (borra todo y vuelve a cargar
 el ejemplo inicial):
@@ -59,14 +63,14 @@ el ejemplo inicial):
 php seed.php
 ```
 (hay que parar el servidor primero, `Ctrl+C` en su ventana, y prenderlo
-de nuevo después).
+de nuevo después — no hace falta tocar el túnel).
 
 **Antes de volver a usar el servidor real**, hay que revertir 3
 cambios temporales que se hicieron para este modo local:
 - `_backendBaseUrl` en `lib/main.dart` (volver a la URL real).
 - `BACKEND_URL` en `dashboard.html` (volver a la URL real).
-- `android:usesCleartextTraffic="true"` en
-  `android/app/src/main/AndroidManifest.xml` (sacarlo o poner "false").
+- `LOCAL_BASE_URL` en `local_test/bootstrap.php` (ya no importa, no se
+  sube al servidor real, pero conviene dejarlo actualizado igual).
 
 ## Herramientas instaladas en esta compu para que esto funcione
 
