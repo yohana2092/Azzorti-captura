@@ -30,6 +30,15 @@ define('BASEPATH', true);
 define('APPPATH', __DIR__ . '/application');
 define('MODULE_PATH', dirname(__DIR__) . '/azzorti-captura-backend-deploy/php');
 
+// URL publica de ESTE servidor local (para armar foto_url de catalogo/
+// productos estrella - ver Config::cargar() mas abajo). La IP de LAN,
+// no "localhost": la usa tanto el dashboard (mismo compu, tambien
+// puede llegar a su propia IP de LAN) como la app del celular (que
+// necesita la IP real, "localhost" en el celular es el celular mismo).
+// Si la IP de esta compu cambia, actualizar tambien en lib/main.dart y
+// dashboard.html (ver local_test/README.md).
+define('LOCAL_BASE_URL', 'http://172.16.14.12:8765/temporales/captura_v1/');
+
 // PhpSpreadsheet (para probar Productosestrella::importar_post) -
 // instalado localmente con Composer dentro de la carpeta del modulo
 // (ver local_test/README.md). Si todavia no se instalo, simplemente no
@@ -129,6 +138,15 @@ class Config {
         $config = [];
         require MODULE_PATH . "/config/{$nombre}.php";
         $this->items = array_merge($this->items, $config);
+        // El archivo real de config trae la URL de PRODUCCION a proposito
+        // (captura_v1_base_url) - no se toca ese archivo (se sube tal
+        // cual al servidor real), pero para pruebas locales hace falta
+        // que las fotos (productos estrella, catalogo) apunten a ESTE
+        // servidor en vez de a servicioweb2bol.azzorti.co, sino el
+        // navegador nunca las va a poder cargar.
+        if (isset($this->items['captura_v1_base_url']) && defined('LOCAL_BASE_URL')) {
+            $this->items['captura_v1_base_url'] = LOCAL_BASE_URL;
+        }
     }
     public function item($clave) {
         return $this->items[$clave] ?? null;

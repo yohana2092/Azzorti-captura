@@ -18,6 +18,23 @@ if (strtoupper($_SERVER['REQUEST_METHOD']) === 'OPTIONS') {
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim((string) $uri, '/');
+
+// Fotos (catalogo, productos estrella): en produccion las sirve un
+// vhost estatico aparte (RUTA_TEMPORALES) - aca no hay vhost, asi que
+// este mismo servidor las entrega directo si el archivo existe.
+if (strpos($uri, 'temporales/') === 0) {
+    $archivo_foto = RUTA_TEMPORALES . substr($uri, strlen('temporales/'));
+    $archivo_foto = realpath($archivo_foto);
+    if ($archivo_foto !== false && strpos($archivo_foto, realpath(RUTA_TEMPORALES)) === 0 && is_file($archivo_foto)) {
+        $tipos = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+        $ext = strtolower(pathinfo($archivo_foto, PATHINFO_EXTENSION));
+        header('Content-Type: ' . ($tipos[$ext] ?? 'application/octet-stream'));
+        readfile($archivo_foto);
+        exit;
+    }
+    http_response_code(404);
+    exit;
+}
 $segmentos = $uri === '' ? [] : explode('/', $uri);
 
 $controlador_segmento = $segmentos[0] ?? '';
