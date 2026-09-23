@@ -40,7 +40,7 @@ define('MODULE_PATH', dirname(__DIR__) . '/azzorti-captura-backend-deploy/php');
 // estar en la misma red WiFi. Esta URL cambia cada vez que se reinicia
 // el tunel - si deja de funcionar, avisarle a Claude para que la
 // actualice aca y en lib/main.dart/dashboard.html.
-define('LOCAL_BASE_URL', 'https://primarily-convergence-orders-safe.trycloudflare.com/temporales/captura_v1/');
+define('LOCAL_BASE_URL', 'https://yrs-earrings-thread-enhanced.trycloudflare.com/temporales/captura_v1/');
 
 // PhpSpreadsheet (para probar Productosestrella::importar_post) -
 // instalado localmente con Composer dentro de la carpeta del modulo

@@ -32,7 +32,7 @@ import 'package:image/image.dart' as img;
 // 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1' antes de
 // entregar una version para uso real - y esta URL cambia cada vez que
 // se reinicia el tunel, hay que actualizarla si deja de funcionar.
-const String _backendBaseUrl = 'https://primarily-convergence-orders-safe.trycloudflare.com';
+const String _backendBaseUrl = 'https://yrs-earrings-thread-enhanced.trycloudflare.com';
 
 class ResultadoSync {
   final bool ok;
