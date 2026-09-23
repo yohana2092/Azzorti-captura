@@ -228,6 +228,22 @@ class Catalogos extends RestController {
                 }
 
                 $im = new Imagick($render['ruta']);
+
+                // Foto de la PAGINA COMPLETA (una sola vez por pagina, no
+                // por producto) - a pedido explicito, para la vista
+                // previa al tocar la lupa en homologacion: el recorte
+                // automatico por producto (mas abajo) sigue fallando en
+                // casos reales (corta justo en la cara del modelo, sin
+                // llegar a la prenda) y no hay forma de adivinarlo mejor
+                // sin reconocimiento visual real. Mostrar la pagina
+                // entera, aunque incluya mas contexto del necesario, es
+                // mas util que un recorte a medias que no muestra ni la
+                // prenda ni el contexto completo.
+                $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');
+                $pagina_completa = clone $im;
+                $pagina_completa->writeImage($this->ruta_archivos . "/catalogo_paginas/{$catalogo_id}_" . ($pno + 1) . "_completa.png");
+                $pagina_completa->clear();
+
                 $numFilas = count($filas);
                 foreach ($filas as $fi => $fila) {
                     $yProm = array_sum(array_column($fila, 'y')) / count($fila);
@@ -246,16 +262,12 @@ class Catalogos extends RestController {
                         $derecha = $i === $m - 1 ? $render['ancho'] : ($p['x'] + $filaOrdenadaX[$i + 1]['x']) / 2;
                         $x0 = max(0, (int) round($izquierda - 10));
                         $x1 = min($render['ancho'], (int) round($derecha + 10));
-                        // Recorte por producto - sigue haciendo falta
-                        // para la pantalla de evaluacion de precio (ver
-                        // M_captura::evaluar()), aunque homologacion ya
-                        // no muestra esta foto (el recorte automatico no
-                        // es confiable para elegir un equivalente -
-                        // decision explicita: mejor no mostrar ninguna
-                        // foto que mostrar una que no sea la prenda). Se
-                        // dejo de generar el recorte "grande" (vista
-                        // previa con mas margen) que se habia agregado
-                        // antes - ya no lo usa nadie.
+                        // Recorte chico por producto - sigue haciendo
+                        // falta como miniatura en homologacion y para la
+                        // pantalla de evaluacion de precio (ver
+                        // M_captura::evaluar()). La vista previa grande
+                        // (al tocar la lupa) ya no usa un recorte propio,
+                        // usa la foto de pagina completa de arriba.
                         $recorte = clone $im;
                         $recorte->cropImage(max(1, $x1 - $x0), max(1, $y1 - $y0), $x0, $y0);
                         $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogo_paginas');

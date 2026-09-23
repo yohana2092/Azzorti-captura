@@ -124,6 +124,13 @@ class M_homologacion extends CI_Model {
             $nombre = "{$catalogo_id}_{$pagina}_{$codigo}.png";
             return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
         };
+        // Vista previa grande = pagina completa (no un recorte propio) -
+        // a pedido explicito, el recorte automatico seguia sin mostrar
+        // la prenda en casos reales. Ver Catalogos::indexar_productos_post.
+        $foto_pagina_completa_url_fn = function ($catalogo_id, $pagina) use ($base_url) {
+            $nombre = "{$catalogo_id}_{$pagina}_completa.png";
+            return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
+        };
         $catalogo = $this->m_catalogo->catalogo_azzorti_mas_reciente($captura['campana'], $captura['creada_en'] ?? null);
         if (!$catalogo) {
             return [
@@ -174,7 +181,7 @@ class M_homologacion extends CI_Model {
                 // prenda exacta (cara/piernas/precio en vez de la
                 // prenda), pero se prefiere mostrar algo antes que nada.
                 'foto_url' => $foto_pagina_url_fn($catalogo->id, $p->pagina, $p->producto_codigo),
-                'foto_grande_url' => null,
+                'foto_grande_url' => $foto_pagina_completa_url_fn($catalogo->id, $p->pagina),
                 'score_similitud' => $score,
             ];
         }
@@ -286,9 +293,14 @@ class M_homologacion extends CI_Model {
         $sugerencias_moda = [];
         foreach ($candidatos_moda as $p) {
             $foto_url = null;
+            $foto_grande_url = null;
             if ($catalogo_azzorti) {
                 $nombre = "{$catalogo_azzorti->id}_{$p->pagina}_{$p->producto_codigo}.png";
                 $foto_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
+                // Vista previa grande = pagina completa (no un recorte
+                // propio) - ver Catalogos::indexar_productos_post.
+                $nombre_completa = "{$catalogo_azzorti->id}_{$p->pagina}_completa.png";
+                $foto_grande_url = $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_completa, $base_url);
             }
             $pseudo_producto = ['color' => null, 'silueta' => null, 'composicion' => $p->texto_cercano, 'manga' => null];
             $score_composicion = $this->score_similitud($captura, $pseudo_producto);
@@ -303,12 +315,13 @@ class M_homologacion extends CI_Model {
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
                 'pagina_catalogo' => $p->pagina,
-                // Se volvio a mostrar la foto a pedido explicito - a
-                // veces no muestra la prenda exacta, pero se prefiere
-                // mostrar algo antes que nada (ver conversacion sobre
-                // reconocimiento visual, descartado por costo).
+                // La miniatura (foto_url) sigue siendo el recorte chico
+                // por producto - la vista previa grande (foto_grande_url)
+                // ahora es la pagina completa, a pedido explicito (el
+                // recorte automatico seguia sin mostrar la prenda en
+                // casos reales).
                 'foto_url' => $foto_url,
-                'foto_grande_url' => null,
+                'foto_grande_url' => $foto_grande_url,
                 'score_similitud' => round(min(100, $score_nombre + $score_composicion), 1),
             ];
         }
