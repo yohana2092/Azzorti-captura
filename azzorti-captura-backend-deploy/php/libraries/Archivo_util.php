@@ -19,6 +19,29 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Archivo_util {
 
+    /**
+     * Carga PhpSpreadsheet (composer, carpeta vendor/) si nadie la cargo
+     * antes. En produccion el CodeIgniter compartido no carga el autoload
+     * de composer, asi que sin esto IOFactory no existe y la importacion
+     * de Excel muere con un 500 en blanco. Busca vendor/ en APPPATH y al
+     * lado de este modulo. Devuelve false si no esta instalada.
+     */
+    public function cargar_phpspreadsheet() {
+        $clase = 'PhpOffice\\PhpSpreadsheet\\IOFactory';
+        if (class_exists($clase)) {
+            return true;
+        }
+        foreach ([APPPATH . 'vendor/autoload.php', dirname(__DIR__) . '/vendor/autoload.php'] as $autoload) {
+            if (is_file($autoload)) {
+                require_once $autoload;
+                if (class_exists($clase)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public function asegurar_carpeta($ruta) {
         if (!is_dir($ruta)) {
             mkdir($ruta, 0775, true);

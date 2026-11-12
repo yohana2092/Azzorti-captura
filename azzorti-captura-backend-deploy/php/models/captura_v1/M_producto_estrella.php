@@ -34,6 +34,9 @@ class M_producto_estrella extends CI_Model {
      *   _col_foto, _col_foto_azzorti.
      */
     public function parsear($ruta_archivo) {
+        if (!$this->archivo_util->cargar_phpspreadsheet()) {
+            throw new Exception('falta la libreria PhpSpreadsheet en el servidor (carpeta vendor/).');
+        }
         $libro = IOFactory::load($ruta_archivo);
         $filas = [];
         foreach ($libro->getAllSheets() as $ws) {

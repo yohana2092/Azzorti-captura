@@ -1293,7 +1293,7 @@
       const resp = await fetch(BACKEND_URL + '/catalogos/detectar_ofertas/' + catalogoId, {method: 'POST'});
       const data = await resp.json();
       if(!resp.ok){
-        if(cont) cont.textContent = data.detail || 'No se pudo analizar el catálogo.';
+        if(cont) cont.textContent = data.detail || data.message || 'No se pudo analizar el catálogo.';
         return;
       }
       await _pintarOfertasDeCatalogo(catalogoId);
@@ -1562,8 +1562,8 @@
     msg.textContent = 'Importando…';
     try {
       const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
-      const data = await resp.json();
-      if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(data.detail || data.message || ('fallo al importar (error ' + resp.status + ' del servidor)'));
       msg.textContent = '✓ ' + data.mensaje;
       cargarProductosEstrella();
       sincronizarDashboard(true);
@@ -1660,8 +1660,8 @@
     msg.textContent = 'Importando…';
     try {
       const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
-      const data = await resp.json();
-      if(!resp.ok) throw new Error(data.detail || 'fallo al importar');
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(data.detail || data.message || ('fallo al importar (error ' + resp.status + ' del servidor)'));
       msg.textContent = '✓ ' + data.mensaje;
       cargarProductosEstrella();
       sincronizarDashboard(true);
@@ -1850,7 +1850,7 @@
       });
       if(!resp.ok){
         const data = await resp.json().catch(function(){ return {}; });
-        alert('⚠ ' + (data.detail || 'No se pudo guardar el producto estrella.'));
+        alert('⚠ ' + (data.detail || data.message || 'No se pudo guardar el producto estrella.'));
         return;
       }
       cerrarModalEstrella();

@@ -23,6 +23,9 @@ class M_oferta_referencia extends CI_Model {
      * Lanza Exception si no encuentra las columnas Catalogo/Nombre oferta.
      */
     public function parsear($ruta_archivo) {
+        if (!$this->archivo_util->cargar_phpspreadsheet()) {
+            throw new Exception('falta la libreria PhpSpreadsheet en el servidor (carpeta vendor/).');
+        }
         $libro = IOFactory::load($ruta_archivo);
         $ws = $libro->getSheet(0);
         $max_row = $ws->getHighestRow();

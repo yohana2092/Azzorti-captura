@@ -61,6 +61,21 @@ class Productosestrella extends RestController {
 
     /** POST /productos-estrella/importar (server.py lineas 941-1045). */
     function importar_post() {
+        // Archivo mas pesado que upload_max_filesize/post_max_size: PHP lo
+        // descarta en silencio y llega sin archivo (y si pasa post_max_size,
+        // tambien sin campana). Decirlo claro en vez de "Falta archivo".
+        $error_subida = $_FILES['archivo']['error'] ?? null;
+        $excede_post = empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0;
+        if ($excede_post || in_array($error_subida, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            $this->response([
+                'status' => false,
+                'message' => 'El archivo pesa más de lo que el servidor permite subir (límite actual: '
+                    . ini_get('upload_max_filesize') . ' por archivo, ' . ini_get('post_max_size')
+                    . ' por envío). Hay que subir ese límite en el servidor.',
+            ], 413);
+            return;
+        }
+
         $campana = trim((string) ($_POST['campana'] ?? ''));
         if ($campana === '' || empty($_FILES['archivo']['tmp_name'])) {
             $this->response(['status' => false, 'message' => 'Falta campana o archivo.'], 400);
@@ -71,7 +86,7 @@ class Productosestrella extends RestController {
 
         try {
             $filas = $this->m_producto_estrella->parsear($ruta_temporal);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->response(['status' => false, 'message' => 'No se pudo leer el Excel: ' . $e->getMessage()], 400);
             return;
         }

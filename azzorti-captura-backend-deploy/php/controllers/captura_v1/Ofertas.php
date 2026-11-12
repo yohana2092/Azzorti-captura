@@ -53,7 +53,7 @@ class Ofertas extends RestController {
 
         try {
             $filas = $this->m_oferta_referencia->parsear($ruta_temporal);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->response(['status' => false, 'message' => 'No se pudo leer el Excel: ' . $e->getMessage()], 400);
             return;
         }
