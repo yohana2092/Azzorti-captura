@@ -2067,6 +2067,17 @@ class _RevisarScreenState extends State<RevisarScreen> {
 
   Future<void> _guardarYSincronizar() async {
     final c = widget.captura;
+    // Ya sincronizada (se volvio a esta pantalla con la flecha atras desde
+    // homologacion): NO se manda de nuevo - antes se creaba otra captura
+    // igual en el backend (captura 34 y 35, misma foto, 22 min despues; el
+    // bloqueo de duplicados del backend solo cubre 5 min). Se va directo a
+    // homologar la que ya existe.
+    if (c.backendId != null) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => HomologacionScreen(captura: c, onFin: widget.onFin),
+      ));
+      return;
+    }
     setState(() => sincronizando = true);
     final resultado = await sincronizarConBackend(c);
     if (!mounted) return;
@@ -2168,8 +2179,11 @@ class _RevisarScreenState extends State<RevisarScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2.4, color: Colors.white),
                   )
-                : const Text('Guardar y sincronizar',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                : Text(
+                    c.backendId != null
+                        ? 'Ya sincronizada — ir a homologar'
+                        : 'Guardar y sincronizar',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
