@@ -133,6 +133,21 @@ class Capturas extends RestController {
         $this->response($resultado, 200);
     }
 
+    /**
+     * POST /capturas/eliminar/{id} - la oculta de app, dashboard e
+     * historico (borrado logico, ver M_captura::eliminar). POST y no
+     * DELETE por el mismo motivo que catalogos/eliminar.
+     */
+    function eliminar_post($captura_id) {
+        $captura = $this->m_captura->por_id($captura_id);
+        if (!$captura) {
+            $this->response(['status' => false, 'message' => 'Captura no encontrada'], 404);
+            return;
+        }
+        $this->m_captura->eliminar($captura_id);
+        $this->response(['mensaje' => "Captura {$captura_id} eliminada."], 200);
+    }
+
     /** GET /capturas/{id}/homologacion/sugerencias (server.py lineas 1534-1621). */
     function homologacion_sugerencias_get($captura_id) {
         $captura = $this->m_captura->por_id($captura_id);

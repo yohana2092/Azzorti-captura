@@ -84,7 +84,7 @@ class M_captura extends CI_Model {
             'SELECT FIRST 1 id FROM capt WHERE comp = ' . $this->lit($c['competidor'])
             . ' AND cana = ' . $this->lit($c['canal']) . ' AND camp = ' . $this->lit($c['campana'])
             . ' AND cate = ' . $this->lit($c['categoria']) . ' AND ' . $this->informix_util->condicion_igual('dscr', $c['descripcion'])
-            . ' AND prec = ' . $this->lit($c['precio']) . ' AND fcre > ' . $this->lit($hace_5_min)
+            . ' AND prec = ' . $this->lit($c['precio']) . ' AND fcre > ' . $this->lit($hace_5_min) . ' AND elim IS NULL'
             . ' ORDER BY id DESC'
         )->row();
     }
@@ -103,7 +103,20 @@ class M_captura extends CI_Model {
         return (bool) $this->db->query(
             'SELECT 1 AS x FROM capt WHERE comp = ' . $this->lit($c['competidor'])
             . ' AND camp = ' . $this->lit($c['campana']) . ' AND sku_comp = ' . $this->lit($c['sku_competidor'])
+            . ' AND elim IS NULL'
         )->row();
+    }
+
+    /**
+     * Borrado logico desde el dashboard: marca la fecha en "elim" y la
+     * captura deja de aparecer en listados, historico y evaluaciones. No
+     * se borra la fila ni la foto - la API no tiene login, asi que un
+     * borrado fisico seria irreversible para cualquiera que conozca la
+     * URL. Para restaurar: UPDATE capt SET elim = NULL WHERE id = N.
+     */
+    public function eliminar($id) {
+        $this->db->query('UPDATE capt SET elim = ' . $this->lit($this->ahora_iso())
+            . ' WHERE id = ' . $this->lit($id) . ' AND elim IS NULL');
     }
 
     /**
@@ -133,13 +146,13 @@ class M_captura extends CI_Model {
             'SELECT FIRST 1 prec AS precio, camp AS campana FROM capt WHERE comp = ' . $this->lit($competidor)
             . ' AND ' . $this->informix_util->condicion_igual('dscr', $descripcion)
             . ' AND camp != ' . $this->lit($campana_actual) . ' AND id != ' . $this->lit($id_actual)
-            . ' ORDER BY fcre DESC'
+            . ' AND elim IS NULL ORDER BY fcre DESC'
         )->row();
     }
 
     /** server.py lineas 1179-1323. */
     public function listar($competidor, $campana, $base_url) {
-        $sql = 'SELECT ' . self::COLUMNAS . ' FROM capt WHERE 1=1';
+        $sql = 'SELECT ' . self::COLUMNAS . ' FROM capt WHERE elim IS NULL';
         if ($competidor) {
             $sql .= ' AND comp = ' . $this->lit($competidor);
         }

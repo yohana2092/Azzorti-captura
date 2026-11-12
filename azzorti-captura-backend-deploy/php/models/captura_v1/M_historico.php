@@ -18,7 +18,7 @@ class M_historico extends CI_Model {
 
         $capturas = $this->db->query(
             'SELECT cana AS canal, comp AS competidor, camp AS campana, prec AS precio, '
-            . 'sku_conf AS azzorti_sku_confirmado FROM capt WHERE sku_conf IS NOT NULL'
+            . 'sku_conf AS azzorti_sku_confirmado FROM capt WHERE sku_conf IS NOT NULL AND elim IS NULL'
         )->result();
         foreach ($capturas as $c) {
             $precio_azzorti = null;

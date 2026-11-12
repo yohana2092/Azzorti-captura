@@ -35,7 +35,9 @@ class M_schema extends CI_Model {
     // produccion: crear_tablas_faltantes() no las agrega (la tabla ya
     // existe), asi que se agregan aca con ALTER TABLE si faltan.
     const COLUMNAS_NUEVAS = [
-        'capt' => ['gene' => 'VARCHAR(20)'],
+        // elim: fecha en que se elimino la captura desde el dashboard
+        // (borrado logico - se oculta pero no se pierde; NULL = vigente).
+        'capt' => ['gene' => 'VARCHAR(20)', 'elim' => 'VARCHAR(30)'],
     ];
 
     private function agregar_columnas_faltantes() {

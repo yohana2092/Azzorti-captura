@@ -21,6 +21,7 @@ CREATE TABLE capt (
     cata_id INTEGER,
     fcre VARCHAR(30) NOT NULL,
     gene VARCHAR(20),
+    elim VARCHAR(30),
     PRIMARY KEY (id)
 );
 
