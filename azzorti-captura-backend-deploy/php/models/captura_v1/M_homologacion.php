@@ -208,15 +208,15 @@ class M_homologacion extends CI_Model {
             return ($s['similitud_visual_pct'] ?? 0) >= self::VISION_MIN_PARECIDO;
         }));
         if (!$parecidos) {
-            // Ninguno paso el corte de parecido: queda el mejor que no
-            // sea del genero contrario (para no dejar la lista vacia).
-            foreach ($candidatos_vision as $s) {
+            // Ninguno paso el corte de parecido (no hay uno igual en el
+            // catalogo, ej. lentes de oficina vs lentes de sol): se
+            // muestran los mas cercanos que no sean del genero contrario,
+            // ordenados por parecido, para que la promotora elija. Antes
+            // quedaba uno solo y parecia que el catalogo no tenia mas.
+            $parecidos = array_values(array_filter($candidatos_vision, function ($s) use ($pide_fem, $pide_mas) {
                 $g = $s['_genero_visual'] ?? 'unisex';
-                if (!($pide_fem && !$pide_mas && $g === 'masculino') && !($pide_mas && !$pide_fem && $g === 'femenino')) {
-                    $parecidos = [$s];
-                    break;
-                }
-            }
+                return !($pide_fem && !$pide_mas && $g === 'masculino') && !($pide_mas && !$pide_fem && $g === 'femenino');
+            }));
         }
         return array_slice($parecidos, 0, self::VISION_MAX_RESULTADO);
     }

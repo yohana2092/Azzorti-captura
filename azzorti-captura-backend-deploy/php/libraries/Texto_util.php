@@ -823,18 +823,25 @@ class Texto_util {
         // Simbolos sueltos que el OCR mete en medio de un titulo ("4.
         // Billetera = femenina Loriet") lo cortaban a la mitad.
         $texto_cercano = preg_replace('/[=|—_]+/u', ' ', $texto_cercano);
-        if (!preg_match_all('/C[OÓ]D\.?\s*(\d+)/iu', $texto_cercano, $m_cod)) {
+        if (!preg_match_all('/C[OÓ]D\.?\s*(\d+)/iu', $texto_cercano, $m_cod, PREG_OFFSET_CAPTURE)) {
             return null;
         }
-        $k = array_search((string) $codigo, $m_cod[1], true);
+        $codigos_pos = array_map(fn($c) => $c[1], $m_cod[1]);
+        $k = array_search((string) $codigo, array_map(fn($c) => $c[0], $m_cod[1]), true);
         if ($k === false) {
             return null;
         }
-        if (!preg_match_all('/\b[1-9]\.\s+([\p{L}]+(?:\s+[\p{L}]+){0,4})/u', $texto_cercano, $m_tit)) {
+        // Numero del titulo: 1-9, o como lo lee mal el OCR del servidor
+        // (tesseract 3.04): "A." por "4." y "lo."/"l." por "1." - si no
+        // se cuentan, falta un titulo, se corre el emparejamiento y un
+        // producto se queda con el nombre del vecino (una cartera salia
+        // como "Lentes de sol femenino Brizza", pag. 157).
+        if (!preg_match_all('/(?<![\p{L}\d])(?:[1-9]|A|lo|l)\.\s+([\p{L}]+(?:\s+[\p{L}]+){0,4})/u', $texto_cercano, $m_tit, PREG_OFFSET_CAPTURE)) {
             return null;
         }
         $titulos = [];
-        foreach ($m_tit[1] as $crudo) {
+        $titulos_pos = [];
+        foreach ($m_tit[1] as [$crudo, $pos_titulo]) {
             $palabras = [];
             foreach (preg_split('/\s+/u', $crudo) as $palabra) {
                 if (in_array(mb_strtoupper($this->sin_acentos($palabra), 'UTF-8'), self::CORTE_TITULO, true)) {
@@ -855,6 +862,7 @@ class Texto_util {
             }
             if ($palabras) {
                 $titulos[] = implode(' ', $palabras);
+                $titulos_pos[] = $pos_titulo;
             }
         }
         if (!$titulos) {
