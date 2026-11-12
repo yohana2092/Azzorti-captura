@@ -27,7 +27,25 @@ class M_schema extends CI_Model {
     /** Punto de entrada unico. Idempotente, se puede llamar en cada request. */
     public function asegurar() {
         $this->crear_tablas_faltantes();
+        $this->agregar_columnas_faltantes();
         $this->sembrar_config_default();
+    }
+
+    // Columnas agregadas despues de que la tabla ya existia en
+    // produccion: crear_tablas_faltantes() no las agrega (la tabla ya
+    // existe), asi que se agregan aca con ALTER TABLE si faltan.
+    const COLUMNAS_NUEVAS = [
+        'capt' => ['gene' => 'VARCHAR(20)'],
+    ];
+
+    private function agregar_columnas_faltantes() {
+        foreach (self::COLUMNAS_NUEVAS as $tabla => $columnas) {
+            foreach ($columnas as $columna => $tipo) {
+                if ($this->informix_util->tabla_existe($tabla) && !$this->informix_util->columna_existe($tabla, $columna)) {
+                    $this->db->query("ALTER TABLE {$tabla} ADD {$columna} {$tipo}");
+                }
+            }
+        }
     }
 
     /**

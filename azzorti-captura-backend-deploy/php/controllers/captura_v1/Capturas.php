@@ -70,6 +70,9 @@ class Capturas extends RestController {
             'color' => $this->json['color'] ?? null,
             'detalle' => $this->json['detalle'] ?? null,
             'caracteristicas' => $this->json['caracteristicas'] ?? null,
+            // Dama / Caballero / Unisex (solo Venta Directa lo pide en la
+            // app - en Retail la categoria ya trae el genero).
+            'genero' => in_array($this->json['genero'] ?? null, ['Dama', 'Caballero', 'Unisex'], true) ? $this->json['genero'] : null,
             'precio' => isset($this->json['precio']) ? (float) $this->json['precio'] : null,
             'sku_competidor' => $this->json['sku_competidor'] ?? null,
             'catalogo_id' => isset($this->json['catalogo_id']) ? (int) $this->json['catalogo_id'] : null,

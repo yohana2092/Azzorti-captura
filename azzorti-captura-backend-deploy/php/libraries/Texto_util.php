@@ -42,6 +42,14 @@ class Texto_util {
     //    el texto (ej. una talla "S" de una tabla de tamaños).
     const PRECIO_RE = '/B?S\.\s*(\d+)[.,\s](\d{2})/i';
 
+    // Paginas tipo "Twins Sets": 2+ productos comparten UN solo precio
+    // impreso una sola vez ("EL QUE ELIJAS POR SOLO Bs. X",
+    // "CUALQUIERA POR Bs. X", "C/U POR Bs. X") en vez de repetirlo
+    // junto a cada Ref. individual. Usado como respaldo en
+    // indexar_pagina_productos() cuando un producto se queda sin
+    // precio propio - ver comentario ahi.
+    const PRECIO_COMPARTIDO_RE = '/(?:QUE\s+ELIJAS|CUALQUIERA|C\/U)[\s\S]{0,25}?B?S\.\s*(\d+)[.,\s](\d{2})/i';
+
     // server.py linea 2148 ("3. ", "4. " - numeros de item de lista).
     const ITEM_NUM_RE = '/\b([1-9])\.\s/';
 
@@ -620,22 +628,93 @@ class Texto_util {
                 'seccion' => $seccion,
             ];
         }
+
+        // "Precio compartido" (ver PRECIO_COMPARTIDO_RE): la asignacion
+        // por linea-mas-cercana le da esa linea de precio a la ancla
+        // geometricamente mas cerca de ella - el otro producto de la
+        // pareja/combo se queda sin precio aunque el catalogo diga que
+        // cuestan lo mismo. Solo se aplica a los productos que
+        // quedaron SIN precio propio (no pisa un precio ya detectado).
+        if (array_filter($resultados, fn($r) => $r['precio'] === null)) {
+            // Texto de la pagina completa en orden de lectura real: por
+            // LINEA (de arriba a abajo, ya agrupadas mas arriba) y
+            // dentro de cada linea de izquierda a derecha - un simple
+            // sort por 'top' NO alcanza (palabras de una misma fila con
+            // 'top' parecido pueden quedar en cualquier orden horizontal,
+            // ej. "209.99 BS." en vez de "BS. 209.99", rompiendo
+            // PRECIO_COMPARTIDO_RE).
+            $texto_pagina_lineas = [];
+            foreach ($lineas as $linea) {
+                $idx_linea = $linea['idx'];
+                usort($idx_linea, fn($a, $b) => $datos['left'][$a] <=> $datos['left'][$b]);
+                foreach ($idx_linea as $i) {
+                    $texto_pagina_lineas[] = trim($datos['text'][$i]);
+                }
+            }
+            $texto_pagina = implode(' ', array_filter($texto_pagina_lineas));
+            $texto_pagina_norm = mb_strtoupper($this->sin_acentos($texto_pagina), 'UTF-8');
+            if (preg_match(self::PRECIO_COMPARTIDO_RE, $texto_pagina_norm, $m)) {
+                $precio_compartido = (float) ($m[1] . '.' . $m[2]);
+                // No repartir ese precio a CUALQUIER producto sin precio
+                // de la pagina (ej. una referencia "disponible en la
+                // Pág. 42" que solo se menciona de pasada, mucho mas
+                // abajo, NO es parte del combo). Solo se lo damos al
+                // vecino INMEDIATO (siguiente hacia abajo) del producto
+                // que ya tiene ese mismo precio detectado por su cuenta
+                // (el que de verdad absorbio la linea "Bs. X" del
+                // combo) - asi calza exactamente con el patron real
+                // "1. Ref.X / 2. Ref.Y" comparten precio, sin alcanzar
+                // productos no relacionados mas lejos en la pagina.
+                $ordenados = $resultados;
+                usort($ordenados, fn($a, $b) => $a['y'] <=> $b['y']);
+                foreach ($ordenados as $pos => $r) {
+                    if ($r['precio'] === $precio_compartido && isset($ordenados[$pos + 1])
+                        && $ordenados[$pos + 1]['precio'] === null) {
+                        $codigo_vecino = $ordenados[$pos + 1]['producto_codigo'];
+                        foreach ($resultados as &$rr) {
+                            if ($rr['producto_codigo'] === $codigo_vecino) {
+                                $rr['precio'] = $precio_compartido;
+                            }
+                        }
+                        unset($rr);
+                    }
+                }
+            }
+        }
+
         return $resultados;
     }
 
-    /** Puerto de _texto_mezclado (server.py lineas 2150-2167). */
+    /**
+     * Puerto de _texto_mezclado (server.py lineas 2150-2167), AJUSTADO.
+     * Antes, 2+ codigos de referencia o 2+ numeros de item ("1.", "2.")
+     * en el mismo texto_cercano ya bastaba para marcarlo "mezclado" (de
+     * 2+ productos sin relacion) y excluirlo de las sugerencias de
+     * homologacion. Pero las paginas "combo" (2-5 variantes de color
+     * comparten UN solo precio, ej. "Blusas... 1. Ref.R4272 2.
+     * Ref.R6312") TAMBIEN tienen 2+ referencias y 2+ numeros de item
+     * sin ser texto realmente mezclado - confirmado con un caso real
+     * (SKU 4272, pagina 40) que quedaba oculto de las sugerencias por
+     * esto, siendo la prenda correcta.
+     *
+     * La señal confiable de mezcla real (2 productos sin relacion cuyo
+     * texto OCR se junto) es tener 2+ PRECIOS DISTINTOS: un combo
+     * legitimo comparte un solo precio para todas sus referencias; la
+     * mezcla real trae el precio de CADA producto por separado.
+     */
     public function texto_mezclado($texto_cercano) {
         if ($texto_cercano === null) {
             return false;
         }
-        preg_match_all(self::REF_RE, $texto_cercano, $m_ref);
-        $referencias = array_unique($m_ref[0]);
+        // El precio "P. Regular Bs. X" (precio tachado de una oferta) es
+        // del MISMO producto - antes contaba como segundo precio y el
+        // producto se descartaba como "mezclado" (confirmado: Reloj
+        // femenino Brizza 373843, "Bs. 229.99 P. Regular Bs. 299.99").
+        $texto_cercano = preg_replace('/(P\.?\s*)?REGUL\p{L}*\s*B?S\.?\s*\d+(?:[.,\s]\d{2})?/iu', ' ', $texto_cercano);
         preg_match_all(self::PRECIO_RE, $texto_cercano, $m_precio);
         $precios = array_unique($m_precio[0]);
-        preg_match_all(self::ITEM_NUM_RE, $texto_cercano, $m_item);
-        $numeros_item = array_unique($m_item[1]);
 
-        return count($referencias) > 1 || count($precios) > 2 || count($numeros_item) > 1;
+        return count($precios) >= 2;
     }
 
     // Palabras de categoria de prenda reconocidas en el texto OCR
@@ -644,31 +723,166 @@ class Texto_util {
     // Pedido explicito: "SOLO muestra NOMBRE de producto y codigo, ya
     // no mas" - el intento anterior (limpiar el texto quitando ruido)
     // seguia mostrando demasiado texto de fondo (talla, tejido, etc.).
+    // Ampliada revisando las 444 paginas ya indexadas del catalogo real
+    // (BOL202610NAL): Camibuzo, Panty, Buzo y Leggins aparecen varias
+    // veces cada una y antes caian todas en el generico "Producto".
+    // "Reloj" se agrego para Venta Directa (mismo metodo, texto_cercano
+    // de cata_prod) - el nombre de la constante quedo de cuando esto
+    // era solo para prendas de Retail, pero la deteccion es generica.
     const CATEGORIAS_PRENDA = [
-        'Blusa', 'Vestido', 'Camiseta', 'Camisa', 'Polo', 'Crop Top',
-        'Jean', 'Short', 'Falda', 'Pantalon', 'Twin Set', 'Conjunto',
+        'Blusa', 'Blusón', 'Vestido', 'Camiseta', 'Camisa', 'Polo', 'Crop Top',
+        'Jean', 'Short', 'Bermuda', 'Falda', 'Pantalon', 'Twin Set', 'Conjunto',
         'Polera', 'Chaqueta', 'Saco', 'Sueter', 'Chompa', 'Enterizo',
-        'Overol', 'Body',
+        'Overol', 'Body', 'Camibuzo', 'Buzo', 'Panty', 'Leggins',
+        'Bustier', 'Babydoll', 'Reloj',
+    ];
+
+    // Palabras que NUNCA son parte del nombre/marca de un producto,
+    // aunque aparezcan justo despues de la categoria (talla, "Ref.",
+    // "Bs.", "COD.", conectores y texto de tejido/silueta genericos) -
+    // usadas por _nombre_extra() para saber donde cortar. Sin la
+    // segunda mitad (conectores/tejido), volvia el problema original
+    // que esto fue creado para evitar: "Blusa interna en tejido",
+    // "Blusa en tejido de", "Blusas LA QUE ELIJAS" en vez de solo
+    // "Blusa" - confirmado con casos reales. Ver descripcion_minima().
+    const PALABRAS_CORTE_NOMBRE = [
+        'REF', 'BS', 'COD', 'CÓD', 'CODIGO', 'CÓDIGO',
+        'S', 'M', 'L', 'XL', 'XS', 'XXL', 'P', 'G',
+        'EN', 'DE', 'LA', 'EL', 'LOS', 'LAS', 'QUE', 'ELIJAS', 'ELIGE',
+        'CON', 'PARA', 'SIN', 'POR', 'CADA', 'UNA', 'UNO', 'MAS', 'MÁS',
+        'INTERNA', 'INTERNO', 'INTERIOR', 'EXTERIOR',
+        'TEJIDO', 'PUNTO', 'PLANO', 'DOBLE', 'PESADO', 'LIVIANO', 'GRUESO',
+        'FINO', 'ACANALADO', 'TIPO',
+        'SILUETA', 'AJUSTADA', 'AJUSTADO', 'SEMIAJUSTADA', 'SEMIAJUSTADO',
+        'SUELTA', 'SUELTO', 'ENTALLADA', 'ENTALLADO',
+        'POLIESTER', 'ALGODON', 'SPANDEX', 'NYLON', 'ELASTANO', 'LYCRA', 'VISCOSA',
     ];
 
     /**
      * Descripcion MINIMA de un candidato de homologacion: nombre de la
-     * prenda (Blusa/Vestido/etc., detectado en el texto OCR cercano al
-     * codigo) + el codigo mismo - nada de texto de tejido/talla/precio.
+     * prenda/producto (Blusa/Vestido/Reloj/etc., detectado en el texto
+     * OCR cercano al codigo) + hasta 3 palabras siguientes que parezcan
+     * parte del nombre real (ej. "Reloj femenino Niki", "Reloj Festa")
+     * + el codigo mismo - nada de texto de tejido/talla/precio.
      * $codigo es el producto_codigo ya conocido (no hace falta sacarlo
      * del texto OCR, evita mostrar un codigo mal leido).
+     *
+     * Antes solo devolvia la palabra de categoria sola ("Reloj"), a
+     * pedido explicito de "SOLO nombre y codigo" para evitar el ruido
+     * de OCR de ropa (tallas, tejido, precio mezclados). Pero para
+     * productos con nombre/marca propio (relojes: "Niki", "Festa",
+     * "Azzul") esa misma regla ocultaba informacion util y real - con
+     * varios relojes indexados, todos se veian igual ("Reloj - Ref.
+     * X"), sin forma de diferenciarlos. Se agrega la extension SOLO
+     * mientras las palabras siguientes sean alfabeticas y no esten en
+     * PALABRAS_CORTE_NOMBRE - se detiene apenas aparece talla/precio/
+     * codigo, para no repetir el problema original.
      */
     public function descripcion_minima($texto_cercano, $codigo) {
         $nombre = null;
         if ($texto_cercano !== null) {
             foreach (self::CATEGORIAS_PRENDA as $categoria) {
-                if (preg_match('/\b' . preg_quote($categoria, '/') . '\b/iu', $texto_cercano)) {
-                    $nombre = $categoria;
+                // "s?" al final: el catalogo real a veces titula la
+                // seccion en plural ("Camibuzos", "Pantys", "Buzos",
+                // "Blusas") en vez de repetir el nombre en singular
+                // junto a cada Ref. - sin esto, esos productos caian en
+                // el generico "Producto" aunque la categoria si estaba
+                // en la lista.
+                if (preg_match('/\b' . preg_quote($categoria, '/') . 's?\b/iu', $texto_cercano, $m, PREG_OFFSET_CAPTURE)) {
+                    $fin = $m[0][1] + strlen($m[0][0]);
+                    $nombre = trim($m[0][0]) . $this->_nombre_extra(substr($texto_cercano, $fin));
                     break;
                 }
             }
         }
         $nombre = $nombre ?? 'Producto';
         return $codigo ? "{$nombre} - Ref. {$codigo}" : $nombre;
+    }
+
+    // Palabras que cortan un titulo de producto ("3. Bolso femenino
+    // Loriet Bs. 449.99 P. Regular...") - ver nombre_producto().
+    const CORTE_TITULO = ['BS', 'P', 'REF', 'COD', 'REGULAR', 'OFERTA', 'NUEVO', 'NUEVOS'];
+
+    /**
+     * Nombre real del producto tal como sale impreso en el catalogo
+     * ("Bolso femenino Loriet", "Billetera femenina Brizza", "Reloj
+     * Festa") para productos que NO son ropa y no estan en
+     * CATEGORIAS_PRENDA - sin ninguna lista fija. Los productos de
+     * Venta Directa se imprimen como "N. Titulo ... Bs. precio ...
+     * COD. codigo": se juntan todos los titulos "N. Titulo" del texto
+     * y todos los "COD. nnn", y al codigo k-esimo le toca el titulo
+     * k-esimo (ej. "3. Set reloj mas pulsera 4. Set de billetera COD.
+     * 689217 COD. 436968" -> 689217 es el 1ro = "Set reloj mas
+     * pulsera"). Devuelve null si no se puede (el llamador cae a
+     * descripcion_minima()).
+     */
+    public function nombre_producto($texto_cercano, $codigo) {
+        if (!$texto_cercano || !$codigo) {
+            return null;
+        }
+        // Simbolos sueltos que el OCR mete en medio de un titulo ("4.
+        // Billetera = femenina Loriet") lo cortaban a la mitad.
+        $texto_cercano = preg_replace('/[=|—_]+/u', ' ', $texto_cercano);
+        if (!preg_match_all('/C[OÓ]D\.?\s*(\d+)/iu', $texto_cercano, $m_cod)) {
+            return null;
+        }
+        $k = array_search((string) $codigo, $m_cod[1], true);
+        if ($k === false) {
+            return null;
+        }
+        if (!preg_match_all('/\b[1-9]\.\s+([\p{L}]+(?:\s+[\p{L}]+){0,4})/u', $texto_cercano, $m_tit)) {
+            return null;
+        }
+        $titulos = [];
+        foreach ($m_tit[1] as $crudo) {
+            $palabras = [];
+            foreach (preg_split('/\s+/u', $crudo) as $palabra) {
+                if (in_array(mb_strtoupper($this->sin_acentos($palabra), 'UTF-8'), self::CORTE_TITULO, true)) {
+                    break;
+                }
+                $palabras[] = $palabra;
+            }
+            // Letras sueltas al final son ruido de OCR ("Billetera
+            // masculina Azzul O", la "O" era la "P." de "P. Regular").
+            while ($palabras && mb_strlen(end($palabras)) === 1) {
+                array_pop($palabras);
+            }
+            // "4. cm" (de "Dimensiones: 21 x 4. cm") no es un titulo: un
+            // titulo real empieza con mayuscula y una palabra de 3+ letras.
+            // Si se contara, desalinearia el emparejamiento titulo<->codigo.
+            if ($palabras && (mb_strlen($palabras[0]) < 3 || !preg_match('/^\p{Lu}/u', $palabras[0]))) {
+                continue;
+            }
+            if ($palabras) {
+                $titulos[] = implode(' ', $palabras);
+            }
+        }
+        if (!$titulos) {
+            return null;
+        }
+        return $titulos[min($k, count($titulos) - 1)];
+    }
+
+    /**
+     * Hasta 3 palabras alfabeticas que siguen INMEDIATAMENTE (separadas
+     * solo por espacios) a la categoria detectada por descripcion_minima()
+     * y que no son talla/precio/codigo - ver PALABRAS_CORTE_NOMBRE.
+     */
+    private function _nombre_extra($resto) {
+        $extra = [];
+        // Consume espacios en blanco entre palabras, pero si aparece
+        // CUALQUIER otro caracter (numero, punto, "|") antes de la
+        // siguiente palabra, ahi mismo se corta - eso significa que la
+        // categoria no seguia directo con un nombre, sino con otra cosa
+        // (ej. "Blusa Ref.R6844": el "." pegado a "Ref" ya corta).
+        while (preg_match('/^\s+([\p{L}]+)/u', $resto, $m)) {
+            $palabra_norm = mb_strtoupper($this->sin_acentos($m[1]), 'UTF-8');
+            if (in_array($palabra_norm, self::PALABRAS_CORTE_NOMBRE, true) || count($extra) >= 3) {
+                break;
+            }
+            $extra[] = $m[1];
+            $resto = mb_substr($resto, mb_strlen($m[0]));
+        }
+        return $extra ? ' ' . implode(' ', $extra) : '';
     }
 }

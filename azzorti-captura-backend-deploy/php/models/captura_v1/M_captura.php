@@ -19,7 +19,7 @@ class M_captura extends CI_Model {
         . 'tela1 AS composicion1, tela2 AS composicion2, mang AS manga, colo AS color, '
         . 'deta AS detalle, cara AS caracteristicas, prec AS precio, sku_comp AS sku_competidor, '
         . 'sku_conf AS azzorti_sku_confirmado, foto_arch AS foto_archivo, cata_id AS catalogo_id, '
-        . 'fcre AS creada_en';
+        . 'fcre AS creada_en, gene AS genero';
 
     public function __construct() {
         parent::__construct();
@@ -36,6 +36,40 @@ class M_captura extends CI_Model {
 
     private function lit($v) {
         return $this->informix_util->literal($v);
+    }
+
+    /**
+     * Nombre limpio del producto homologado para el dashboard ("Poleras",
+     * "Billetera femenina Loriet") en vez de los primeros 80 caracteres
+     * del texto OCR crudo ("Poleras LA QUE ELIJAS POR SOLO Bs. 179.99 4.
+     * Ref.R4849 5. Ref.R4851 S | 827643..."). El codigo y la pagina ya
+     * se muestran aparte.
+     */
+    private function nombre_producto($texto_cercano, $sku) {
+        $this->load->library('texto_util');
+        // Texto de TODA la pagina del producto (en orden de lectura): en
+        // paginas con varios productos el titulo impreso queda en el
+        // texto de un vecino - con solo el texto propio salia basura
+        // ("4. cm" de "Dimensiones: 21 x 4. cm").
+        $texto_pagina = $texto_cercano;
+        $ref = $this->db->query(
+            'SELECT FIRST 1 cata_id, pagi FROM cata_prod WHERE prod_codi = ' . $this->lit($sku) . ' ORDER BY id DESC'
+        )->row();
+        if ($ref) {
+            $filas = $this->db->query(
+                'SELECT txt_cerc FROM cata_prod WHERE cata_id = ' . $this->lit($ref->cata_id)
+                . ' AND pagi = ' . $this->lit($ref->pagi) . ' ORDER BY id'
+            )->result();
+            if ($filas) {
+                $texto_pagina = implode(' ', array_map(fn($f) => $f->txt_cerc ?? '', $filas));
+            }
+        }
+        $nombre = $this->texto_util->nombre_producto($texto_pagina, $sku);
+        if ($nombre) {
+            return $nombre;
+        }
+        $minimo = preg_replace('/\s*-\s*Ref\..*$/u', '', $this->texto_util->descripcion_minima($texto_cercano, $sku));
+        return $minimo ?: (string) $sku;
     }
 
     public function por_id($id) {
@@ -80,12 +114,13 @@ class M_captura extends CI_Model {
         $sql = 'INSERT INTO capt '
             . '(comp, cana, camp, cate, nive_prec, dscr, silu, tall, '
             . 'tela1, tela2, mang, colo, deta, cara, prec, '
-            . 'sku_comp, foto_arch, fcre, cata_id) '
+            . 'sku_comp, foto_arch, fcre, cata_id, gene) '
             . 'VALUES (' . implode(', ', [
                 $this->lit($c['competidor']), $this->lit($c['canal']), $this->lit($c['campana']), $this->lit($c['categoria']), $this->lit($c['nivel_precio']),
                 $this->lit($c['descripcion']), $this->lit($c['silueta']), $this->lit($c['talla']), $this->lit($c['composicion1']), $this->lit($c['composicion2']),
                 $this->lit($c['manga']), $this->lit($c['color']), $this->lit($c['detalle']), $this->lit($c['caracteristicas']), $this->lit($c['precio']),
                 $this->lit($c['sku_competidor']), $this->lit($foto_archivo), $this->lit($this->ahora_iso()), $this->lit($c['catalogo_id']),
+                $this->lit($c['genero'] ?? null),
             ]) . ')';
         $this->db->query($sql);
         return $this->informix_util->ultimo_id_serial();
@@ -139,17 +174,29 @@ class M_captura extends CI_Model {
                     $delta = ($prod->precio - $d['precio']) / $prod->precio * 100;
                     $catalogo_azz = $this->m_catalogo->catalogo_azzorti_mas_reciente();
                     $nombre_foto = $catalogo_azz ? "{$catalogo_azz->id}_{$prod->pagina}_{$prod->sku}.png" : null;
+                    // foto_url = recorte chico (miniatura), foto_grande_url =
+                    // PAGINA COMPLETA para la vista previa al hacer clic -
+                    // mismo criterio que ya usa M_homologacion (sugerencias),
+                    // que esta pantalla no estaba siguiendo: el recorte chico
+                    // no alcanza a mostrar la prenda completa al ampliarlo.
+                    $nombre_completa = $catalogo_azz ? "{$catalogo_azz->id}_{$prod->pagina}_completa.png" : null;
                     $d['homologacion'] = [
                         'azzorti_sku' => $prod->sku,
-                        'azzorti_descripcion' => ($prod->texto_cercano ? mb_substr($prod->texto_cercano, 0, 80) : '') ?: $prod->sku,
-                        'pagina_catalogo' => (int) $prod->pagina,
+                        'azzorti_descripcion' => $this->nombre_producto($prod->texto_cercano, $prod->sku),
+                        'pagina_catalogo' => $this->m_catalogo->pagina_impresa($prod->catalogo_id ?? null, (int) $prod->pagina),
                         'precio_azzorti' => (float) $prod->precio,
                         'delta_pct' => round($delta, 1),
                         'alerta_generica' => abs($delta) > $umbral,
+                        'sin_precio' => false,
                         'foto_url' => $nombre_foto
                             ? $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_foto, $base_url)
                             : null,
+                        'foto_grande_url' => $nombre_completa
+                            ? $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_completa, $base_url)
+                            : null,
                     ];
+                } else {
+                    $d['homologacion'] = $this->homologacion_sin_precio($d['azzorti_sku_confirmado'], $base_url);
                 }
             } elseif (!empty($d['azzorti_sku_confirmado'])) {
                 $azzorti = $this->m_producto->por_sku($d['azzorti_sku_confirmado']);
@@ -162,6 +209,7 @@ class M_captura extends CI_Model {
                         'precio_azzorti' => (float) $azzorti->precio,
                         'delta_pct' => round($delta, 1),
                         'alerta_generica' => abs($delta) > $umbral,
+                        'sin_precio' => false,
                         'foto_url' => $azzorti->foto_archivo
                             ? $this->archivo_util->url_publica($azzorti->foto_archivo, $base_url)
                             : null,
@@ -172,17 +220,24 @@ class M_captura extends CI_Model {
                         $delta = ($prod->precio - $d['precio']) / $prod->precio * 100;
                         $catalogo_azz = $this->m_catalogo->catalogo_azzorti_mas_reciente();
                         $nombre_foto = $catalogo_azz ? "{$catalogo_azz->id}_{$prod->pagina}_{$prod->sku}.png" : null;
+                        $nombre_completa = $catalogo_azz ? "{$catalogo_azz->id}_{$prod->pagina}_completa.png" : null;
                         $d['homologacion'] = [
                             'azzorti_sku' => $prod->sku,
-                            'azzorti_descripcion' => ($prod->texto_cercano ? mb_substr($prod->texto_cercano, 0, 80) : '') ?: $prod->sku,
-                            'pagina_catalogo' => (int) $prod->pagina,
+                            'azzorti_descripcion' => $this->nombre_producto($prod->texto_cercano, $prod->sku),
+                            'pagina_catalogo' => $this->m_catalogo->pagina_impresa($prod->catalogo_id ?? null, (int) $prod->pagina),
                             'precio_azzorti' => (float) $prod->precio,
                             'delta_pct' => round($delta, 1),
                             'alerta_generica' => abs($delta) > $umbral,
+                            'sin_precio' => false,
                             'foto_url' => $nombre_foto
                                 ? $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_foto, $base_url)
                                 : null,
+                            'foto_grande_url' => $nombre_completa
+                                ? $this->archivo_util->url_publica('catalogo_paginas/' . $nombre_completa, $base_url)
+                                : null,
                         ];
+                    } else {
+                        $d['homologacion'] = $this->homologacion_sin_precio($d['azzorti_sku_confirmado'], $base_url);
                     }
                 }
             } elseif (!empty($d['descripcion'])) {
@@ -200,6 +255,29 @@ class M_captura extends CI_Model {
             $resultado[] = $d;
         }
         return $resultado;
+    }
+
+    /**
+     * Homologacion ya confirmada con un producto real del catalogo, pero
+     * sin precio legible por OCR - para no mostrar "sin homologar aun"
+     * cuando en realidad SI se eligio un producto, solo falta el precio.
+     * Devuelve null si el codigo ya ni siquiera existe en el catalogo.
+     */
+    private function homologacion_sin_precio($azzorti_sku, $base_url) {
+        $prod = $this->m_catalogo->producto_por_codigo($azzorti_sku);
+        if (!$prod) {
+            return null;
+        }
+        return [
+            'azzorti_sku' => $prod->sku,
+            'azzorti_descripcion' => $this->nombre_producto($prod->texto_cercano, $prod->sku),
+            'pagina_catalogo' => $this->m_catalogo->pagina_impresa($prod->catalogo_id ?? null, (int) $prod->pagina),
+            'precio_azzorti' => null,
+            'delta_pct' => null,
+            'alerta_generica' => false,
+            'sin_precio' => true,
+            'foto_url' => null,
+        ];
     }
 
     /** server.py lineas 1624-1654. Devuelve true si el SKU es valido para
@@ -232,31 +310,44 @@ class M_captura extends CI_Model {
         if (!empty($captura->azzorti_sku_confirmado)) {
             if ($captura->canal === 'Venta Directa') {
                 $azzorti = $this->m_catalogo->producto_con_precio($captura->azzorti_sku_confirmado);
-                if (!$azzorti) {
-                    return ['error' => 'El código Azzorti confirmado ya no existe en el catálogo indexado, o no '
-                        . 'se le pudo leer un precio por OCR.'];
-                }
             } else {
                 $azzorti = $this->m_producto->por_sku($captura->azzorti_sku_confirmado);
                 if (!$azzorti) {
-                    $prod = $this->m_catalogo->producto_con_precio($captura->azzorti_sku_confirmado);
-                    if (!$prod) {
-                        return ['error' => 'El SKU Azzorti confirmado ya no existe en el catálogo.'];
-                    }
-                    $azzorti = $prod;
+                    $azzorti = $this->m_catalogo->producto_con_precio($captura->azzorti_sku_confirmado);
                 }
             }
-            $delta_pct = ($azzorti->precio - $precio_competencia) / $azzorti->precio * 100;
-            return [
-                'captura_id' => $id,
-                'modo' => 'HOMOLOGO',
-                'azzorti_sku' => $azzorti->sku,
-                'precio_azzorti' => (float) $azzorti->precio,
-                'precio_competencia' => $precio_competencia,
-                'delta_pct' => round($delta_pct, 1),
-                'umbral_pct' => $umbral,
-                'alerta' => abs($delta_pct) > $umbral,
-            ];
+            if ($azzorti) {
+                $delta_pct = ($azzorti->precio - $precio_competencia) / $azzorti->precio * 100;
+                return [
+                    'captura_id' => $id,
+                    'modo' => 'HOMOLOGO',
+                    'azzorti_sku' => $azzorti->sku,
+                    'precio_azzorti' => (float) $azzorti->precio,
+                    'precio_competencia' => $precio_competencia,
+                    'delta_pct' => round($delta_pct, 1),
+                    'umbral_pct' => $umbral,
+                    'alerta' => abs($delta_pct) > $umbral,
+                ];
+            }
+            // Se confirmo la homologacion con un producto real, pero no
+            // tiene precio legible por OCR (o, si es de la muestra
+            // curada, nunca deberia faltar - eso si seria raro). No es
+            // lo mismo que "no existe": el producto SI se eligio bien,
+            // solo falta el precio para poder comparar.
+            $sin_precio = $this->m_catalogo->producto_por_codigo($captura->azzorti_sku_confirmado);
+            if ($sin_precio) {
+                return [
+                    'captura_id' => $id,
+                    'modo' => 'HOMOLOGO_SIN_PRECIO',
+                    'azzorti_sku' => $sin_precio->sku,
+                    'azzorti_descripcion' => $this->nombre_producto($sin_precio->texto_cercano, $sin_precio->sku),
+                    'pagina_catalogo' => $this->m_catalogo->pagina_impresa($sin_precio->catalogo_id ?? null, (int) $sin_precio->pagina),
+                    'precio_competencia' => $precio_competencia,
+                    'mensaje' => 'Se homologó con este producto, pero no se le pudo leer el precio en el catálogo '
+                        . '(pág. ' . $this->m_catalogo->pagina_impresa($sin_precio->catalogo_id ?? null, (int) $sin_precio->pagina) . ') - no hay con qué comparar el precio todavía.',
+                ];
+            }
+            return ['error' => 'El SKU Azzorti confirmado ya no existe en el catálogo.'];
         }
 
         $anterior = $this->captura_anterior($captura->competidor, $captura->descripcion, $captura->campana, $id);

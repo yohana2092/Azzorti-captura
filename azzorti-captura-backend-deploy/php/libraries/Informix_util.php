@@ -104,4 +104,13 @@ class Informix_util {
     public function tabla_existe($tabla) {
         return $this->existe_fila('systables', 'tabname = ' . $this->literal($tabla));
     }
+
+    /** Catalogo del sistema de Informix: syscolumns unida a systables. */
+    public function columna_existe($tabla, $columna) {
+        $ci = get_instance();
+        return (bool) $ci->db->query(
+            'SELECT FIRST 1 1 AS x FROM syscolumns c, systables t WHERE c.tabid = t.tabid AND t.tabname = '
+            . $this->literal($tabla) . ' AND c.colname = ' . $this->literal($columna)
+        )->row();
+    }
 }

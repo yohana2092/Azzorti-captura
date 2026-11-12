@@ -15,9 +15,9 @@ class M_homologacion extends CI_Model {
         'blusas femeninas' => 'BLUSA',
         'vestidos femeninos cortos' => 'VESTIDO',
         'vestidos femeninos largos' => 'VESTIDO',
-        'camisetas masculinas' => 'CAMISETA',
+        'camisetas masculinas' => 'CAMISETA|POLERA',
         'polos masculinos' => 'POLO',
-        'camisetas femeninas' => 'CAMISETA',
+        'camisetas femeninas' => 'CAMISETA|POLERA',
         'crop top femenino' => 'CROP',
         'jeans femeninos' => 'JEAN',
         'jeans masculinos' => 'JEAN',
@@ -27,6 +27,33 @@ class M_homologacion extends CI_Model {
         'toallas' => 'TOALLA',
         'mochilas infantiles' => 'MOCHILA',
         'cubrecamas sencillos infantiles' => 'CUBRECAMA',
+        'chaquetas femeninas' => 'CHAQUETA',
+        'chaquetas masculinas' => 'CHAQUETA',
+        // Agregadas revisando el catalogo real completo - ver
+        // Texto_util::CATEGORIAS_PRENDA (mismo hallazgo, usado ahi para
+        // la descripcion y aca para filtrar candidatos por categoria).
+        'babydoll' => 'BABYDOLL',
+        'bermuda' => 'BERMUDA',
+        'bluson' => 'BLUSON',
+        'bustier' => 'BUSTIER',
+        'buzo' => 'BUZO',
+        'camibuzo' => 'CAMIBUZO',
+        'leggins' => 'LEGGIN',
+        'panty' => 'PANTY',
+    ];
+
+    /**
+     * Conectores y sinonimos de genero que NO cuentan como "palabra
+     * disparadora" al extraerla de la descripcion escrita a mano (ver
+     * sugerir_venta_directa()) - el genero ya se evalua aparte
+     * ($pide_femenino/$pide_masculino).
+     */
+    const PALABRAS_VACIAS_DISPARADOR = [
+        'DE', 'LA', 'EL', 'LOS', 'LAS', 'UN', 'UNA', 'Y', 'O', 'CON', 'SIN', 'PARA',
+        'DAMA', 'CABALLERO', 'FEMENINO', 'FEMENINA', 'MASCULINO', 'MASCULINA',
+        'NINO', 'NINA', 'UNISEX', 'NUEVO', 'NUEVA', 'ADULTO', 'ADULTA', 'MUJER', 'HOMBRE',
+        'NEGRO', 'NEGRA', 'BLANCO', 'BLANCA', 'AZUL', 'ROJO', 'ROJA', 'VERDE', 'ROSADO', 'ROSADA',
+        'GRIS', 'CAFE', 'BEIGE', 'DORADO', 'DORADA', 'PLATEADO', 'PLATEADA',
     ];
 
     public function __construct() {
@@ -87,6 +114,171 @@ class M_homologacion extends CI_Model {
         return round($score, 1);
     }
 
+    // Cuantos candidatos (ya acotados por texto) se le mandan a comparar
+    // visualmente - no "todo el catalogo", para no gastar de mas en
+    // tokens/llamadas. Y cuantos quedan en el resultado final cuando la
+    // comparacion visual si funciono (pedido explicito: "las 5 imagenes
+    // que mas se parezcan").
+    const VISION_MAX_CANDIDATOS = 6;
+    const VISION_MAX_RESULTADO = 5;
+    // Por debajo de este % visual el candidato no se muestra.
+    const VISION_MIN_PARECIDO = 25;
+
+    /**
+     * Re-rankea $sugerencias (ya ordenados y acotados por texto) usando
+     * comparacion visual real contra la foto capturada (Vision_util,
+     * API interna de la empresa - ver libraries/Vision_util.php). Solo
+     * sobre los primeros VISION_MAX_CANDIDATOS - son candidatos que YA
+     * pasaron el filtro de texto, la comparacion visual es para elegir
+     * CUAL de esos pocos es el correcto, no para buscar entre todo el
+     * catalogo de nuevo.
+     *
+     * Si falla por cualquier motivo (sin foto, archivo faltante, la API
+     * no responde, respuesta rara) devuelve $sugerencias SIN TOCAR - la
+     * homologacion por texto sigue funcionando igual que antes, nunca se
+     * rompe la respuesta por esto.
+     */
+    private function aplicar_comparacion_visual(array $sugerencias, array $captura, $base_url = null) {
+        if (empty($captura['foto_archivo']) || !$sugerencias) {
+            return $sugerencias;
+        }
+        $ruta_foto = RUTA_ARCHIVOS . 'captura_v1/capturas_fotos/' . $captura['foto_archivo'];
+        if (!file_exists($ruta_foto)) {
+            return $sugerencias;
+        }
+
+        $candidatos_vision = array_slice($sugerencias, 0, self::VISION_MAX_CANDIDATOS);
+        $rutas_candidatos = [];
+        foreach ($candidatos_vision as $s) {
+            if (empty($s['_ruta_local']) || !file_exists($s['_ruta_local'])) {
+                // Falta la imagen local de algun candidato - no arriesgar
+                // un ranking a medias/desalineado, se sigue solo con texto.
+                return $sugerencias;
+            }
+            $rutas_candidatos[] = $s['_ruta_local'];
+        }
+
+        $this->load->library('vision_util');
+        $resultado_visual = $this->vision_util->comparar(
+            $ruta_foto, $rutas_candidatos, $captura['competidor'] ?? 'captura_v1',
+            array_map(fn($s) => $s['sku'] ?? null, $candidatos_vision)
+        );
+        if ($resultado_visual === null) {
+            return $sugerencias;
+        }
+
+        foreach ($candidatos_vision as $i => &$s) {
+            $r = $resultado_visual[$i + 1] ?? null;
+            $s['similitud_visual_pct'] = $r['pct'] ?? null;
+            $s['_genero_visual'] = $r['genero'] ?? 'unisex';
+            // Miniatura recortada sobre el producto segun la ubicacion
+            // que devolvio la IA (el recorte hecho al indexar, por
+            // posicion del texto, solia caer en el fondo o en la modelo).
+            // Si no hay ubicacion o el recorte falla, queda la de antes.
+            if (!empty($r['caja']) && $base_url !== null) {
+                $url = $this->miniatura_desde_caja($s['_ruta_local'], $r['caja'], $s['sku'] ?? 'x', $base_url);
+                if ($url !== null) {
+                    $s['foto_url'] = $url;
+                }
+            }
+        }
+        unset($s);
+        usort($candidatos_vision, fn($a, $b) => ($b['similitud_visual_pct'] ?? -1) <=> ($a['similitud_visual_pct'] ?? -1));
+        // Solo se muestran los que de verdad se parecen a la captura
+        // (pedido explicito: "solo debes traer imagenes acordes a la
+        // captura") - siempre queda al menos el mejor, para no dejar la
+        // lista vacia.
+        // Genero segun la IA (el nombre impreso no siempre lo dice: "Reloj
+        // Lumin" es de hombre, "Set reloj mas pulsera" lo corto el OCR):
+        // si la captura pide dama, se descarta lo que la IA ve como de
+        // caballero, y viceversa.
+        $texto_genero = mb_strtoupper($this->texto_util->sin_acentos(trim(
+            ($captura['descripcion'] ?? '') . ' ' . ($captura['caracteristicas'] ?? '') . ' ' . ($captura['detalle'] ?? '')
+            . ' ' . ($captura['genero'] ?? '')
+        )), 'UTF-8');
+        $pide_fem = preg_match('/\b(FEMENIN|DAMA|MUJER)/u', $texto_genero);
+        $pide_mas = preg_match('/\b(MASCULIN|CABALLERO|HOMBRE)/u', $texto_genero);
+        $parecidos = array_values(array_filter($candidatos_vision, function ($s) use ($pide_fem, $pide_mas) {
+            if ($pide_fem && !$pide_mas && ($s['_genero_visual'] ?? '') === 'masculino') {
+                return false;
+            }
+            if ($pide_mas && !$pide_fem && ($s['_genero_visual'] ?? '') === 'femenino') {
+                return false;
+            }
+            return ($s['similitud_visual_pct'] ?? 0) >= self::VISION_MIN_PARECIDO;
+        }));
+        if (!$parecidos) {
+            // Ninguno paso el corte de parecido: queda el mejor que no
+            // sea del genero contrario (para no dejar la lista vacia).
+            foreach ($candidatos_vision as $s) {
+                $g = $s['_genero_visual'] ?? 'unisex';
+                if (!($pide_fem && !$pide_mas && $g === 'masculino') && !($pide_mas && !$pide_fem && $g === 'femenino')) {
+                    $parecidos = [$s];
+                    break;
+                }
+            }
+        }
+        return array_slice($parecidos, 0, self::VISION_MAX_RESULTADO);
+    }
+
+    /**
+     * Recorta $ruta_pagina segun $caja ([x0, y0, x1, y1] en fracciones,
+     * aproximada - se ensancha un 6% por lado para no cortar el producto)
+     * y lo guarda en catalogo_paginas/ como "<pagina>_<sku>_vis.png".
+     * Devuelve la URL publica, o null si algo falla.
+     */
+    private function miniatura_desde_caja($ruta_pagina, array $caja, $sku, $base_url) {
+        if (!class_exists('Imagick') || !file_exists($ruta_pagina)) {
+            return null;
+        }
+        try {
+            $im = new Imagick($ruta_pagina);
+            $ancho = $im->getImageWidth();
+            $alto = $im->getImageHeight();
+            [$x0, $y0, $x1, $y1] = $caja;
+            $margen = 0.06;
+            $x0 = max(0, $x0 - $margen);
+            $y0 = max(0, $y0 - $margen);
+            $x1 = min(1, $x1 + $margen);
+            $y1 = min(1, $y1 + $margen);
+            $im->cropImage((int) (($x1 - $x0) * $ancho), (int) (($y1 - $y0) * $alto), (int) ($x0 * $ancho), (int) ($y0 * $alto));
+            $im->setImagePage(0, 0, 0, 0);
+            $im->thumbnailImage(400, 400, true);
+            $base = pathinfo($ruta_pagina, PATHINFO_FILENAME);
+            $nombre = preg_replace('/[^A-Za-z0-9_]/', '', $base . '_' . $sku) . '_vis.png';
+            $im->writeImage(dirname($ruta_pagina) . '/' . $nombre);
+            $im->clear();
+            return $this->archivo_util->url_publica('catalogo_paginas/' . $nombre, $base_url);
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Palabras utiles de la descripcion escrita a mano ("Billetera dama"
+     * -> ["BILLETERA"]): mayusculas sin acentos, sin conectores, genero,
+     * colores ni palabras de menos de 4 letras.
+     */
+    private function palabras_de_descripcion($descripcion) {
+        $palabras = [];
+        $norm = mb_strtoupper($this->texto_util->sin_acentos(trim((string) $descripcion)), 'UTF-8');
+        foreach (preg_split('/[^\p{L}]+/u', $norm, -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
+            if (mb_strlen($palabra) >= 4 && !in_array($palabra, self::PALABRAS_VACIAS_DISPARADOR, true)) {
+                $palabras[] = $palabra;
+            }
+        }
+        return array_values(array_unique($palabras));
+    }
+
+    /** _ruta_local es un campo interno (para aplicar_comparacion_visual) - nunca debe llegar a la respuesta JSON. */
+    private function quitar_ruta_local(array $sugerencias) {
+        foreach ($sugerencias as &$s) {
+            unset($s['_ruta_local'], $s['_genero_visual']);
+        }
+        unset($s);
+        return $sugerencias;
+    }
+
     /**
      * Puerto de _candidatos_moda_azzorti (server.py lineas 1423-1437):
      * candidatos del catalogo PDF de Azzorti dado (seccion Moda o sin
@@ -96,17 +288,36 @@ class M_homologacion extends CI_Model {
      * resuelto por el llamador) - antes buscaba en todos los catalogos
      * de Azzorti alguna vez subidos, lo que traia duplicados.
      */
-    public function candidatos_moda_azzorti($categoria_captura, $catalogo_id) {
+    public function candidatos_moda_azzorti($categoria_captura, $catalogo_id, $descripcion = null) {
         $clave = mb_strtolower(trim($this->texto_util->sin_acentos($categoria_captura ?? '')), 'UTF-8');
-        $palabra = self::CATEGORIA_RETAIL_PALABRA_CLAVE[$clave] ?? null;
-        if (!$palabra) {
+        $palabras = [];
+        if (isset(self::CATEGORIA_RETAIL_PALABRA_CLAVE[$clave])) {
+            $palabras = explode('|', self::CATEGORIA_RETAIL_PALABRA_CLAVE[$clave]);
+        }
+        // Ademas de la categoria del desplegable, el NOMBRE escrito por la
+        // promotora ("Polera dama") - el catalogo de Bolivia no siempre
+        // usa la misma palabra que la categoria (no hay "camisetas", son
+        // "poleras"). Basta con que el producto calce con UNA de las dos.
+        $palabras = array_merge($palabras, $this->palabras_de_descripcion($descripcion));
+        if (!$palabras) {
             return [];
         }
+        $palabra = implode('|', array_unique($palabras));
         $filas = $this->m_catalogo->candidatos_moda_azzorti($catalogo_id);
         $resultado = [];
         foreach ($filas as $f) {
             $texto = mb_strtoupper($this->texto_util->sin_acentos($f->texto_cercano ?? ''), 'UTF-8');
-            if (mb_strpos($texto, $palabra) !== false && !$this->texto_util->texto_mezclado($f->texto_cercano)) {
+            // Antes era un simple mb_strpos (substring, sin limite de
+            // palabra) - con "Buzo" y "Camibuzo" como categorias
+            // separadas eso hacia que buscar "Buzo" tambien trajera
+            // cualquier "Camibuzo" (la palabra "BUZO" esta contenida
+            // adentro de "CAMIBUZO"). El limite de palabra solo va
+            // ADELANTE (no \b...\b completo) para seguir tolerando el
+            // plural del catalogo ("PANTY" calza con "PANTYS").
+            // "|" separa sinonimos: en el catalogo de Bolivia la camiseta se
+            // llama "Polera" (no hay ningun producto que diga "camiseta").
+            $alternativas = implode('|', array_map(fn($w) => preg_quote($w, '/'), explode('|', $palabra)));
+            if (preg_match('/\b(?:' . $alternativas . ')/u', $texto) && !$this->texto_util->texto_mezclado($f->texto_cercano)) {
                 $resultado[] = $f;
             }
         }
@@ -148,9 +359,119 @@ class M_homologacion extends CI_Model {
                 'sugerencias' => [],
             ];
         }
-        $candidatos = array_filter($todos, function ($p) use ($captura) {
-            return $this->texto_util->candidato_coincide_categoria($captura['categoria'], $p->seccion)
-                && !$this->texto_util->texto_mezclado($p->texto_cercano);
+        // Texto que la promotora escribio a mano (no la categoria del
+        // dropdown) - de ahi se saca el genero pedido, para que
+        // funcione sin importar si eligio "Hogar" o "Joyería" para algo
+        // que en realidad es, por ejemplo, un reloj.
+        $texto_escrito_norm = mb_strtoupper($this->texto_util->sin_acentos(
+            trim(($captura['descripcion'] ?? '') . ' ' . ($captura['caracteristicas'] ?? '')
+                . ' ' . ($captura['detalle'] ?? '') . ' ' . ($captura['genero'] ?? ''))
+        ), 'UTF-8');
+        // Palabra(s) disparadora(s): se sacan DIRECTO de lo que la
+        // promotora escribio en descripcion - no de una lista fija que
+        // habria que ir completando a mano por cada tipo de producto
+        // nuevo (reloj, billetera, secador, tapete...). Si escribe
+        // "Billetera dama", "BILLETERA" ya es suficiente para buscar
+        // ese mismo texto en el catalogo (OCR) directamente - se
+        // descartan conectores y sinonimos de genero (el genero se
+        // evalua aparte, ver $pide_femenino/$pide_masculino mas abajo)
+        // y palabras muy cortas (ruido de OCR/tipeo).
+        $palabras_disparadoras = [];
+        $descripcion_norm = mb_strtoupper($this->texto_util->sin_acentos(trim($captura['descripcion'] ?? '')), 'UTF-8');
+        foreach (preg_split('/\s+/u', $descripcion_norm) as $palabra) {
+            if (mb_strlen($palabra) >= 4 && !in_array($palabra, self::PALABRAS_VACIAS_DISPARADOR, true)) {
+                $palabras_disparadoras[] = $palabra;
+            }
+        }
+        // "Dama"/"caballero" son sinonimos comunes que la promotora usa
+        // en vez de "femenino"/"masculino" (ej. "reloj dama").
+        $pide_femenino = preg_match('/\b(FEMENIN|DAMA)/u', $texto_escrito_norm);
+        $pide_masculino = preg_match('/\b(MASCULIN|CABALLERO)/u', $texto_escrito_norm);
+        // Nombre real de cada producto sacado del texto de TODA su pagina
+        // (no solo del suyo): en paginas con varios productos juntos el
+        // titulo impreso ("3. Billetera masculina Onyx") queda en el
+        // texto de un vecino, y el producto en si solo conserva su
+        // "CÓD." y sus bolsillos/dimensiones - confirmado con la
+        // billetera 243820, que por eso nunca se encontraba buscando
+        // "billetera". Los textos van en el orden en que se indexaron
+        // (= orden de lectura de la pagina).
+        // productos_de() no trae ORDER BY: segun el motor/indice devuelve
+        // por codigo y no en orden de indexacion, lo que desordena el
+        // emparejamiento titulo<->codigo. Se ordena por id (orden de
+        // lectura) antes de armar el texto de cada pagina.
+        $todos_ordenados = $todos;
+        usort($todos_ordenados, fn($a, $b) => ((int) $a->id) <=> ((int) $b->id));
+        $texto_por_pagina = [];
+        foreach ($todos_ordenados as $p) {
+            $texto_por_pagina[(int) $p->pagina][] = $p->texto_cercano ?? '';
+        }
+        foreach ($texto_por_pagina as $pag => $textos) {
+            $texto_por_pagina[$pag] = implode(' ', $textos);
+        }
+        $nombres_reales = [];
+        foreach ($todos as $p) {
+            $nombres_reales[$p->producto_codigo] =
+                $this->texto_util->nombre_producto($texto_por_pagina[(int) $p->pagina] ?? '', $p->producto_codigo)
+                ?? $this->texto_util->nombre_producto($p->texto_cercano, $p->producto_codigo);
+        }
+        $candidatos = array_filter($todos, function ($p) use ($captura, $palabras_disparadoras, $pide_femenino, $pide_masculino, $nombres_reales) {
+            if ($this->texto_util->texto_mezclado($p->texto_cercano)) {
+                return false;
+            }
+            if (!$palabras_disparadoras) {
+                // La descripcion no dejo ninguna palabra util (vacia, o
+                // solo conectores/genero): se usa el filtro viejo por
+                // seccion amplia de la pagina (funciona bien para
+                // fragancias/maquillaje/etc., secciones bastante
+                // homogeneas).
+                return $this->texto_util->candidato_coincide_categoria($captura['categoria'], $p->seccion);
+            }
+            // CON palabra(s) disparadora(s): esto reemplaza el filtro
+            // por seccion en vez de sumarse a el. La seccion impresa no
+            // calza con la categoria elegida en el dropdown (ej. los
+            // relojes reales quedan bajo secciones "Hogar...", sin
+            // importar si la promotora eligio "Joyería" o "Hogar") -
+            // confirmado con casos reales donde elegir "Joyería" o
+            // "Hogar" traia productos sin relacion (secadores, tapetes,
+            // billeteras) mezclados. Basta con que coincida UNA de las
+            // palabras (no todas) - el texto OCR es parcial/ruidoso.
+            // Si el producto tiene nombre real (sacado de la pagina), la
+            // palabra se busca SOLO en el nombre: el texto propio suele
+            // mencionar productos vecinos ("3. Set reloj mas pulsera 4.
+            // Set de billetera") y hacia que un reloj saliera al buscar
+            // "billetera". Sin nombre, se usa el texto propio.
+            $nombre_real_p = $nombres_reales[$p->producto_codigo] ?? null;
+            $texto = mb_strtoupper($this->texto_util->sin_acentos(
+                $nombre_real_p ?: ($p->texto_cercano ?? '')
+            ), 'UTF-8');
+            $coincide_alguna = false;
+            foreach ($palabras_disparadoras as $palabra) {
+                if (preg_match('/\b' . preg_quote($palabra, '/') . '/u', $texto)) {
+                    $coincide_alguna = true;
+                    break;
+                }
+            }
+            if (!$coincide_alguna) {
+                return false;
+            }
+            // Filtro de genero: si lo escrito pide un genero especifico
+            // y el candidato menciona EXPLICITAMENTE el genero
+            // contrario, se descarta. Si no menciona genero (unisex o
+            // sin dato en el OCR), se deja pasar - mejor mostrar algo
+            // sin certeza que ocultar un candidato valido.
+            // El genero se revisa en nombre + texto propio: el OCR a veces
+            // corta el nombre ("Set de billetera") y el "masculino" queda
+            // solo en el texto del producto.
+            $texto_genero = mb_strtoupper($this->texto_util->sin_acentos(
+                ($nombre_real_p ?? '') . ' ' . ($p->texto_cercano ?? '')
+            ), 'UTF-8');
+            if ($pide_femenino && preg_match('/\bMASCULIN/u', $texto_genero) && !preg_match('/\bFEMENIN/u', $texto_genero)) {
+                return false;
+            }
+            if ($pide_masculino && preg_match('/\bFEMENIN/u', $texto_genero) && !preg_match('/\bMASCULIN/u', $texto_genero)) {
+                return false;
+            }
+            return true;
         });
         $texto_principal = trim(($captura['categoria'] ?? '') . ' ' . ($captura['descripcion'] ?? ''));
         // Se agrega composicion1/2 al texto secundario (antes solo
@@ -165,17 +486,29 @@ class M_homologacion extends CI_Model {
 
         $sugerencias = [];
         foreach ($candidatos as $p) {
-            $score = round($this->texto_util->score_texto($texto_principal, $texto_secundario, $p->texto_cercano ?? '') * 100, 1);
+            // Texto propio + nombre real de la pagina: si el titulo esta
+            // impreso en el texto de un vecino, el score de texto del
+            // producto daba 0 y el filtro "score > 0" lo descartaba
+            // (confirmado con la billetera Onyx 243820).
+            $score = round($this->texto_util->score_texto(
+                $texto_principal, $texto_secundario,
+                ($p->texto_cercano ?? '') . ' ' . ($nombres_reales[$p->producto_codigo] ?? '')
+            ) * 100, 1);
             $sugerencias[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo),
+                // Nombre real impreso en el catalogo ("Bolso femenino
+                // Loriet - Ref. 838390"); si no se puede sacar, cae a la
+                // lista de categorias conocidas ("Producto" si ni eso).
+                'descripcion' => ($nombre_real = $nombres_reales[$p->producto_codigo] ?? null)
+                    ? "{$nombre_real} - Ref. {$p->producto_codigo}"
+                    : $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo),
                 'color' => null,
                 'composicion' => null,
                 'silueta' => null,
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
-                'pagina_catalogo' => (int) $p->pagina,
+                'pagina_catalogo' => $this->m_catalogo->pagina_impresa($catalogo->id, (int) $p->pagina),
                 // Se volvio a mostrar la foto (recorte automatico de la
                 // pagina) a pedido explicito - a veces no muestra la
                 // prenda exacta (cara/piernas/precio en vez de la
@@ -183,6 +516,7 @@ class M_homologacion extends CI_Model {
                 'foto_url' => $foto_pagina_url_fn($catalogo->id, $p->pagina, $p->producto_codigo),
                 'foto_grande_url' => $foto_pagina_completa_url_fn($catalogo->id, $p->pagina),
                 'score_similitud' => $score,
+                '_ruta_local' => RUTA_ARCHIVOS . 'captura_v1/catalogo_paginas/' . "{$catalogo->id}_{$p->pagina}_completa.png",
             ];
         }
         usort($sugerencias, fn($a, $b) => $b['score_similitud'] <=> $a['score_similitud']);
@@ -198,6 +532,7 @@ class M_homologacion extends CI_Model {
             $por_pagina[] = $s;
         }
         $sugerencias = array_slice($por_pagina, 0, 20);
+        $sugerencias = $this->quitar_ruta_local($this->aplicar_comparacion_visual($sugerencias, $captura, $base_url));
 
         return [
             'captura_id' => $captura['id'],
@@ -239,7 +574,7 @@ class M_homologacion extends CI_Model {
         $catalogo_azzorti = $this->m_catalogo->catalogo_azzorti_mas_reciente($captura['campana'], $captura['creada_en'] ?? null);
         $candidatos_moda = $catalogo_azzorti
             ? array_values(array_filter(
-                $this->candidatos_moda_azzorti($captura['categoria'], $catalogo_azzorti->id),
+                $this->candidatos_moda_azzorti($captura['categoria'], $catalogo_azzorti->id, $captura['descripcion'] ?? null),
                 fn($p) => !in_array($p->producto_codigo, $skus_muestra, true)
             ))
             : [];
@@ -273,6 +608,7 @@ class M_homologacion extends CI_Model {
                 'pagina_catalogo' => $p->pagina_catalogo,
                 'foto_url' => $p->foto_archivo ? $this->archivo_util->url_publica($p->foto_archivo, $base_url) : null,
                 'score_similitud' => round(min(100, $score_atributos + $score_nombre), 1),
+                '_ruta_local' => $p->foto_archivo ? RUTA_ARCHIVOS . 'captura_v1/' . $p->foto_archivo : null,
             ];
         }
 
@@ -308,13 +644,15 @@ class M_homologacion extends CI_Model {
             $sugerencias_moda[] = [
                 'sku' => $p->producto_codigo,
                 'categoria' => $captura['categoria'],
-                'descripcion' => $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo),
+                // "Ref. R4849" (con R), igual que sale impreso en el
+                // catalogo de Retail.
+                'descripcion' => preg_replace('/Ref\. (\d+)$/', 'Ref. R$1', $this->texto_util->descripcion_minima($p->texto_cercano, $p->producto_codigo)),
                 'color' => null,
                 'composicion' => $p->texto_cercano,
                 'silueta' => null,
                 'manga' => null,
                 'precio' => $p->precio ?: 0,
-                'pagina_catalogo' => $p->pagina,
+                'pagina_catalogo' => $catalogo_azzorti ? $this->m_catalogo->pagina_impresa($catalogo_azzorti->id, (int) $p->pagina) : $p->pagina,
                 // La miniatura (foto_url) sigue siendo el recorte chico
                 // por producto - la vista previa grande (foto_grande_url)
                 // ahora es la pagina completa, a pedido explicito (el
@@ -323,11 +661,15 @@ class M_homologacion extends CI_Model {
                 'foto_url' => $foto_url,
                 'foto_grande_url' => $foto_grande_url,
                 'score_similitud' => round(min(100, $score_nombre + $score_composicion), 1),
+                '_ruta_local' => $catalogo_azzorti
+                    ? RUTA_ARCHIVOS . 'captura_v1/catalogo_paginas/' . "{$catalogo_azzorti->id}_{$p->pagina}_completa.png"
+                    : null,
             ];
         }
 
         $sugerencias = array_merge($sugerencias_muestra, $sugerencias_moda);
         usort($sugerencias, fn($a, $b) => $b['score_similitud'] <=> $a['score_similitud']);
+        $sugerencias = $this->quitar_ruta_local($this->aplicar_comparacion_visual($sugerencias, $captura, $base_url));
 
         return [
             'captura_id' => $captura['id'],

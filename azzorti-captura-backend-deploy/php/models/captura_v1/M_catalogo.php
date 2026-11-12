@@ -233,8 +233,24 @@ class M_catalogo extends CI_Model {
      * precio mas reciente con dato de un producto_codigo ya indexado. */
     public function producto_con_precio($producto_codigo) {
         return $this->db->query(
-            'SELECT FIRST 1 prod_codi AS sku, prec AS precio, pagi AS pagina, txt_cerc AS texto_cercano FROM cata_prod '
+            'SELECT FIRST 1 prod_codi AS sku, prec AS precio, pagi AS pagina, txt_cerc AS texto_cercano, cata_id AS catalogo_id FROM cata_prod '
             . 'WHERE prod_codi = ' . $this->lit($producto_codigo) . ' AND prec IS NOT NULL ORDER BY id DESC'
+        )->row();
+    }
+
+    /**
+     * Igual que producto_con_precio() pero SIN exigir que tenga precio
+     * legible - para cuando ya se confirmo la homologacion con un
+     * producto real pero el OCR no le pudo leer el precio en esa
+     * pagina (pasa seguido: bastantes productos del catalogo quedan
+     * sin precio legible al indexar). Antes esto se trataba igual que
+     * "el producto ya no existe" - confuso, porque el producto SI
+     * existe, solo falta el precio para comparar.
+     */
+    public function producto_por_codigo($producto_codigo) {
+        return $this->db->query(
+            'SELECT FIRST 1 prod_codi AS sku, prec AS precio, pagi AS pagina, txt_cerc AS texto_cercano, cata_id AS catalogo_id FROM cata_prod '
+            . 'WHERE prod_codi = ' . $this->lit($producto_codigo) . ' ORDER BY id DESC'
         )->row();
     }
 
@@ -267,5 +283,52 @@ class M_catalogo extends CI_Model {
             . "WHERE cata_id = " . $this->lit($catalogo_id) . " "
             . "AND (secc IS NULL OR UPPER(secc) LIKE '%MODA%')"
         )->result();
+    }
+
+    private $desfase_cache = [];
+
+    /**
+     * Cuantas paginas hay que restarle al numero de pagina del PDF para
+     * llegar al numero IMPRESO en el catalogo (las portadas no van
+     * numeradas: en BOL202610NAL la pagina 39 del PDF es la "37"
+     * impresa). Se calcula leyendo el pie de cada pagina ("MODA | 37",
+     * "152 | HOGAR - ICONIK") y quedandose con la diferencia mas
+     * repetida - asi sirve para cualquier catalogo, no solo este. 0 si
+     * no se pudo leer ningun numero.
+     */
+    public function desfase_paginas($catalogo_id) {
+        if (isset($this->desfase_cache[$catalogo_id])) {
+            return $this->desfase_cache[$catalogo_id];
+        }
+        $filas = $this->db->query(
+            'SELECT pagi AS pagina, txt_cerc AS texto FROM cata_prod WHERE cata_id = ' . $this->lit($catalogo_id) . ' ORDER BY id'
+        )->result();
+        $texto_por_pagina = [];
+        foreach ($filas as $f) {
+            $texto_por_pagina[(int) $f->pagina] = ($texto_por_pagina[(int) $f->pagina] ?? '') . ' ' . ($f->texto ?? '');
+        }
+        $votos = [];
+        foreach ($texto_por_pagina as $pagina => $texto) {
+            if (preg_match_all('/(?:\b(\d{1,3})\s*\|\s*[A-Z]{3,})|(?:[A-Z]{3,}\s*\|\s*(\d{1,3})\b)/u', $texto, $m, PREG_SET_ORDER)) {
+                foreach ($m as $mm) {
+                    $impreso = (int) ($mm[1] !== '' ? $mm[1] : $mm[2]);
+                    $d = $pagina - $impreso;
+                    if ($d >= 0 && $d <= 20) {
+                        $votos[$d] = ($votos[$d] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+        arsort($votos);
+        $this->desfase_cache[$catalogo_id] = $votos ? (int) array_key_first($votos) : 0;
+        return $this->desfase_cache[$catalogo_id];
+    }
+
+    /** Numero de pagina tal como sale impreso en el catalogo. */
+    public function pagina_impresa($catalogo_id, $pagina) {
+        if ($pagina === null || $catalogo_id === null) {
+            return $pagina;
+        }
+        return max(1, (int) $pagina - $this->desfase_paginas($catalogo_id));
     }
 }

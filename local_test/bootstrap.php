@@ -40,7 +40,7 @@ define('MODULE_PATH', dirname(__DIR__) . '/azzorti-captura-backend-deploy/php');
 // estar en la misma red WiFi. Esta URL cambia cada vez que se reinicia
 // el tunel - si deja de funcionar, avisarle a Claude para que la
 // actualice aca y en lib/main.dart/dashboard.html.
-define('LOCAL_BASE_URL', 'https://celebrity-biographies-antarctica-washer.trycloudflare.com/temporales/captura_v1/');
+define('LOCAL_BASE_URL', 'https://ready-specifically-revealed-occurrence.trycloudflare.com/temporales/captura_v1/');
 
 // PhpSpreadsheet (para probar Productosestrella::importar_post) -
 // instalado localmente con Composer dentro de la carpeta del modulo
@@ -225,6 +225,11 @@ class LocalDb {
     private function traducirSql($sql) {
         if (stripos($sql, "DBINFO('sqlca.sqlerrd1')") !== false) {
             return 'SELECT last_insert_rowid() AS id';
+        }
+        // Informix_util::columna_existe (syscolumns/systables) -> SQLite
+        // pragma_table_info.
+        if (preg_match("/FROM syscolumns c, systables t .*t\.tabname = '(\w+)' AND c\.colname = '(\w+)'/i", $sql, $m)) {
+            return "SELECT 1 AS x FROM pragma_table_info('{$m[1]}') WHERE name = '{$m[2]}' LIMIT 1";
         }
         $sql = str_ireplace('FROM systables', 'FROM sqlite_master', $sql);
         $sql = preg_replace('/\btabname\b/i', 'name', $sql);

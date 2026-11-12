@@ -20,6 +20,7 @@ CREATE TABLE capt (
     foto_arch VARCHAR(255),
     cata_id INTEGER,
     fcre VARCHAR(30) NOT NULL,
+    gene VARCHAR(20),
     PRIMARY KEY (id)
 );
 

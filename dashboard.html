@@ -715,7 +715,7 @@
       var catOk = (catVal === 'todas') || (_slug(c.categoria || '') === catVal);
       var lineaOk = (lineaVal === 'todas') || (_calcularLinea(c.categoria, c.competidor, 'Retail') === lineaVal);
       var campOk = (campVal === 'todas') || (c.campana === campVal);
-      return provOk && catOk && lineaOk && campOk && c.homologacion;
+      return provOk && catOk && lineaOk && campOk && c.homologacion && c.homologacion.precio_azzorti != null;
     });
     var cont = document.getElementById('retail-promedio-chart');
     var porCategoria = {};
@@ -835,10 +835,24 @@
   }
 </script>
 
-<div class="lightbox" id="lightbox" onclick="cerrarVistaPrevia(event)">
+<div class="lightbox" id="lightbox" style="z-index:1001;" onclick="cerrarVistaPrevia(event)">
   <button class="cerrar" onclick="cerrarVistaPrevia(event)">✕</button>
   <img id="lightbox-img" src="" alt="Vista previa de la foto capturada en M1">
   <span class="etiqueta-lb" id="lightbox-etiqueta">Foto real capturada en M1 · Forever · Bs 219</span>
+</div>
+
+<div class="lightbox" id="modal-comparacion" onclick="if(event.target.id==='modal-comparacion') cerrarComparacionVisual()">
+  <div class="modal-caja" style="max-width:720px;width:92vw;max-height:86vh;overflow-y:auto;">
+    <h3 style="margin-bottom:2px;">Comparación visual con el catálogo</h3>
+    <div id="comparacion-sub" style="font-size:11.5px;color:var(--muted);margin-bottom:14px;"></div>
+    <div id="comparacion-cuerpo">
+      <div style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px;">Comparando con el catálogo… puede tardar unos 20 segundos.</div>
+    </div>
+    <button onclick="cerrarComparacionVisual()"
+      style="margin-top:16px;padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;width:100%;">
+      Cerrar
+    </button>
+  </div>
 </div>
 
 <div class="lightbox" id="modal-estrella" onclick="if(event.target.id==='modal-estrella') cerrarModalEstrella()">
@@ -880,21 +894,85 @@
     if(e.key === 'Escape'){
       document.getElementById('lightbox').classList.remove('open');
       document.getElementById('modal-estrella').classList.remove('open');
+      document.getElementById('modal-comparacion').classList.remove('open');
     }
   });
+
+  // ====== Comparación visual (foto capturada vs candidatos del catálogo) ======
+  // Llama al mismo endpoint que usa la app (homologacion_sugerencias),
+  // que ya incluye similitud_visual_pct cuando la comparación por IA
+  // funcionó - ver M_homologacion::aplicar_comparacion_visual(). Si no
+  // vino (API caída, sin foto, etc.) se usa score_similitud (texto) de
+  // respaldo, para no dejar la galería vacía.
+  // Texto seguro para meter dentro de onclick="f('...')" (sin comillas
+  // ni etiquetas HTML que rompan el atributo).
+  function _textoAtributo(t){
+    return String(t || '').replace(/<[^>]*>/g, ' ').replace(/["'\\]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  // En Retail el catálogo imprime el código como "Ref.R4849", pero se
+  // guarda solo el número: se le antepone la R para que calce con lo
+  // que se ve en el catálogo (los productos de muestra ya traen la R).
+  function _skuRetail(sku){
+    if (!sku) return '—';
+    return /^\d+$/.test(String(sku)) ? 'R' + sku : sku;
+  }
+
+  async function abrirComparacionVisual(capturaId, etiquetaCaptura){
+    document.getElementById('comparacion-sub').textContent = etiquetaCaptura || '';
+    document.getElementById('comparacion-cuerpo').innerHTML =
+      '<div style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px;">Comparando con el catálogo… puede tardar unos 20 segundos.</div>';
+    document.getElementById('modal-comparacion').classList.add('open');
+    try{
+      const resp = await fetch(BACKEND_URL + '/capturas/homologacion_sugerencias/' + capturaId, {cache:'no-store'});
+      const data = await resp.json();
+      const candidatos = (data.sugerencias || []).slice(0, 5);
+      if(!candidatos.length){
+        document.getElementById('comparacion-cuerpo').innerHTML =
+          '<div style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px;">No se encontraron candidatos para comparar.</div>';
+        return;
+      }
+      const hayVisual = candidatos.some(c => c.similitud_visual_pct != null);
+      const nota = hayVisual
+        ? 'Ordenado por parecido visual real (foto vs. catálogo).'
+        : 'La comparación visual no respondió esta vez — ordenado solo por texto.';
+      const tarjetas = candidatos.map(function(c){
+        const pct = c.similitud_visual_pct != null ? Math.round(c.similitud_visual_pct) : null;
+        const pctTxt = pct != null ? (pct + '%') : '—';
+        const claseBadge = pct == null ? 'pending' : (pct >= 50 ? 'down' : (pct >= 25 ? 'pending' : 'up'));
+        // Miniatura = recorte sobre el producto (foto_url, ubicado por la
+        // IA); al hacer clic se abre la página completa (foto_grande_url).
+        const foto = c.foto_url || c.foto_grande_url;
+        const fotoGrande = c.foto_grande_url || c.foto_url;
+        const img = foto
+          ? '<img src="' + foto + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(\'' + fotoGrande + '\', \'' + String(c.descripcion || c.sku).replace(/'/g,'') + '\')" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--line);">'
+          : '<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--blue-dim);"></div>';
+        return '<div style="position:relative;">' + img +
+          '<span class="variation ' + claseBadge + '" style="position:absolute;top:6px;right:6px;font-weight:800;">' + pctTxt + '</span>' +
+          '<div style="font-size:11px;margin-top:6px;"><b>' + (c.descripcion || c.sku) + '</b></div>' +
+          '<div style="font-size:10.5px;color:var(--muted);">Ref. ' + c.sku + ' · Pág. ' + c.pagina_catalogo + '</div>' +
+          '</div>';
+      }).join('');
+      document.getElementById('comparacion-cuerpo').innerHTML =
+        '<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;">' + nota + '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;">' + tarjetas + '</div>';
+    } catch(e){
+      document.getElementById('comparacion-cuerpo').innerHTML =
+        '<div style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px;">No se pudo comparar — revisa la conexión con el backend.</div>';
+    }
+  }
+  function cerrarComparacionVisual(){
+    document.getElementById('modal-comparacion').classList.remove('open');
+  }
 </script>
 
 <script>
   // ====== Sincronización automática M1 -> M4 ======
   // Backend real: modulo captura_v1 (PHP), mismo valor que _backendBaseUrl
   // en lib/main.dart. Ver C:\Trabajo\azzorti-captura-backend-deploy\php\README.md
-  // para el detalle del despliegue.
-  // TEMPORAL: backend LOCAL via tunel de Cloudflare (ver
-  // local_test/README.md) - volver a
-  // 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1' cuando se
-  // pueda subir al servidor real de nuevo. Esta URL cambia cada vez
-  // que se reinicia el tunel (iniciar_servidor.bat).
-  const BACKEND_URL = 'https://celebrity-biographies-antarctica-washer.trycloudflare.com';
+  // para el detalle del despliegue. Desplegado y confirmado funcionando
+  // en el servidor real desde 2026-09-28 - el backend local via tunel
+  // de Cloudflare (local_test/README.md) ya no hace falta.
+  const BACKEND_URL = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
 
   var _ultimoConteoLive = 0;
   var _vdCombosVistos = new Set();
@@ -1967,10 +2045,14 @@
           let precioAzzortiHtml = '—';
           if (c.homologacion){
             const h = c.homologacion;
-            const claseVar = h.alerta_generica ? 'up' : 'down';
-            const etiquetaLbAzzorti = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + h.precio_azzorti;
+            const etiquetaLbAzzorti = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + (h.precio_azzorti != null ? h.precio_azzorti : '—');
+            // Vista previa al hacer clic = pagina completa del catalogo
+            // (foto_grande_url), no el recorte chico de la miniatura
+            // (this.src) - el recorte no alcanza a mostrar la prenda
+            // completa al ampliarlo.
+            const fotoGrandeAzzorti = h.foto_grande_url || h.foto_url;
             const fotoAzzortiHtml = h.foto_url
-              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzorti.replace(/'/g,"") + '\')" ' +
+              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(\'' + fotoGrandeAzzorti + '\', \'' + etiquetaLbAzzorti.replace(/'/g,"") + '\')" ' +
                 'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
               : '';
             // Misma estructura que Venta Directa: solo el nombre aquí — el
@@ -1978,12 +2060,23 @@
             // hace falta repetirlos en esta celda.
             homologHtml =
               '<div style="display:flex;align-items:center;">' + fotoAzzortiHtml +
-              '<b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b></div>';
-            variacionHtml =
-              '<span class="variation ' + claseVar + '">' + h.delta_pct + '%</span>' +
-              (h.alerta_generica ? ' ⚠️' : '');
-            skuAzzortiHtml = h.azzorti_sku || '—';
-            precioAzzortiHtml = 'Bs ' + h.precio_azzorti;
+              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
+              (h.pagina_catalogo ? '<div style="font-size:10.5px;color:var(--muted);">Pág. ' + h.pagina_catalogo + ' del catálogo</div>' : '') +
+              '</div></div>';
+            skuAzzortiHtml = _skuRetail(h.azzorti_sku);
+            if (h.sin_precio || h.delta_pct == null){
+              // Se homologó con un producto real, pero el OCR no le pudo
+              // leer el precio en el catálogo — no confundir con "sin
+              // homologar" (eso mostraría "Sin homologar aún").
+              variacionHtml = '<span class="variation pending">Sin precio legible</span>';
+              precioAzzortiHtml = '—';
+            } else {
+              const claseVar = h.alerta_generica ? 'up' : 'down';
+              variacionHtml =
+                '<span class="variation ' + claseVar + '">' + h.delta_pct + '%</span>' +
+                (h.alerta_generica ? ' ⚠️' : '');
+              precioAzzortiHtml = 'Bs ' + h.precio_azzorti;
+            }
           } else if (c.vs_campana_anterior){
             // Pendiente 3: sin homologación, se compara contra la misma
             // captura de la campaña anterior — antes esto solo pasaba en
@@ -1998,6 +2091,13 @@
               '<span class="variation ' + claseVarAnterior + '">' + va.delta_pct + '%</span>' +
               (va.alerta_generica ? ' ⚠️' : '');
           }
+          // Antes usaba "desc" (HTML con la ficha completa y comillas), que
+          // rompia el atributo onclick y dejaba codigo visible en la celda.
+          const etiquetaComparacion = _textoAtributo((c.competidor || '—') + ' · ' + (c.descripcion || ''));
+          const botonComparar = '<button onclick="abrirComparacionVisual(' + c.id + ', \'' + etiquetaComparacion + '\')" ' +
+            'title="Ver comparación visual con el catálogo" ' +
+            'style="margin-top:4px;font-size:10.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:var(--blue);">' +
+            '🔍 Ver candidatos</button>';
           const tr = document.createElement('tr');
           tr.style.background = '#E8EFFE';
           tr.innerHTML =
@@ -2007,7 +2107,7 @@
             '<td class="desc-txt">' + desc + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
             '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiHtml + '</td>' +
-            '<td class="desc-txt">' + homologHtml + '</td>' +
+            '<td class="desc-txt">' + homologHtml + botonComparar + '</td>' +
             '<td class="price">' + precioAzzortiHtml + '</td>' +
             '<td>' + variacionHtml + '</td>';
           tbody.appendChild(tr);
@@ -2076,22 +2176,30 @@
           let precioAzzortiVd = '—';
           if (c.homologacion){
             const h = c.homologacion;
-            const claseVarVd = h.alerta_generica ? 'up' : 'down';
-            const etiquetaLbAzzortiVd = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + h.precio_azzorti;
+            const etiquetaLbAzzortiVd = 'Catálogo Azzorti · SKU ' + h.azzorti_sku + ' · Bs ' + (h.precio_azzorti != null ? h.precio_azzorti : '—');
+            const fotoGrandeAzzortiVd = h.foto_grande_url || h.foto_url;
             const fotoAzzortiVd = h.foto_url
-              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' + etiquetaLbAzzortiVd.replace(/'/g,"") + '\')" ' +
+              ? '<img src="' + h.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(\'' + fotoGrandeAzzortiVd + '\', \'' + etiquetaLbAzzortiVd.replace(/'/g,"") + '\')" ' +
                 'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">'
               : '';
             // Solo el nombre aquí — el SKU y el precio de Azzorti ya tienen
             // su propia columna, no hace falta repetirlos en esta celda.
             homologVd =
               '<div style="display:flex;align-items:center;">' + fotoAzzortiVd +
-              '<b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b></div>';
-            variacionVd =
-              '<span class="variation ' + claseVarVd + '">' + h.delta_pct + '%</span>' +
-              (h.alerta_generica ? ' ⚠️' : '');
+              '<div><b>' + (h.azzorti_descripcion || h.azzorti_sku) + '</b>' +
+              (h.pagina_catalogo ? '<div style="font-size:10.5px;color:var(--muted);">Pág. ' + h.pagina_catalogo + ' del catálogo</div>' : '') +
+              '</div></div>';
             skuAzzortiVd = h.azzorti_sku || '—';
-            precioAzzortiVd = 'Bs ' + h.precio_azzorti;
+            if (h.sin_precio || h.delta_pct == null){
+              variacionVd = '<span class="variation pending">Sin precio legible</span>';
+              precioAzzortiVd = '—';
+            } else {
+              const claseVarVd = h.alerta_generica ? 'up' : 'down';
+              variacionVd =
+                '<span class="variation ' + claseVarVd + '">' + h.delta_pct + '%</span>' +
+                (h.alerta_generica ? ' ⚠️' : '');
+              precioAzzortiVd = 'Bs ' + h.precio_azzorti;
+            }
           } else if (c.vs_campana_anterior){
             // Mismo criterio que Retail (Pendiente 3): sin homologación con
             // Azzorti, se compara contra el precio de la misma captura
@@ -2107,6 +2215,11 @@
               (va.alerta_generica ? ' ⚠️' : '');
             precioAzzortiVd = 'Bs ' + va.precio_anterior;
           }
+          const etiquetaComparacionVd = _textoAtributo((c.competidor || '—') + ' · ' + nombreProducto);
+          const botonCompararVd = '<button onclick="abrirComparacionVisual(' + c.id + ', \'' + etiquetaComparacionVd + '\')" ' +
+            'title="Ver comparación visual con el catálogo" ' +
+            'style="margin-top:4px;font-size:10.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:var(--blue);">' +
+            '🔍 Ver candidatos</button>';
           const trVd = document.createElement('tr');
           trVd.style.background = '#F6EEF5';
           trVd.innerHTML =
@@ -2116,7 +2229,7 @@
             '<td class="desc-txt">' + nombreProducto + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
             '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiVd + '</td>' +
-            '<td class="desc-txt">' + homologVd + '</td>' +
+            '<td class="desc-txt">' + homologVd + botonCompararVd + '</td>' +
             '<td class="price">' + precioAzzortiVd + '</td>' +
             '<td>' + variacionVd + '</td>';
           vdTbody.appendChild(trVd);

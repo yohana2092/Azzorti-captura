@@ -23,16 +23,13 @@ import 'package:image/image.dart' as img;
 // C:\Trabajo\azzorti-captura-backend-deploy\php\README.md para el detalle
 // completo del despliegue). Reemplaza el tunel de Cloudflare que apuntaba
 // al prototipo Python en una laptop (URL temporal, se caia con cada
-// reinicio de cloudflared).
-// TEMPORAL: apuntando al backend LOCAL de Yohana via tunel de
-// Cloudflare (mientras no hay forma de subir al servidor real) - ver
-// local_test/README.md. Ya no depende de estar en la misma red WiFi
-// (el tunel es publico, por eso funciona desde cualquier lado) ni del
-// Firewall de Windows. Volver a
-// 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1' antes de
-// entregar una version para uso real - y esta URL cambia cada vez que
-// se reinicia el tunel, hay que actualizarla si deja de funcionar.
-const String _backendBaseUrl = 'https://celebrity-biographies-antarctica-washer.trycloudflare.com';
+// reinicio de cloudflared) y, despues, al backend local de Yohana
+// mientras no habia forma de subir al servidor real (ver
+// local_test/README.md - ese camino ya no hace falta, el modulo esta
+// desplegado y confirmado funcionando en el servidor real: 2026-09-28,
+// GET/POST /capturas, homologacion_sugerencias y evaluacion probados
+// con datos reales).
+const String _backendBaseUrl = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
 
 class ResultadoSync {
   final bool ok;
@@ -70,6 +67,7 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
             'color': c.colorPrenda,
             'detalle': c.detalle,
             'caracteristicas': c.caracteristicas,
+            'genero': c.genero.isEmpty ? null : c.genero,
             'precio': double.tryParse(c.precioFinal) ?? 0,
             'foto_producto_b64':
                 c.fotoProducto != null ? base64Encode(c.fotoProducto!) : null,
@@ -112,17 +110,23 @@ Future<ResultadoSync> sincronizarConBackend(Captura c) async {
 /// Pide al backend las sugerencias de homologación (por categoría + nivel
 /// de precio + similitud de atributos — nunca por código, ver memoria del
 /// proyecto sobre homologación sin SKU compartido).
-Future<List<Map<String, dynamic>>> pedirSugerenciasHomologacion(
+/// Devuelve null si el backend no respondio (sin conexion o se paso del
+/// tiempo) - distinto de una lista vacia (respondio, pero no hay
+/// candidatos). Antes los dos casos mostraban "No se encontraron
+/// productos", aunque si los hubiera.
+Future<List<Map<String, dynamic>>?> pedirSugerenciasHomologacion(
     int backendId) async {
   final url = Uri.parse(
       '$_backendBaseUrl/capturas/homologacion_sugerencias/$backendId');
   try {
-    final resp = await http.get(url).timeout(const Duration(seconds: 20));
-    if (resp.statusCode != 200) return [];
+    // 90s: con la comparacion visual por IA el backend tarda entre 20 y
+    // 40 segundos - antes eran 20s y la app se rendia antes de tiempo.
+    final resp = await http.get(url).timeout(const Duration(seconds: 90));
+    if (resp.statusCode != 200) return null;
     final data = jsonDecode(resp.body);
     return List<Map<String, dynamic>>.from(data['sugerencias'] as List);
   } catch (_) {
-    return [];
+    return null;
   }
 }
 
@@ -638,6 +642,7 @@ class Captura {
   String colorPrenda;
   String detalle;
   String caracteristicas; // texto libre, respaldo si no hay etiqueta
+  String genero; // Dama / Caballero / Unisex - solo Venta Directa
   String precioFinal;
   Estado estado;
   int? backendId; // id asignado por el backend real al sincronizar
@@ -661,6 +666,7 @@ class Captura {
     this.colorPrenda = '',
     this.detalle = '',
     this.caracteristicas = '',
+    this.genero = '',
     this.precioFinal = '',
     this.estado = Estado.borrador,
     this.backendId,
@@ -695,6 +701,7 @@ class Captura {
         'colorPrenda': colorPrenda,
         'detalle': detalle,
         'caracteristicas': caracteristicas,
+        'genero': genero,
         'precioFinal': precioFinal,
         'estado': estado.name,
         'backendId': backendId,
@@ -723,6 +730,7 @@ class Captura {
         colorPrenda: j['colorPrenda'] as String? ?? '',
         detalle: j['detalle'] as String? ?? '',
         caracteristicas: j['caracteristicas'] as String? ?? '',
+        genero: j['genero'] as String? ?? '',
         precioFinal: j['precioFinal'] as String? ?? '',
         estado: Estado.values.firstWhere(
           (e) => e.name == j['estado'],
@@ -1521,16 +1529,26 @@ class _CompletarContextoScreenState extends State<CompletarContextoScreen> {
   // "IPC BOLIVIA 2024_2025 - Venta retail.xlsx".
   // Orden alfabetico (pedido de Yohana).
   static const categoriasRetail = [
+    'Babydoll',
+    'Bermuda',
     'Blusas Femeninas',
+    'Blusón',
+    'Bustier',
+    'Buzo',
+    'Camibuzo',
     'Camisetas Femeninas',
     'Camisetas Masculinas',
+    'Chaquetas Femeninas',
+    'Chaquetas Masculinas',
     'Crop Top Femenino',
     'Cubrecamas Dobles',
     'Cubrecamas Sencillos Infantiles',
     'Jeans Femeninos',
     'Jeans Masculinos',
+    'Leggins',
     'Lencería PPP',
     'Mochilas Infantiles',
+    'Panty',
     'Polos Masculinos',
     'Sábanas Dobles',
     'Toallas',
@@ -1679,6 +1697,12 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
   String? talla;
   String? manga;
   bool mangaSugerida = false;
+  // Solo Venta Directa: en Retail la categoria ya trae el genero
+  // ("Blusas Femeninas"). Se usa para descartar candidatos del genero
+  // contrario en la homologacion (antes dependia de que la promotora
+  // escribiera "dama"/"caballero" en la descripcion).
+  String? genero;
+  static const generos = ['Dama', 'Caballero', 'Unisex'];
 
   late final TextEditingController descripcionCtrl;
   late final TextEditingController comp1Ctrl;
@@ -1913,6 +1937,17 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
             const SizedBox(height: 16),
           ],
 
+          if (esVentaDirecta) ...[
+            const Etiqueta('GÉNERO'),
+            const SizedBox(height: 8),
+            Selector(
+                valor: genero,
+                hint: 'Elige para quién es el producto',
+                opciones: generos,
+                onChanged: (v) => setState(() => genero = v)),
+            const SizedBox(height: 16),
+          ],
+
           Etiqueta((etiquetaDioDatos && !esVentaDirecta)
               ? 'CARACTERÍSTICAS DEL PRODUCTO (opcional)'
               : 'CARACTERÍSTICAS DEL PRODUCTO — DESCRÍBELO AQUÍ, NO HAY ETIQUETA'),
@@ -1966,6 +2001,11 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
                         Text('El precio es obligatorio y debe ser numérico')));
                 return;
               }
+              if (esVentaDirecta && genero == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Elige el género del producto (Dama, Caballero o Unisex)')));
+                return;
+              }
               // Características libres solo es obligatorio si la etiqueta
               // no aportó ni composición ni color (o no había foto de etiqueta).
               final sinDatoEtiqueta = comp1Ctrl.text.trim().isEmpty;
@@ -1984,6 +2024,7 @@ class _FichaPrecioScreenState extends State<FichaPrecioScreen> {
               c.colorPrenda = colorCtrl.text.trim();
               c.detalle = detalleCtrl.text.trim();
               c.caracteristicas = caracteristicasCtrl.text.trim();
+              c.genero = esVentaDirecta ? (genero ?? '') : '';
               c.precioFinal = precioCtrl.text.trim();
               Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => RevisarScreen(captura: c, onFin: widget.onFin),
@@ -2040,7 +2081,12 @@ class _RevisarScreenState extends State<RevisarScreen> {
       return;
     }
 
-    c.estado = Estado.porSincronizar;
+    // Antes esto quedaba SIEMPRE como "por sincronizar", aunque
+    // sincronizarConBackend ya hubiera guardado el registro con éxito
+    // (resultado.ok, con backendId) - la app decía "pendiente" de algo
+    // que en realidad ya viajó al dashboard. El estado local ahora sigue
+    // la misma distinción que ya usa el mensaje de abajo.
+    c.estado = resultado.ok ? Estado.sincronizada : Estado.porSincronizar;
     widget.onFin();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(resultado.ok
@@ -2105,6 +2151,7 @@ class _RevisarScreenState extends State<RevisarScreen> {
                       : [c.composicion1, c.composicion2]
                           .where((e) => e.isNotEmpty)
                           .join(' + ')),
+              if (c.genero.isNotEmpty) FilaResumen('Género', c.genero),
               if (c.caracteristicas.isNotEmpty)
                 FilaResumen('Características', c.caracteristicas),
               FilaResumen('Precio', 'Bs ${c.precioFinal}'),
@@ -2149,6 +2196,7 @@ class HomologacionScreen extends StatefulWidget {
 
 class _HomologacionScreenState extends State<HomologacionScreen> {
   bool cargando = true;
+  bool sinRespuesta = false;
   bool confirmando = false;
   List<Map<String, dynamic>> sugerencias = [];
   String? skuSeleccionado;
@@ -2160,10 +2208,15 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
   }
 
   Future<void> _cargar() async {
+    setState(() {
+      cargando = true;
+      sinRespuesta = false;
+    });
     final r = await pedirSugerenciasHomologacion(widget.captura.backendId!);
     if (!mounted) return;
     setState(() {
-      sugerencias = r;
+      sinRespuesta = r == null;
+      sugerencias = r ?? [];
       if (sugerencias.isNotEmpty) {
         skuSeleccionado = sugerencias.first['sku'] as String;
       }
@@ -2233,36 +2286,76 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
       ),
       body: cargando
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.blue))
+              child: Padding(
+                padding: EdgeInsets.all(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: AppColors.blue),
+                    SizedBox(height: 18),
+                    Text(
+                      'Comparando la foto con el catálogo Azzorti…\nPuede tardar hasta un minuto.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ))
           : sugerencias.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'No se encontraron productos Azzorti de esta categoría y nivel de precio en el catálogo.',
-                        style: TextStyle(color: AppColors.muted),
+                      Text(
+                        sinRespuesta
+                            ? 'El servidor no respondió a tiempo (revisa la conexión). Puedes reintentar.'
+                            : 'No se encontraron productos Azzorti de esta categoría y nivel de precio en el catálogo.',
+                        style: const TextStyle(color: AppColors.muted),
                       ),
                       const SizedBox(height: 20),
-                      FilledButton(
-                        onPressed: _omitir,
-                        child: const Text('Continuar sin homologar'),
-                      ),
+                      if (sinRespuesta) ...[
+                        FilledButton(
+                          onPressed: _cargar,
+                          child: const Text('Reintentar'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: _omitir,
+                          child: const Text('Continuar sin homologar'),
+                        ),
+                      ] else
+                        FilledButton(
+                          onPressed: _omitir,
+                          child: const Text('Continuar sin homologar'),
+                        ),
                     ],
                   ),
                 )
               : ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    const Text(
-                      'El sistema comparó color, silueta, composición y manga con el catálogo Azzorti (nunca por código — la competencia no comparte SKU). Confirma cuál es el equivalente real:',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                    Text(
+                      sugerencias.any((s) => s['similitud_visual_pct'] != null)
+                          ? 'El sistema comparó la foto capturada contra las imágenes del catálogo Azzorti (comparación visual real, no solo texto). Confirma cuál es el equivalente real:'
+                          : 'El sistema comparó color, silueta, composición y manga con el catálogo Azzorti (nunca por código — la competencia no comparte SKU). Confirma cuál es el equivalente real:',
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
                     ),
                     const SizedBox(height: 14),
                     ...sugerencias.map((s) {
                       final sku = s['sku'] as String;
-                      final score = (s['score_similitud'] as num).toDouble();
+                      // Antes esto SOLO leia score_similitud (texto) - el
+                      // campo nuevo similitud_visual_pct (comparacion real
+                      // con IA, ver M_homologacion::aplicar_comparacion_visual)
+                      // nunca se mostraba en la app, aunque el backend ya
+                      // lo calculara y lo mandara. Confirmado con un caso
+                      // real: la app seguia mostrando el puntaje de texto
+                      // viejo (casi plano, ~7% para todo) en vez del visual.
+                      final visualPct = s['similitud_visual_pct'] as num?;
+                      final esVisual = visualPct != null;
+                      final score = esVisual
+                          ? visualPct.toDouble()
+                          : (s['score_similitud'] as num).toDouble();
                       final seleccionado = skuSeleccionado == sku;
                       final fotoUrl = s['foto_url'] as String?;
                       final fotoGrandeUrl =
@@ -2358,7 +2451,7 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                _ScoreBadge(score: score),
+                                _ScoreBadge(score: score, esVisual: esVisual),
                               ],
                             ),
                           ),
@@ -2396,7 +2489,8 @@ class _HomologacionScreenState extends State<HomologacionScreen> {
 /// sugerencias; la confirmación final siempre la hace la persona.
 class _ScoreBadge extends StatelessWidget {
   final double score;
-  const _ScoreBadge({required this.score});
+  final bool esVisual;
+  const _ScoreBadge({required this.score, this.esVisual = false});
   @override
   Widget build(BuildContext context) {
     final color = score >= 60
@@ -2417,8 +2511,8 @@ class _ScoreBadge extends StatelessWidget {
                   fontSize: 11, fontWeight: FontWeight.w800, color: color)),
         ),
         const SizedBox(height: 2),
-        const Text('similitud',
-            style: TextStyle(fontSize: 9, color: AppColors.muted)),
+        Text(esVisual ? 'parecido visual' : 'similitud',
+            style: const TextStyle(fontSize: 9, color: AppColors.muted)),
       ],
     );
   }
@@ -2553,6 +2647,31 @@ class _TarjetaEvaluacion extends StatelessWidget {
               'Sin homologación y sin captura previa del mismo producto para comparar.',
           style: const TextStyle(fontSize: 11.5, color: AppColors.amberTxt),
         ),
+      );
+    }
+
+    if (modo == 'HOMOLOGO_SIN_PRECIO') {
+      // Se homologó con un producto real del catálogo, pero el OCR no le
+      // pudo leer el precio en esa página - no hay con qué comparar el
+      // precio todavía (distinto de "no homologado").
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Column(children: [
+          FilaResumen('Azzorti equivalente', ev['azzorti_sku'] as String),
+          FilaResumen('Precio competencia', 'Bs ${ev['precio_competencia']}'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 4, 12),
+            child: _EtiquetaEstado(
+              texto: (ev['mensaje'] as String?) ??
+                  'Producto homologado, pero sin precio Azzorti legible para comparar.',
+              ok: null,
+            ),
+          ),
+        ]),
       );
     }
 
