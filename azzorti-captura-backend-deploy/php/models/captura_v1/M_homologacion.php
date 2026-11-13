@@ -205,7 +205,15 @@ class M_homologacion extends CI_Model {
             if ($pide_mas && !$pide_fem && ($s['_genero_visual'] ?? '') === 'femenino') {
                 return false;
             }
-            return ($s['similitud_visual_pct'] ?? 0) >= self::VISION_MIN_PARECIDO;
+            // Si su nombre impreso coincide con lo que escribio la
+            // promotora ("Lentes" -> "Lentes de sol femenino Kiva"), es
+            // del mismo tipo de producto: se muestra aunque la IA le de
+            // poco parecido (lentes de oficina vs. de sol) y solo se
+            // ordena por %. El corte visual queda para lo que entro por
+            // otras palabras. Antes con "Lentes" Dama salia solo Brizza
+            // (28%) y se ocultaban Kiva y Loira.
+            return !empty($s['_coincide_nombre'])
+                || ($s['similitud_visual_pct'] ?? 0) >= self::VISION_MIN_PARECIDO;
         }));
         if (!$parecidos) {
             // Ninguno paso el corte de parecido (no hay uno igual en el
@@ -271,9 +279,24 @@ class M_homologacion extends CI_Model {
     }
 
     /** _ruta_local es un campo interno (para aplicar_comparacion_visual) - nunca debe llegar a la respuesta JSON. */
+    /** true si el nombre real impreso trae alguna de las palabras que
+     * escribio la promotora (mismo criterio que el filtro de candidatos). */
+    private function nombre_coincide($nombre_real, array $palabras) {
+        if (!$nombre_real || !$palabras) {
+            return false;
+        }
+        $texto = mb_strtoupper($this->texto_util->sin_acentos($nombre_real), 'UTF-8');
+        foreach ($palabras as $palabra) {
+            if (preg_match('/\b' . preg_quote($palabra, '/') . '/u', $texto)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private function quitar_ruta_local(array $sugerencias) {
         foreach ($sugerencias as &$s) {
-            unset($s['_ruta_local'], $s['_genero_visual']);
+            unset($s['_ruta_local'], $s['_genero_visual'], $s['_coincide_nombre']);
         }
         unset($s);
         return $sugerencias;
@@ -516,6 +539,7 @@ class M_homologacion extends CI_Model {
                 'foto_url' => $foto_pagina_url_fn($catalogo->id, $p->pagina, $p->producto_codigo),
                 'foto_grande_url' => $foto_pagina_completa_url_fn($catalogo->id, $p->pagina),
                 'score_similitud' => $score,
+                '_coincide_nombre' => $this->nombre_coincide($nombres_reales[$p->producto_codigo] ?? null, $palabras_disparadoras),
                 '_ruta_local' => RUTA_ARCHIVOS . 'captura_v1/catalogo_paginas/' . "{$catalogo->id}_{$p->pagina}_completa.png",
             ];
         }
