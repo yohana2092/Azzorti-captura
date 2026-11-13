@@ -674,6 +674,15 @@ class Captura {
 
   String get hora =>
       '${creada.hour.toString().padLeft(2, '0')}:${creada.minute.toString().padLeft(2, '0')}';
+  // "12/11 5:55 pm" - para distinguir en Pendientes dos capturas del mismo
+  // producto (antes solo se veia la hora en borradores, y nada en las
+  // completas/sincronizadas).
+  String get fechaHora {
+    final h12 = creada.hour % 12 == 0 ? 12 : creada.hour % 12;
+    final ampm = creada.hour < 12 ? 'am' : 'pm';
+    return '${creada.day.toString().padLeft(2, '0')}/${creada.month.toString().padLeft(2, '0')} '
+        '$h12:${creada.minute.toString().padLeft(2, '0')} $ampm';
+  }
   int get numFotos =>
       (fotoEtiqueta != null ? 1 : 0) + (fotoProducto != null ? 1 : 0);
 
@@ -1496,10 +1505,11 @@ class TarjetaCaptura extends StatelessWidget {
     if (c.estado == Estado.borrador) {
       titulo =
           '${c.competidor} · ${c.precioTienda.isEmpty ? "sin precio" : "Bs ${c.precioTienda}"}';
-      sub = '${c.hora} · ${c.numFotos} foto(s)';
+      sub = '${c.fechaHora} · ${c.numFotos} foto(s)';
     } else {
       titulo = '${c.categoria} · ${c.puntoPrecio}';
-      sub = c.competidor;
+      final precio = c.precioFinal.isNotEmpty ? c.precioFinal : c.precioTienda;
+      sub = '${c.competidor}${precio.isEmpty ? "" : " · Bs $precio"} · ${c.fechaHora}';
     }
     final chip = switch (c.estado) {
       Estado.borrador =>
