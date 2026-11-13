@@ -917,6 +917,32 @@
     return /^\d+$/.test(String(sku)) ? 'R' + sku : sku;
   }
 
+  // etiqueta ya viene escapada para atributo (_textoAtributo), igual que
+  // la del boton "Ver candidatos".
+  function _botonEliminar(capturaId, etiqueta){
+    return ' <button onclick="eliminarCaptura(' + capturaId + ', \'' + etiqueta + '\', this)" ' +
+      'title="Eliminar esta captura (pruebas o capturas mal hechas)" ' +
+      'style="margin-top:4px;font-size:10.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:#B42318;">' +
+      '🗑 Eliminar</button>';
+  }
+
+  // Elimina (oculta) una captura de prueba o mal hecha. En el backend es
+  // un borrado logico: deja de verse en el dashboard y los reportes, pero
+  // el desarrollador la puede restaurar si fue un error.
+  async function eliminarCaptura(capturaId, etiqueta, btnEl){
+    if(!confirm('¿Eliminar la captura "' + etiqueta + '"?\n\nDejará de aparecer en el dashboard y en los reportes.')) return;
+    btnEl.disabled = true;
+    try {
+      const resp = await fetch(BACKEND_URL + '/capturas/eliminar/' + capturaId, {method: 'POST'});
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(data.message || data.detail || ('error ' + resp.status + ' del servidor'));
+      sincronizarDashboard(true);
+    } catch(e) {
+      btnEl.disabled = false;
+      alert('⚠ No se pudo eliminar: ' + e.message);
+    }
+  }
+
   async function abrirComparacionVisual(capturaId, etiquetaCaptura){
     document.getElementById('comparacion-sub').textContent = etiquetaCaptura || '';
     document.getElementById('comparacion-cuerpo').innerHTML =
@@ -2107,7 +2133,7 @@
             '<td class="desc-txt">' + desc + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
             '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiHtml + '</td>' +
-            '<td class="desc-txt">' + homologHtml + botonComparar + '</td>' +
+            '<td class="desc-txt">' + homologHtml + botonComparar + _botonEliminar(c.id, etiquetaComparacion) + '</td>' +
             '<td class="price">' + precioAzzortiHtml + '</td>' +
             '<td>' + variacionHtml + '</td>';
           tbody.appendChild(tr);
@@ -2229,7 +2255,7 @@
             '<td class="desc-txt">' + nombreProducto + '</td>' +
             '<td class="price">Bs ' + (c.precio || '—') + '</td>' +
             '<td style="font-family:\'Courier New\',monospace;font-size:11px;">' + skuAzzortiVd + '</td>' +
-            '<td class="desc-txt">' + homologVd + botonCompararVd + '</td>' +
+            '<td class="desc-txt">' + homologVd + botonCompararVd + _botonEliminar(c.id, etiquetaComparacionVd) + '</td>' +
             '<td class="price">' + precioAzzortiVd + '</td>' +
             '<td>' + variacionVd + '</td>';
           vdTbody.appendChild(trVd);
