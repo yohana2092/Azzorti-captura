@@ -863,12 +863,19 @@ class _HomeShellState extends State<HomeShell> {
     _persistir();
   }
 
+  // Texto de avance de "Sincronizar todo" ("Enviando 3 de 20…"), null si
+  // no esta corriendo. Antes no habia ninguna señal: con 20 capturas con
+  // foto por datos moviles tardaba minutos y parecia que no hacia nada.
+  String? _progresoSync;
+
   Future<void> sincronizarTodo() async {
+    if (_progresoSync != null) return;
     final pendientes =
         capturas.where((c) => c.estado == Estado.porSincronizar).toList();
     int exitosos = 0;
     int fallidos = 0;
-    for (final c in pendientes) {
+    for (final (i, c) in pendientes.indexed) {
+      setState(() => _progresoSync = 'Enviando ${i + 1} de ${pendientes.length}…');
       final resultado = await sincronizarConBackend(c);
       if (!mounted) return;
       if (resultado.ok) {
@@ -882,6 +889,7 @@ class _HomeShellState extends State<HomeShell> {
       }
     }
     if (!mounted) return;
+    setState(() => _progresoSync = null);
     _persistir();
     final mensaje = fallidos == 0
         ? '✓ $exitosos registro(s) sincronizado(s) con el backend'
@@ -903,6 +911,9 @@ class _HomeShellState extends State<HomeShell> {
         capturas: capturas,
         onAbrirBorrador: _abrirBorrador,
         onSincronizar: sincronizarTodo,
+        onAbrirPendiente: _abrirPendiente,
+        onDescartar: _descartar,
+        progresoSync: _progresoSync,
       ),
       PerfilTab(capturas: capturas),
     ];
@@ -936,6 +947,41 @@ class _HomeShellState extends State<HomeShell> {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => CompletarContextoScreen(captura: c, onFin: refrescar),
     ));
+  }
+
+  // Captura completa: se abre su resumen para sincronizar SOLO esa (y
+  // seguir a homologar). Antes tocarla no hacia nada.
+  void _abrirPendiente(Captura c) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => RevisarScreen(captura: c, onFin: refrescar),
+    ));
+  }
+
+  // Dejar presionada una captura: descartarla del telefono (pruebas
+  // viejas, capturas mal hechas). No toca el servidor.
+  Future<void> _descartar(Captura c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Descartar esta captura?'),
+        content: Text(
+            '${c.competidor} · ${c.categoria.isEmpty ? "borrador" : c.categoria}\n\n'
+            'Se borra de este celular y no se puede recuperar. '
+            '${c.estado == Estado.sincronizada ? "La copia del servidor no se toca (se elimina desde el dashboard)." : "No se enviará al servidor."}'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Descartar',
+                  style: TextStyle(color: Color(0xFFB42318)))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => capturas.remove(c));
+    _persistir();
   }
 }
 
@@ -1343,11 +1389,17 @@ class PendientesTab extends StatelessWidget {
   final List<Captura> capturas;
   final ValueChanged<Captura> onAbrirBorrador;
   final VoidCallback onSincronizar;
+  final ValueChanged<Captura> onAbrirPendiente;
+  final ValueChanged<Captura> onDescartar;
+  final String? progresoSync;
   const PendientesTab(
       {super.key,
       required this.capturas,
       required this.onAbrirBorrador,
-      required this.onSincronizar});
+      required this.onSincronizar,
+      required this.onAbrirPendiente,
+      required this.onDescartar,
+      this.progresoSync});
 
   @override
   Widget build(BuildContext context) {
@@ -1385,25 +1437,44 @@ class PendientesTab extends StatelessWidget {
                   ...borradores.map((c) => TarjetaCaptura(
                         captura: c,
                         onTap: () => onAbrirBorrador(c),
+                        onLongPress: () => onDescartar(c),
                       )),
                   const SizedBox(height: 18),
                 ],
                 if (completos.isNotEmpty) ...[
                   const Etiqueta('COMPLETOS — LISTOS PARA ENVIAR'),
+                  const SizedBox(height: 4),
+                  const Text(
+                      'Toca una para enviarla sola · déjala presionada para descartarla',
+                      style: TextStyle(fontSize: 11, color: AppColors.muted)),
                   const SizedBox(height: 8),
-                  ...completos.map((c) => TarjetaCaptura(captura: c)),
-                  const SizedBox(height: 10),
+                  // El boton va ARRIBA de la lista: con 20 capturas quedaba
+                  // al final y no se veia.
                   FilledButton.icon(
-                    onPressed: onSincronizar,
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Sincronizar todo'),
+                    onPressed: progresoSync != null ? null : onSincronizar,
+                    icon: progresoSync != null
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2.2))
+                        : const Icon(Icons.sync),
+                    label: Text(progresoSync ?? 'Sincronizar todo (${completos.length})'),
                   ),
+                  const SizedBox(height: 10),
+                  ...completos.map((c) => TarjetaCaptura(
+                        captura: c,
+                        onTap: progresoSync != null ? null : () => onAbrirPendiente(c),
+                        onLongPress: progresoSync != null ? null : () => onDescartar(c),
+                      )),
                   const SizedBox(height: 18),
                 ],
                 if (sincronizadas.isNotEmpty) ...[
                   const Etiqueta('SINCRONIZADAS'),
                   const SizedBox(height: 8),
-                  ...sincronizadas.map((c) => TarjetaCaptura(captura: c)),
+                  ...sincronizadas.map((c) => TarjetaCaptura(
+                        captura: c,
+                        onLongPress: () => onDescartar(c),
+                      )),
                 ],
               ],
             ),
@@ -1414,7 +1485,8 @@ class PendientesTab extends StatelessWidget {
 class TarjetaCaptura extends StatelessWidget {
   final Captura captura;
   final VoidCallback? onTap;
-  const TarjetaCaptura({super.key, required this.captura, this.onTap});
+  final VoidCallback? onLongPress;
+  const TarjetaCaptura({super.key, required this.captura, this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -1446,6 +1518,7 @@ class TarjetaCaptura extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
+        onLongPress: onLongPress,
         leading: c.fotoProducto != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
