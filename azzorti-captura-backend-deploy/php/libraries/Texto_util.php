@@ -330,6 +330,30 @@ class Texto_util {
         return false;
     }
 
+    // Letras que el OCR del servidor pone en lugar de digitos dentro de un
+    // codigo ("CÓD. 3738A3" es 373843, pag. 158).
+    const CONFUSION_DIGITO = ['A' => '4', 'O' => '0', 'I' => '1', 'L' => '1', 'S' => '5', 'B' => '8', 'Z' => '2', 'G' => '6'];
+
+    /**
+     * Codigo de producto ya limpio (limpiar_palabra) o null. Acepta el
+     * formato normal (CODIGO_RE) y, si no, un codigo que empieza con
+     * digito y trae alguna letra confundida por el OCR, que se traduce
+     * a su digito. Se exigen 4+ digitos reales para no convertir una
+     * palabra cualquiera en codigo.
+     */
+    public function codigo_tolerante($token) {
+        if (preg_match(self::CODIGO_RE, $token)) {
+            return $token;
+        }
+        if (preg_match('/^\d[0-9AOILSBZG]{4,6}$/', $token) && preg_match_all('/\d/', $token) >= 4) {
+            $traducido = strtr($token, self::CONFUSION_DIGITO);
+            if (preg_match('/^\d{5,7}$/', $traducido)) {
+                return $traducido;
+            }
+        }
+        return null;
+    }
+
     /**
      * Puerto de _anclas_producto (server.py lineas 1935-1955): busca
      * "COD. NNNNN" palabra por palabra en $datos (shape de
@@ -341,13 +365,21 @@ class Texto_util {
         $n = count($palabras);
         for ($i = 0; $i < $n; $i++) {
             $palabra = $palabras[$i];
-            if (mb_strpos($palabra, 'COD') !== 0 || mb_strlen($palabra) > 5) {
+            if (mb_strpos($palabra, 'COD') === 0 && mb_strlen($palabra) <= 5) {
+                $inicio = $i + 1;
+            } elseif ($palabra === 'CO' && ($palabras[$i + 1] ?? '') === 'D') {
+                // El OCR del servidor (tesseract 3.04) parte "CÓD." en dos:
+                // "có D." - sin esto la pagina entera quedaba sin productos
+                // (pag. 158: billetera y reloj femenino Brizza).
+                $inicio = $i + 2;
+            } else {
                 continue;
             }
-            for ($j = $i + 1; $j < min($i + 3, $n); $j++) {
-                if (preg_match(self::CODIGO_RE, $palabras[$j])) {
+            for ($j = $inicio; $j < min($inicio + 2, $n); $j++) {
+                $codigo = $this->codigo_tolerante($palabras[$j]);
+                if ($codigo !== null) {
                     $anclas[] = [
-                        'codigo' => $palabras[$j],
+                        'codigo' => $codigo,
                         'x' => $datos['left'][$j] + $datos['width'][$j] / 2,
                         'y' => $datos['top'][$j] + $datos['height'][$j] / 2,
                     ];
@@ -823,11 +855,17 @@ class Texto_util {
         // Simbolos sueltos que el OCR mete en medio de un titulo ("4.
         // Billetera = femenina Loriet") lo cortaban a la mitad.
         $texto_cercano = preg_replace('/[=|—_]+/u', ' ', $texto_cercano);
-        if (!preg_match_all('/C[OÓ]D\.?\s*(\d+)/iu', $texto_cercano, $m_cod, PREG_OFFSET_CAPTURE)) {
+        // Mismas lecturas del OCR del servidor que en anclas_producto():
+        // "có D. 129124", "CÓD. 3738A3", "co D. 831.925".
+        if (!preg_match_all('/C\s*[OÓ]\s*D\.?\s*(\d[\dA-Za-z.]{3,8})/iu', $texto_cercano, $m_cod, PREG_OFFSET_CAPTURE)) {
             return null;
         }
         $codigos_pos = array_map(fn($c) => $c[1], $m_cod[1]);
-        $k = array_search((string) $codigo, array_map(fn($c) => $c[0], $m_cod[1]), true);
+        $codigos_leidos = array_map(function ($c) {
+            $limpio = $this->limpiar_palabra($c[0]);
+            return $this->codigo_tolerante($limpio) ?? $limpio;
+        }, $m_cod[1]);
+        $k = array_search((string) $codigo, $codigos_leidos, true);
         if ($k === false) {
             return null;
         }
