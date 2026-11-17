@@ -44,20 +44,42 @@ class Catalogos extends RestController {
     }
 
     /** POST /catalogos (server.py lineas 542-569). */
+    /**
+     * POST /catalogos/subir_parte - un pedazo (<= 3 MB) de un archivo
+     * grande. Campos: id_subida, indice (0-based), total, archivo. Lo usan
+     * todas las subidas del dashboard (catalogos, productos estrella,
+     * ofertas) - ver Archivo_util, "Subida por partes".
+     */
+    function subir_parte_post() {
+        $error = $this->archivo_util->guardar_parte(
+            $_POST['id_subida'] ?? null, $_POST['indice'] ?? -1, $_POST['total'] ?? 0,
+            $_FILES['archivo']['tmp_name'] ?? null
+        );
+        if ($error !== null) {
+            $this->response(['status' => false, 'message' => $error], 400);
+            return;
+        }
+        $this->response(['ok' => true], 200);
+    }
+
     function index_post() {
         $competidor = trim((string) ($_POST['competidor'] ?? ''));
         $campana = trim((string) ($_POST['campana'] ?? ''));
-        if ($competidor === '' || $campana === '' || empty($_FILES['archivo']['tmp_name'])) {
+        $archivo = $this->archivo_util->archivo_recibido();
+        if ($competidor === '' || $campana === '' || $archivo === null) {
             $this->response(['status' => false, 'message' => 'Faltan competidor, campana o archivo.'], 400);
             return;
         }
         $slug = trim(preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($competidor, 'UTF-8')), '-') ?: 'competidor';
         $slug_campana = preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($campana, 'UTF-8'));
-        $extension = pathinfo($_FILES['archivo']['name'], PATHINFO_EXTENSION);
+        $extension = pathinfo($archivo['nombre'], PATHINFO_EXTENSION);
         $extension = $extension ? '.' . $extension : '.pdf';
         $nombre = "{$slug}_{$slug_campana}_" . gmdate('Ymd\THis') . $extension;
         $this->archivo_util->asegurar_carpeta($this->ruta_archivos . '/catalogos_competidor');
-        move_uploaded_file($_FILES['archivo']['tmp_name'], $this->ruta_archivos . '/catalogos_competidor/' . $nombre);
+        if (!$this->archivo_util->mover_recibido($archivo, $this->ruta_archivos . '/catalogos_competidor/' . $nombre)) {
+            $this->response(['status' => false, 'message' => 'No se pudo guardar el archivo en el servidor.'], 500);
+            return;
+        }
         $id = $this->m_catalogo->crear($competidor, $campana, $nombre);
         $this->response(['id' => $id, 'mensaje' => 'Catálogo subido correctamente.'], 201);
     }

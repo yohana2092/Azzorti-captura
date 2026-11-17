@@ -146,6 +146,117 @@ class Vision_util {
         return $resultado ?: null;
     }
 
+    const SYSTEM_PROMPT_BUSQUEDA = 'Eres un asistente que revisa paginas de catalogos de venta por catalogo '
+        . '(perfumeria, maquillaje, accesorios) para ubicar un producto puntual y leer su precio de venta. '
+        . 'Respondes SOLO con el JSON pedido, sin texto extra, sin explicacion, sin bloque de codigo markdown.';
+
+    /**
+     * Productos estrella: ubica un producto en paginas de catalogo y lee su
+     * codigo y su precio de VENTA (no el "Valorizado en" / "P. Regular").
+     *
+     * $ruta_foto_ref: foto de referencia del producto (la del Excel de
+     *   Mercadeo) o null si no hay - en ese caso se busca solo por nombre.
+     * $nombre_ref: como lo llama Mercadeo ("Expression", "Eau de parfum
+     *   Prim Rose").
+     * $marca: marca del catalogo ("Esika", "Azzorti").
+     * $rutas_paginas: imagenes de pagina completa, en orden.
+     *
+     * Devuelve [indice_1based => ['esta' => bool, 'pct' => 0-100,
+     * 'codigo' => string|null, 'nombre' => string|null, 'precio' =>
+     * float|null, 'caja' => [..]|null]] o null si la llamada fallo.
+     */
+    public function buscar_producto_en_paginas($ruta_foto_ref, $nombre_ref, $marca, array $rutas_paginas, $user_id) {
+        if (!$rutas_paginas || !function_exists('curl_init')) {
+            return null;
+        }
+        $con_foto = $ruta_foto_ref && file_exists($ruta_foto_ref);
+        $prompt = ($con_foto
+                ? 'La primera imagen adjunta es la foto de referencia de un producto de ' . $marca
+                    . ' que Mercadeo llama "' . $nombre_ref . '". Las siguientes, en orden, son paginas completas '
+                    . 'del catalogo de ' . $marca . '.'
+                : 'Busco en el catalogo de ' . $marca . ' el producto que Mercadeo llama "' . $nombre_ref
+                    . '". Las imagenes adjuntas, en orden, son paginas completas de ese catalogo.')
+            . ' Para CADA pagina dime si aparece ESE producto (mismo producto y misma linea/variante: por '
+            . 'ejemplo "Expression" no es "Expression Magic" ni "Expression Sens"; si hay varias presentaciones '
+            . 'del mismo, prefiere la individual sobre sets o kits). Si aparece, dame: el codigo impreso del '
+            . 'producto (despues de "Cod.", "Cód." o "COD."), el nombre tal como esta impreso, y el PRECIO DE '
+            . 'VENTA en bolivianos que paga la clienta (el precio grande "Bs NNN" o "A SOLO Bs NNN"; NO el '
+            . '"Valorizado en", NI el "P. Regular", NI precios de otros productos). '
+            . ($con_foto ? 'Dame tambien un porcentaje 0-100 de que tan parecido es VISUALMENTE el producto de la '
+                . 'pagina a la foto de referencia (envase/frasco, forma, color). ' : 'En "similitud_pct" pon 100 '
+                . 'si el nombre impreso coincide claramente, menos si dudas. ')
+            . 'Y la ubicacion de la FOTO del producto en la pagina como caja [x0, y0, x1, y1] en fracciones 0-1 '
+            . '(0,0 = esquina superior izquierda). Si no aparece en esa pagina, "esta": false y lo demas null. '
+            . 'Responde en JSON con esta forma exacta, sin nada mas: {"paginas":[{"indice":1,"esta":true,'
+            . '"similitud_pct":0,"codigo":"00000","nombre":"...","precio":0,"caja":[0,0,1,1]}]} - "indice" es '
+            . 'el numero de orden de la pagina adjunta (1 = primera pagina' . ($con_foto ? ' despues de la foto de '
+            . 'referencia' : '') . '). Incluye un objeto por cada pagina.';
+
+        $parsed = $this->llamar(self::SYSTEM_PROMPT_BUSQUEDA, $prompt,
+            array_merge($con_foto ? [$ruta_foto_ref] : [], array_values($rutas_paginas)), $user_id, 1500, 90);
+        if (!is_array($parsed) || empty($parsed['paginas']) || !is_array($parsed['paginas'])) {
+            return null;
+        }
+        $resultado = [];
+        foreach ($parsed['paginas'] as $p) {
+            if (!is_array($p) || !isset($p['indice'])) {
+                continue;
+            }
+            $esta = !empty($p['esta']);
+            $precio = isset($p['precio']) && is_numeric(str_replace(',', '.', (string) $p['precio']))
+                ? (float) str_replace(',', '.', (string) $p['precio']) : null;
+            $resultado[(int) $p['indice']] = [
+                'esta' => $esta,
+                'pct' => $esta ? max(0, min(100, (float) ($p['similitud_pct'] ?? 0))) : 0,
+                'codigo' => $esta && !empty($p['codigo']) ? preg_replace('/[^0-9A-Za-z]/', '', (string) $p['codigo']) : null,
+                'nombre' => $esta && !empty($p['nombre']) ? mb_substr(trim((string) $p['nombre']), 0, 200) : null,
+                'precio' => $esta && $precio > 0 ? $precio : null,
+                'caja' => $esta ? $this->caja_valida($p['caja'] ?? null) : null,
+            ];
+        }
+        return $resultado ?: null;
+    }
+
+    /** Llamada generica al gateway: devuelve el JSON que contesto el modelo
+     * (ya parseado) o null si algo fallo. */
+    private function llamar($system_prompt, $prompt, array $rutas_archivos, $user_id, $max_tokens, $timeout) {
+        $campos_simples = [
+            'user_id' => (string) $user_id,
+            'system_prompt' => $system_prompt,
+            'prompt' => $prompt,
+            'model' => self::MODELO,
+            'reasoning_effort' => 'low',
+            'max_tokens' => (string) $max_tokens,
+            'nomb_agen' => self::NOMBRE_AGENTE,
+        ];
+        $boundary = '----AzzortiVision' . bin2hex(random_bytes(16));
+        $cuerpo = $this->armar_cuerpo_multipart($boundary, $campos_simples, $rutas_archivos);
+        if ($cuerpo === null) {
+            return null;
+        }
+        $curl = curl_init(self::ENDPOINT);
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: multipart/form-data; boundary=' . $boundary],
+            CURLOPT_POSTFIELDS => $cuerpo,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeout,
+        ]);
+        $respuesta_cruda = curl_exec($curl);
+        $fallo_curl = curl_errno($curl) !== 0;
+        curl_close($curl);
+        if ($fallo_curl || $respuesta_cruda === false) {
+            return null;
+        }
+        $data = json_decode($respuesta_cruda, true);
+        if (!is_array($data) || empty($data['ok']) || !isset($data['respuesta'])) {
+            return null;
+        }
+        $texto = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim((string) $data['respuesta']));
+        $parsed = json_decode($texto, true);
+        return is_array($parsed) ? $parsed : null;
+    }
+
     /**
      * Caja [x0, y0, x1, y1] en fracciones 0-1, o null si no sirve. Acepta
      * tambien porcentajes 0-100 (el modelo a veces los devuelve asi).

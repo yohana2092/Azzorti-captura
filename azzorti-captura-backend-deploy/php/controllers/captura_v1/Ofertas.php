@@ -44,19 +44,22 @@ class Ofertas extends RestController {
 
     /** POST /ofertas/importar (server.py lineas 2283-2323). */
     function importar_post() {
-        if (empty($_FILES['archivo']['tmp_name'])) {
+        $archivo = $this->archivo_util->archivo_recibido();
+        if ($archivo === null) {
             $this->response(['status' => false, 'message' => 'Falta el archivo.'], 400);
             return;
         }
-        $ruta_temporal = $_FILES['archivo']['tmp_name'];
+        $ruta_temporal = $archivo['ruta'];
         $contenido = file_get_contents($ruta_temporal);
 
         try {
             $filas = $this->m_oferta_referencia->parsear($ruta_temporal);
         } catch (Throwable $e) {
+            $this->archivo_util->limpiar_subida($archivo);
             $this->response(['status' => false, 'message' => 'No se pudo leer el Excel: ' . $e->getMessage()], 400);
             return;
         }
+        $this->archivo_util->limpiar_subida($archivo);
         if (!$filas) {
             $this->response(['status' => false, 'message' => "No se encontraron filas con Catalogo y Nombre oferta."], 400);
             return;

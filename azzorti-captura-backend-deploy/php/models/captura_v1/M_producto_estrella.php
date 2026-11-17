@@ -171,6 +171,208 @@ class M_producto_estrella extends CI_Model {
         }
     }
 
+    // ================= Busqueda automatica de precios en catalogos =================
+    // Piloto (2026-11-13): en vez de llenar precios a mano en el Excel, se
+    // busca cada producto estrella en el catalogo PDF de su competidor (y su
+    // referente en el catalogo Azzorti) de la misma campana: primero por
+    // nombre (texto OCR de las paginas) y despues la IA mira esas paginas,
+    // confirma cual es el producto (comparando con la foto del Excel) y lee
+    // el codigo y el precio de venta.
+
+    // Palabras que no identifican al producto (tipo de producto, medidas,
+    // conectores) - se buscan las que quedan ("EXPRESSION", "PRIM ROSE").
+    const PALABRAS_GENERICAS_ESTRELLA = ['FRAGANCIA', 'FRAGANCIAS', 'PERFUME', 'EAU', 'DE', 'DEL', 'LA', 'EL',
+        'PARFUM', 'COLOGNE', 'TOILETTE', 'COLONIA', 'ML', 'GR', 'PARA', 'CON', 'Y', 'EDP', 'EDT', 'SET'];
+
+    // Con este % de parecido (o mas) y precio leido, el precio se actualiza
+    // solo. Por debajo queda "revisar" con la propuesta guardada.
+    const PCT_AUTOMATICO = 60;
+    // Maximo de paginas que se le mandan a la IA por producto.
+    const MAX_PAGINAS_BUSQUEDA = 5;
+
+    public function obtener($id) {
+        return $this->db->query(
+            'SELECT id, comp AS competidor, desc_comp AS descripcion_competidor, modo, azzo_refe AS azzorti_referente, '
+            . 'foto_comp AS foto_competidor, foto_azzo AS foto_azzorti, camp AS campana FROM capt_prod_estr WHERE id = '
+            . $this->lit($id)
+        )->row();
+    }
+
+    private function palabras_clave($texto) {
+        $norm = mb_strtoupper($this->texto_util->sin_acentos((string) $texto), 'UTF-8');
+        $palabras = [];
+        foreach (preg_split('/[^A-Z0-9]+/', $norm) as $p) {
+            if ($p === '' || preg_match('/^\d+(ML|G|GR)?$/', $p) || in_array($p, self::PALABRAS_GENERICAS_ESTRELLA, true)) {
+                continue;
+            }
+            if (mb_strlen($p) >= 3) {
+                $palabras[] = $p;
+            }
+        }
+        return array_values(array_unique($palabras));
+    }
+
+    /**
+     * Paginas del catalogo donde aparece el nombre: tienen que tener la
+     * PRIMERA palabra clave (la marca/linea, ej. "VIBRANZA") y se ordenan
+     * por cuantas de las demas tienen ("BLANC"). Devuelve [pagina => puntos].
+     */
+    private function paginas_candidatas($catalogo_id, array $palabras) {
+        if (!$palabras) {
+            return [];
+        }
+        $texto_por_pagina = [];
+        foreach ($this->m_catalogo->productos_de($catalogo_id) as $p) {
+            $texto_por_pagina[(int) $p->pagina] = ($texto_por_pagina[(int) $p->pagina] ?? '') . ' ' . ($p->texto_cercano ?? '');
+        }
+        $puntos = [];
+        foreach ($texto_por_pagina as $pagina => $texto) {
+            $norm = mb_strtoupper($this->texto_util->sin_acentos($texto), 'UTF-8');
+            if (!preg_match('/\b' . preg_quote($palabras[0], '/') . '\b/u', $norm)) {
+                continue;
+            }
+            $n = 1;
+            foreach (array_slice($palabras, 1) as $palabra) {
+                if (preg_match('/\b' . preg_quote($palabra, '/') . '\b/u', $norm)) {
+                    $n++;
+                }
+            }
+            $puntos[$pagina] = $n;
+        }
+        arsort($puntos);
+        return array_slice($puntos, 0, self::MAX_PAGINAS_BUSQUEDA, true);
+    }
+
+    /**
+     * Busca UN producto (nombre + foto opcional) en un catalogo. Devuelve
+     * ['estado' => encontrado|no_encontrado|sin_catalogo|sin_ia, y si se
+     * encontro: pag, pag_impresa, cod, nom, pct, prec].
+     */
+    private function buscar_en_catalogo($catalogo, $nombre, $foto_archivo, $marca) {
+        if (!$catalogo) {
+            return ['estado' => 'sin_catalogo'];
+        }
+        $paginas = $this->paginas_candidatas($catalogo->id, $this->palabras_clave($nombre));
+        $rutas = [];
+        foreach (array_keys($paginas) as $pagina) {
+            $ruta = RUTA_ARCHIVOS . "captura_v1/catalogo_paginas/{$catalogo->id}_{$pagina}_completa.png";
+            if (file_exists($ruta)) {
+                $rutas[$pagina] = $ruta;
+            }
+        }
+        if (!$rutas) {
+            return ['estado' => 'no_encontrado'];
+        }
+        $ruta_foto = $foto_archivo ? RUTA_ARCHIVOS . 'captura_v1/productos_estrella_fotos/' . $foto_archivo : null;
+        $resultado = $this->vision_util->buscar_producto_en_paginas($ruta_foto, $nombre, $marca, array_values($rutas), 'productos_estrella');
+        if ($resultado === null) {
+            return ['estado' => 'sin_ia'];
+        }
+        $mejor = null;
+        foreach (array_keys($rutas) as $i => $pagina) {
+            $r = $resultado[$i + 1] ?? null;
+            if (!$r || !$r['esta']) {
+                continue;
+            }
+            // Gana el mas parecido; a igual parecido, el que trae precio.
+            $clave = $r['pct'] * 10 + ($r['precio'] !== null ? 1 : 0);
+            if ($mejor === null || $clave > $mejor['_clave']) {
+                $mejor = $r + ['pag' => $pagina, '_clave' => $clave];
+            }
+        }
+        if ($mejor === null) {
+            return ['estado' => 'no_encontrado'];
+        }
+        return [
+            'estado' => 'encontrado',
+            'pag' => $mejor['pag'],
+            'pag_impresa' => $this->m_catalogo->pagina_impresa($catalogo->id, $mejor['pag']),
+            'cod' => $mejor['codigo'],
+            'nom' => $mejor['nombre'] !== null ? mb_substr($mejor['nombre'], 0, 60) : null,
+            'pct' => round($mejor['pct']),
+            'prec' => $mejor['precio'],
+        ];
+    }
+
+    /**
+     * Busca precio del competidor (y del referente Azzorti si es homologo
+     * fijo) para un producto estrella, guarda lo encontrado y, si es
+     * confiable, actualiza los precios. Devuelve el detalle.
+     */
+    public function buscar_precio($id) {
+        $this->load->model('captura_v1/m_catalogo');
+        $this->load->library('vision_util');
+        $f = $this->obtener($id);
+        if (!$f) {
+            return null;
+        }
+        $nombre_comp = trim(preg_replace('/^FRAGANCIAS?\s+/i', '', $f->descripcion_competidor));
+        $comp = $this->buscar_en_catalogo(
+            $this->m_catalogo->catalogo_por_competidor($f->competidor, $f->campana),
+            $nombre_comp, $f->foto_competidor, $f->competidor
+        );
+        $azzo = null;
+        if ($f->modo === 'HOMOLOGO_FIJO' && $f->azzorti_referente) {
+            $azzo = $this->buscar_en_catalogo(
+                $this->m_catalogo->catalogo_por_competidor('Azzorti', $f->campana),
+                $f->azzorti_referente, $f->foto_azzorti, 'Azzorti'
+            );
+        }
+
+        $confiable = fn($r) => $r && $r['estado'] === 'encontrado' && $r['prec'] !== null && $r['pct'] >= self::PCT_AUTOMATICO;
+        $lados = array_filter([$comp, $azzo]);
+        if (array_filter($lados, fn($r) => $r['estado'] === 'sin_catalogo')) {
+            $estado = 'sin_catalogo';
+        } elseif (array_filter($lados, fn($r) => $r['estado'] === 'sin_ia')) {
+            $estado = 'sin_ia';
+        } elseif (count(array_filter($lados, $confiable)) === count($lados)) {
+            $estado = 'auto';
+        } elseif (array_filter($lados, fn($r) => $r['estado'] === 'encontrado')) {
+            $estado = 'revisar';
+        } else {
+            $estado = 'no_encontrado';
+        }
+
+        $sets = [
+            'bus_esta = ' . $this->lit($estado),
+            'bus_fech = ' . $this->lit($this->ahora_iso()),
+            'bus_comp = ' . $this->lit(json_encode($comp, JSON_UNESCAPED_UNICODE)),
+            'bus_azzo = ' . $this->lit($azzo ? json_encode($azzo, JSON_UNESCAPED_UNICODE) : null),
+        ];
+        // Precio automatico solo del lado que es confiable; el resto queda
+        // como propuesta en bus_comp/bus_azzo para que Mercadeo la acepte.
+        if ($confiable($comp)) {
+            $sets[] = 'prec_comp = ' . $this->lit($comp['prec']);
+        }
+        if ($confiable($azzo)) {
+            $sets[] = 'prec_azzo = ' . $this->lit($azzo['prec']);
+            $sets[] = 'camp_azzo = ' . $this->lit($f->campana);
+        }
+        $this->db->query('UPDATE capt_prod_estr SET ' . implode(', ', $sets) . ' WHERE id = ' . $this->lit($id));
+        return ['id' => (int) $id, 'estado' => $estado, 'competidor' => $comp, 'azzorti' => $azzo];
+    }
+
+    /** Mercadeo acepta la propuesta de un producto "revisar": copia los
+     * precios propuestos (los que haya) a los precios del producto. */
+    public function aceptar_propuesta($id) {
+        $fila = $this->db->query('SELECT bus_comp, bus_azzo, camp FROM capt_prod_estr WHERE id = ' . $this->lit($id))->row();
+        if (!$fila) {
+            return false;
+        }
+        $comp = json_decode((string) $fila->bus_comp, true);
+        $azzo = json_decode((string) $fila->bus_azzo, true);
+        $sets = ["bus_esta = 'aceptado'"];
+        if (!empty($comp['prec'])) {
+            $sets[] = 'prec_comp = ' . $this->lit($comp['prec']);
+        }
+        if (!empty($azzo['prec'])) {
+            $sets[] = 'prec_azzo = ' . $this->lit($azzo['prec']);
+            $sets[] = 'camp_azzo = ' . $this->lit($fila->camp);
+        }
+        $this->db->query('UPDATE capt_prod_estr SET ' . implode(', ', $sets) . ' WHERE id = ' . $this->lit($id));
+        return true;
+    }
+
     /** server.py lineas 1095-1101: precio de la otra campaña ya cargada
      * para el mismo producto (respaldo para archivos viejos VS_CAMPANA_ANTERIOR). */
     public function precio_otra_campana($competidor, $descripcion_competidor, $campana_actual) {
@@ -187,7 +389,8 @@ class M_producto_estrella extends CI_Model {
         $sql = 'SELECT id, comp AS competidor, cate AS categoria, desc_comp AS descripcion_competidor, modo, '
             . 'azzo_refe AS azzorti_referente, prec_comp AS precio_competidor, prec_azzo AS precio_azzorti, '
             . 'foto_comp AS foto_competidor, foto_azzo AS foto_azzorti, camp AS campana, '
-            . 'camp_azzo AS campana_azzorti, fact AS actualizado_en '
+            . 'camp_azzo AS campana_azzorti, fact AS actualizado_en, '
+            . 'bus_esta AS busqueda_estado, bus_fech AS busqueda_fecha, bus_comp, bus_azzo '
             . 'FROM capt_prod_estr WHERE 1=1';
         if ($campana) {
             $sql .= ' AND camp = ' . $this->lit($campana);
@@ -203,6 +406,9 @@ class M_producto_estrella extends CI_Model {
             $r['foto_azzorti_url'] = !empty($r['foto_azzorti'])
                 ? $this->archivo_util->url_publica('productos_estrella_fotos/' . $r['foto_azzorti'], $base_url)
                 : null;
+            $r['busqueda_competidor'] = $r['bus_comp'] ? json_decode($r['bus_comp'], true) : null;
+            $r['busqueda_azzorti'] = $r['bus_azzo'] ? json_decode($r['bus_azzo'], true) : null;
+            unset($r['bus_comp'], $r['bus_azzo']);
             $r['campana_anterior'] = $r['campana_azzorti'] ?? null;
             if ($r['precio_competidor'] !== null) {
                 $r['precio_competidor'] = round((float) $r['precio_competidor'], 2);

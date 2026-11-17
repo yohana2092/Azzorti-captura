@@ -92,6 +92,35 @@ class M_catalogo extends CI_Model {
      * filtrado tolerante se hace en PHP sobre la lista de catalogos de
      * Azzorti (siempre chica) en vez de en el SQL.
      */
+    /**
+     * Catalogo de un competidor para una campana puntual (misma
+     * comparacion tolerante de campana que catalogo_azzorti_mas_reciente,
+     * y competidor sin distinguir mayusculas/tildes: "ESIKA" = "Ésika").
+     * A diferencia de aquel, NO cae al mas reciente si no hay de esa
+     * campana: para productos estrella eso mezclaria precios de campanas
+     * distintas sin avisar. Devuelve null si no hay.
+     */
+    public function catalogo_por_competidor($competidor, $campana) {
+        $clave_comp = $this->clave_competidor($competidor);
+        $clave_camp = $this->normalizar_campana($campana, null);
+        if ($clave_comp === '' || $clave_camp === null) {
+            return null;
+        }
+        $todos = $this->db->query('SELECT ' . self::COLUMNAS_CATALOGO . ' FROM cata_comp ORDER BY id DESC')->result();
+        foreach ($todos as $c) {
+            if ($this->clave_competidor($c->competidor) === $clave_comp
+                && $this->normalizar_campana($c->campana, $c->subido_en) === $clave_camp) {
+                return $c;
+            }
+        }
+        return null;
+    }
+
+    private function clave_competidor($texto) {
+        $this->load->library('texto_util');
+        return preg_replace('/[^A-Z0-9]/', '', mb_strtoupper($this->texto_util->sin_acentos((string) $texto), 'UTF-8'));
+    }
+
     public function catalogo_azzorti_mas_reciente($campana = null, $fecha_referencia = null) {
         if ($campana !== null) {
             $clave_buscada = $this->normalizar_campana($campana, $fecha_referencia);

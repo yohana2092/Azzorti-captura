@@ -77,19 +77,24 @@ class Productosestrella extends RestController {
         }
 
         $campana = trim((string) ($_POST['campana'] ?? ''));
-        if ($campana === '' || empty($_FILES['archivo']['tmp_name'])) {
+        $archivo = $this->archivo_util->archivo_recibido();
+        if ($campana === '' || $archivo === null) {
             $this->response(['status' => false, 'message' => 'Falta campana o archivo.'], 400);
             return;
         }
-        $ruta_temporal = $_FILES['archivo']['tmp_name'];
+        $ruta_temporal = $archivo['ruta'];
         $contenido = file_get_contents($ruta_temporal);
 
         try {
             $filas = $this->m_producto_estrella->parsear($ruta_temporal);
         } catch (Throwable $e) {
+            $this->archivo_util->limpiar_subida($archivo);
             $this->response(['status' => false, 'message' => 'No se pudo leer el Excel: ' . $e->getMessage()], 400);
             return;
         }
+        // Ya esta todo en memoria ($contenido, $filas): las partes
+        // temporales (si vino por partes) ya no hacen falta.
+        $this->archivo_util->limpiar_subida($archivo);
         if (!$filas) {
             $this->response([
                 'status' => false,
@@ -147,6 +152,31 @@ class Productosestrella extends RestController {
                 . 'columna en el archivo: ' . implode('; ', $mostrados) . (count($sospechosos) > 5 ? '...' : '');
         }
         $this->response(['mensaje' => $mensaje, 'total' => count($filas), 'sospechosos' => $sospechosos], 200);
+    }
+
+    /**
+     * POST /productosestrella/buscar_precio/{id} - busca el producto en el
+     * catalogo de su competidor (y su referente en el de Azzorti) de la
+     * misma campana, con la IA, y actualiza el precio si es confiable.
+     * Uno por llamada: cada producto tarda 20-90 s (dos consultas a la IA).
+     */
+    function buscar_precio_post($id) {
+        $resultado = $this->m_producto_estrella->buscar_precio($id);
+        if ($resultado === null) {
+            $this->response(['status' => false, 'message' => 'Producto estrella no encontrado'], 404);
+            return;
+        }
+        $this->response($resultado, 200);
+    }
+
+    /** POST /productosestrella/aceptar_propuesta/{id} - Mercadeo confirma
+     * los precios que propuso la busqueda para un producto "revisar". */
+    function aceptar_propuesta_post($id) {
+        if (!$this->m_producto_estrella->aceptar_propuesta($id)) {
+            $this->response(['status' => false, 'message' => 'Producto estrella no encontrado'], 404);
+            return;
+        }
+        $this->response(['mensaje' => 'Precios aceptados.'], 200);
     }
 
     /** GET /productos-estrella (server.py lineas 1048-1114). */

@@ -38,6 +38,12 @@ class M_schema extends CI_Model {
         // elim: fecha en que se elimino la captura desde el dashboard
         // (borrado logico - se oculta pero no se pierde; NULL = vigente).
         'capt' => ['gene' => 'VARCHAR(20)', 'elim' => 'VARCHAR(30)'],
+        // Busqueda automatica de precios de productos estrella en los
+        // catalogos: estado (auto/revisar/aceptado/no_encontrado/
+        // sin_catalogo/sin_ia), fecha, y lo encontrado de cada lado en JSON
+        // corto (pagina, codigo, nombre, % parecido, precio).
+        'capt_prod_estr' => ['bus_esta' => 'VARCHAR(20)', 'bus_fech' => 'VARCHAR(30)',
+            'bus_comp' => 'VARCHAR(255)', 'bus_azzo' => 'VARCHAR(255)'],
     ];
 
     private function agregar_columnas_faltantes() {

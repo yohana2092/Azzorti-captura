@@ -90,6 +90,10 @@ CREATE TABLE capt_prod_estr (
     camp_azzo VARCHAR(20),
     delt_arch FLOAT,
     fact VARCHAR(30) NOT NULL,
+    bus_esta VARCHAR(20),
+    bus_fech VARCHAR(30),
+    bus_comp VARCHAR(255),
+    bus_azzo VARCHAR(255),
     PRIMARY KEY (id),
     UNIQUE (comp, desc_comp, camp)
 );

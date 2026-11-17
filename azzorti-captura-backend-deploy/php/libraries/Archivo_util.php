@@ -42,6 +42,118 @@ class Archivo_util {
         return false;
     }
 
+    // ===== Subida por partes =====
+    // El servidor de produccion solo acepta 4 MB por archivo / 8 MB por
+    // envio y no se puede subir ese limite (confirmado con el
+    // desarrollador, 2026-11-17). El dashboard parte los archivos grandes
+    // (catalogos PDF ~30-80 MB, Excel de productos estrella ~6 MB) en
+    // pedazos de 3 MB, los manda uno por uno a catalogos/subir_parte, y
+    // despues llama al endpoint de siempre con "id_subida" en vez del
+    // archivo - archivo_recibido() los vuelve a unir.
+
+    const MAX_PARTES = 80; // 80 x 3 MB = 240 MB, de sobra
+
+    private function carpeta_subida($id_subida) {
+        if (!is_string($id_subida) || !preg_match('/^[a-z0-9-]{8,64}$/', $id_subida)) {
+            return null;
+        }
+        return RUTA_ARCHIVOS . 'captura_v1/subidas_tmp/' . $id_subida;
+    }
+
+    /** Guarda la parte $indice (0-based) de una subida. Devuelve null si
+     * todo bien, o el mensaje de error. */
+    public function guardar_parte($id_subida, $indice, $total, $ruta_tmp) {
+        $carpeta = $this->carpeta_subida($id_subida);
+        $indice = (int) $indice;
+        $total = (int) $total;
+        if ($carpeta === null || $total < 1 || $total > self::MAX_PARTES || $indice < 0 || $indice >= $total) {
+            return 'Datos de la parte invalidos.';
+        }
+        if (!$ruta_tmp || !is_uploaded_file($ruta_tmp)) {
+            return 'No llego el contenido de la parte.';
+        }
+        $this->limpiar_subidas_viejas();
+        $this->asegurar_carpeta($carpeta);
+        if (!move_uploaded_file($ruta_tmp, $carpeta . '/' . sprintf('%03d', $indice) . '.part')) {
+            return 'No se pudo guardar la parte en el servidor.';
+        }
+        return null;
+    }
+
+    /**
+     * El archivo que mando el dashboard, venga entero ($_FILES['archivo'])
+     * o por partes ($_POST id_subida + partes + nombre_archivo). Devuelve
+     * ['ruta' => ..., 'nombre' => nombre original, 'id_subida' => ...|null]
+     * o null si no vino nada / faltan partes.
+     */
+    public function archivo_recibido() {
+        if (!empty($_POST['id_subida'])) {
+            $carpeta = $this->carpeta_subida($_POST['id_subida']);
+            $partes = (int) ($_POST['partes'] ?? 0);
+            if ($carpeta === null || $partes < 1 || $partes > self::MAX_PARTES) {
+                return null;
+            }
+            $completo = $carpeta . '/completo.bin';
+            $salida = @fopen($completo, 'wb');
+            if (!$salida) {
+                return null;
+            }
+            for ($i = 0; $i < $partes; $i++) {
+                $parte = $carpeta . '/' . sprintf('%03d', $i) . '.part';
+                if (!is_file($parte)) {
+                    fclose($salida);
+                    return null; // falta una parte: el dashboard la reintenta
+                }
+                $entrada = fopen($parte, 'rb');
+                stream_copy_to_stream($entrada, $salida);
+                fclose($entrada);
+            }
+            fclose($salida);
+            return [
+                'ruta' => $completo,
+                'nombre' => basename((string) ($_POST['nombre_archivo'] ?? 'archivo')),
+                'id_subida' => $_POST['id_subida'],
+            ];
+        }
+        if (!empty($_FILES['archivo']['tmp_name'])) {
+            return ['ruta' => $_FILES['archivo']['tmp_name'], 'nombre' => $_FILES['archivo']['name'], 'id_subida' => null];
+        }
+        return null;
+    }
+
+    /** Lleva el archivo recibido a su lugar definitivo. */
+    public function mover_recibido(array $archivo, $destino) {
+        $ok = $archivo['id_subida'] === null
+            ? move_uploaded_file($archivo['ruta'], $destino)
+            : rename($archivo['ruta'], $destino);
+        $this->limpiar_subida($archivo);
+        return $ok;
+    }
+
+    /** Borra las partes temporales de una subida (si fue por partes). */
+    public function limpiar_subida(array $archivo) {
+        if (empty($archivo['id_subida'])) {
+            return;
+        }
+        $carpeta = $this->carpeta_subida($archivo['id_subida']);
+        if ($carpeta && is_dir($carpeta)) {
+            foreach (glob($carpeta . '/*') ?: [] as $f) {
+                @unlink($f);
+            }
+            @rmdir($carpeta);
+        }
+    }
+
+    /** Subidas que quedaron a medias hace mas de un dia (pestaña cerrada,
+     * sin señal...) - para no ir llenando el disco del servidor. */
+    private function limpiar_subidas_viejas() {
+        foreach (glob(RUTA_ARCHIVOS . 'captura_v1/subidas_tmp/*', GLOB_ONLYDIR) ?: [] as $carpeta) {
+            if (filemtime($carpeta) < time() - 86400) {
+                $this->limpiar_subida(['id_subida' => basename($carpeta)]);
+            }
+        }
+    }
+
     public function asegurar_carpeta($ruta) {
         if (!is_dir($ruta)) {
             mkdir($ruta, 0775, true);
