@@ -395,6 +395,11 @@
               style="padding:9px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;">
               Importar
             </button>
+            <button id="btn-buscar-precios" onclick="buscarPreciosEstrella(this)"
+              title="Busca cada producto de la tabla (con los filtros de arriba) en los catálogos PDF de su campaña y lee el precio con IA"
+              style="padding:9px 16px;border:1px solid var(--blue);border-radius:8px;background:#fff;color:var(--blue);font-weight:700;cursor:pointer;">
+              🔎 Buscar precios en catálogos
+            </button>
           </div>
           <div id="est-mensaje" style="padding:0 20px 10px;font-size:12px;color:var(--muted);"></div>
           <div style="overflow-x:auto;">
@@ -403,7 +408,7 @@
               <th style="width:56px;">Foto</th><th>Competidor</th><th>Categoría</th><th>Campaña</th>
               <th>Descripción</th><th>Precio Competidor</th>
               <th style="width:56px;">Foto Azzorti</th><th>Campaña</th><th>Referente Azzorti</th><th>Precio Azzorti</th>
-              <th>Variación</th>
+              <th>Variación</th><th>Encontrado en catálogos</th>
             </tr></thead>
             <tbody id="est-tbody"></tbody>
           </table>
@@ -998,7 +1003,13 @@
   // para el detalle del despliegue. Desplegado y confirmado funcionando
   // en el servidor real desde 2026-09-28 - el backend local via tunel
   // de Cloudflare (local_test/README.md) ya no hace falta.
-  const BACKEND_URL = 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
+  // ?backend=local -> backend del computador de Yohana (local_test,
+  // puerto 8765) para pilotos sin tocar produccion. Solo funciona abriendo
+  // el dashboard.html del disco (file://), no desde GitHub (https no puede
+  // llamar a http://localhost).
+  const BACKEND_URL = new URLSearchParams(location.search).get('backend') === 'local'
+    ? 'http://localhost:8765'
+    : 'https://servicioweb2bol.azzorti.co/hmvc/captura_v1';
 
   var _ultimoConteoLive = 0;
   var _vdCombosVistos = new Set();
@@ -1170,6 +1181,42 @@
     }
   }
 
+  // ====== Subida por partes ======
+  // El servidor oficial solo acepta 4 MB por archivo y no se puede subir
+  // ese limite. Todo archivo se manda en pedazos de 3 MB a
+  // catalogos/subir_parte (con hasta 3 reintentos por pedazo) y despues
+  // el endpoint de siempre recibe id_subida/partes/nombre_archivo en vez
+  // del archivo - el backend los vuelve a unir (Archivo_util).
+  const TAMANO_PARTE = 3 * 1024 * 1024;
+
+  async function agregarArchivoPorPartes(form, archivo, onAvance){
+    const total = Math.max(1, Math.ceil(archivo.size / TAMANO_PARTE));
+    const idSubida = 's' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    for(let i = 0; i < total; i++){
+      const parte = archivo.slice(i * TAMANO_PARTE, (i + 1) * TAMANO_PARTE);
+      let ok = false, ultimoError = '';
+      for(let intento = 1; intento <= 3 && !ok; intento++){
+        if(onAvance) onAvance(i + 1, total);
+        const f = new FormData();
+        f.append('id_subida', idSubida);
+        f.append('indice', i);
+        f.append('total', total);
+        f.append('archivo', parte, 'parte');
+        try {
+          const resp = await fetch(BACKEND_URL + '/catalogos/subir_parte', {method: 'POST', body: f});
+          if(resp.ok){ ok = true; break; }
+          const data = await resp.json().catch(() => ({}));
+          ultimoError = data.message || ('error ' + resp.status);
+        } catch(e){ ultimoError = 'sin conexión'; }
+        await new Promise(r => setTimeout(r, 2000 * intento));
+      }
+      if(!ok) throw new Error('No se pudo subir la parte ' + (i + 1) + ' de ' + total + ' (' + ultimoError + ').');
+    }
+    form.append('id_subida', idSubida);
+    form.append('partes', total);
+    form.append('nombre_archivo', archivo.name);
+  }
+
   // ====== Pendiente 6: Competencia (repositorio de catálogos) ======
   async function subirCatalogoCompetencia(){
     const competidor = document.getElementById('comp-competidor').value.trim();
@@ -1183,11 +1230,17 @@
     const form = new FormData();
     form.append('competidor', competidor);
     form.append('campana', campana);
-    form.append('archivo', archivoInput.files[0]);
     msg.textContent = 'Subiendo…';
     try {
+      await agregarArchivoPorPartes(form, archivoInput.files[0], function(n, total){
+        msg.textContent = 'Subiendo parte ' + n + ' de ' + total + '…';
+      });
+      msg.textContent = 'Uniendo el archivo en el servidor…';
       const resp = await fetch(BACKEND_URL + '/catalogos', {method: 'POST', body: form});
-      if(!resp.ok) throw new Error('fallo al subir');
+      if(!resp.ok){
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.message || ('error ' + resp.status + ' del servidor'));
+      }
       msg.textContent = '✓ Catálogo subido.';
       document.getElementById('comp-competidor').value = '';
       document.getElementById('comp-campana').value = '';
@@ -1195,7 +1248,7 @@
       cargarCompetencia();
       cargarCatalogos(); // mantiene sel-marca/sel-campana-vd del Dashboard con las opciones reales
     } catch(e){
-      msg.textContent = '⚠ No se pudo subir — revisa que el backend esté encendido.';
+      msg.textContent = '⚠ No se pudo subir: ' + (e.message || 'revisa la conexión con el servidor.');
     }
   }
 
@@ -1584,9 +1637,12 @@
     }
     const form = new FormData();
     form.append('campana', campana);
-    form.append('archivo', archivoInput.files[0]);
     msg.textContent = 'Importando…';
     try {
+      await agregarArchivoPorPartes(form, archivoInput.files[0], function(n, total){
+        msg.textContent = 'Subiendo parte ' + n + ' de ' + total + '…';
+      });
+      msg.textContent = 'Importando…';
       const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(data.detail || data.message || ('fallo al importar (error ' + resp.status + ' del servidor)'));
@@ -1682,9 +1738,12 @@
     }
     const form = new FormData();
     form.append('campana', campana);
-    form.append('archivo', archivoInput.files[0]);
     msg.textContent = 'Importando…';
     try {
+      await agregarArchivoPorPartes(form, archivoInput.files[0], function(n, total){
+        msg.textContent = 'Subiendo parte ' + n + ' de ' + total + '…';
+      });
+      msg.textContent = 'Importando…';
       const resp = await fetch(BACKEND_URL + '/productosestrella/importar', {method: 'POST', body: form});
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(data.detail || data.message || ('fallo al importar (error ' + resp.status + ' del servidor)'));
@@ -1789,6 +1848,7 @@
       if(ca !== cb) return ca < cb ? -1 : 1;
       return _normalizar(a.campana) < _normalizar(b.campana) ? -1 : 1;
     });
+    _listaEstrellaVisible = lista;
     const tbody = document.getElementById('est-tbody');
     if(!tbody) return;
     tbody.innerHTML = '';
@@ -1831,9 +1891,92 @@
         '<td>' + campanaAzzortiTxt + '</td>' +
         '<td class="desc-txt" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + referenteTxt.replace(/"/g,'') + '">' + referenteTxt + '</td>' +
         '<td class="price">' + precioAzzortiTxt + '</td>' +
-        '<td>' + variacionHtml + '</td>';
+        '<td>' + variacionHtml + '</td>' +
+        (PILOTO_ESTRELLA ? '<td style="font-size:11px;min-width:190px;">' + _htmlBusquedaEstrella(p) + '</td>' : '');
       tbody.appendChild(tr);
     });
+  }
+
+  // ===== Busqueda automatica de precios en catalogos (piloto) =====
+  var _listaEstrellaVisible = []; // lo que muestra la tabla con los filtros actuales
+  // Piloto solo en el backend local hasta validarlo (2026-11-17): en el
+  // dashboard oficial no se muestra ni el boton ni la columna.
+  const PILOTO_ESTRELLA = BACKEND_URL.indexOf('http://localhost') === 0;
+  document.addEventListener('DOMContentLoaded', function(){
+    if(PILOTO_ESTRELLA) return;
+    const btn = document.getElementById('btn-buscar-precios');
+    if(btn) btn.style.display = 'none';
+    const th = document.querySelector('#vd-estrella-panel thead th:last-child');
+    if(th && /catálogos/.test(th.textContent)) th.style.display = 'none';
+  });
+  const _ESTADO_BUSQUEDA = {
+    auto:          ['✓ Actualizado solo', '#116932', '#E6F6EC'],
+    aceptado:      ['✓ Aceptado', '#116932', '#E6F6EC'],
+    revisar:       ['Por revisar', '#9A6700', '#FFF4D6'],
+    no_encontrado: ['No encontrado', '#B42318', '#FDECEA'],
+    sin_catalogo:  ['Falta catálogo de la campaña', '#B42318', '#FDECEA'],
+    sin_ia:        ['IA no respondió', '#9A6700', '#FFF4D6'],
+  };
+
+  function _ladoBusqueda(etiqueta, b){
+    if(!b) return '';
+    if(b.estado !== 'encontrado'){
+      const txt = b.estado === 'sin_catalogo' ? 'falta catálogo' : (b.estado === 'sin_ia' ? 'IA no respondió' : 'no encontrado');
+      return '<div><b>' + etiqueta + ':</b> ' + txt + '</div>';
+    }
+    return '<div><b>' + etiqueta + ':</b> ' + _textoAtributo(b.nom || '') +
+      ' · pág. ' + (b.pag_impresa || b.pag) + (b.cod ? ' · cód. ' + b.cod : '') +
+      ' · <b>' + (b.prec != null ? 'Bs ' + Number(b.prec).toFixed(2) : 'sin precio') + '</b>' +
+      ' <span style="color:var(--muted);">(' + b.pct + '%)</span></div>';
+  }
+
+  function _htmlBusquedaEstrella(p){
+    if(!p.busqueda_estado) return '<span style="color:var(--muted);">Sin buscar</span>';
+    const e = _ESTADO_BUSQUEDA[p.busqueda_estado] || [p.busqueda_estado, 'var(--ink)', 'var(--paper)'];
+    let html = '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;color:' + e[1] +
+      ';background:' + e[2] + ';">' + e[0] + '</span>' +
+      _ladoBusqueda(_textoAtributo(p.competidor), p.busqueda_competidor) +
+      _ladoBusqueda('Azzorti', p.busqueda_azzorti);
+    if(p.busqueda_estado === 'revisar'){
+      html += '<button onclick="aceptarPropuestaEstrella(' + p.id + ', this)" ' +
+        'style="margin-top:4px;font-size:10.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:#116932;">' +
+        '✓ Aceptar precios encontrados</button>';
+    }
+    return html;
+  }
+
+  // Busca uno por uno los productos que se ven en la tabla (respeta los
+  // filtros de arriba): cada uno tarda 20-90 s porque la IA mira las paginas.
+  async function buscarPreciosEstrella(btnEl){
+    const msg = document.getElementById('est-mensaje');
+    const ids = _listaEstrellaVisible.map(function(p){ return p.id; });
+    if(!ids.length){ msg.textContent = '⚠ No hay productos en la tabla (revisa los filtros).'; return; }
+    if(!confirm('Buscar precios de ' + ids.length + ' producto(s) en los catálogos de su campaña?\n\nTarda aprox. 1 minuto por producto.')) return;
+    btnEl.disabled = true;
+    let ok = 0, fallos = 0;
+    for(let i = 0; i < ids.length; i++){
+      msg.textContent = 'Buscando ' + (i + 1) + ' de ' + ids.length + '…';
+      try {
+        const resp = await fetch(BACKEND_URL + '/productosestrella/buscar_precio/' + ids[i], {method: 'POST'});
+        if(!resp.ok) throw new Error();
+        ok++;
+      } catch(e){ fallos++; }
+    }
+    btnEl.disabled = false;
+    msg.textContent = '✓ Búsqueda terminada: ' + ok + ' revisado(s)' + (fallos ? ', ' + fallos + ' con error' : '') + '.';
+    cargarProductosEstrella();
+  }
+
+  async function aceptarPropuestaEstrella(id, btnEl){
+    btnEl.disabled = true;
+    try {
+      const resp = await fetch(BACKEND_URL + '/productosestrella/aceptar_propuesta/' + id, {method: 'POST'});
+      if(!resp.ok) throw new Error();
+      cargarProductosEstrella();
+    } catch(e){
+      btnEl.disabled = false;
+      alert('⚠ No se pudo aceptar.');
+    }
   }
 
   function abrirModalEstrella(catalogoId, competidor, campana){
