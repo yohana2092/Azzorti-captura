@@ -240,7 +240,21 @@ class M_producto_estrella extends CI_Model {
             $puntos[$pagina] = $n;
         }
         arsort($puntos);
-        return array_slice($puntos, 0, self::MAX_PAGINAS_BUSQUEDA, true);
+        $puntos = array_slice($puntos, 0, self::MAX_PAGINAS_BUSQUEDA, true);
+        // Paginas vecinas: las colecciones ocupan dos paginas y el nombre
+        // de la linea puede salir solo en una ("Coleccion You" en la 18,
+        // el frasco "You 90 ml" en la 19 sin la palabra legible por OCR).
+        foreach (array_keys($puntos) as $pagina) {
+            foreach ([$pagina + 1, $pagina - 1] as $vecina) {
+                if (count($puntos) >= self::MAX_PAGINAS_BUSQUEDA + 2) {
+                    break 2;
+                }
+                if (!isset($puntos[$vecina]) && isset($texto_por_pagina[$vecina])) {
+                    $puntos[$vecina] = 0;
+                }
+            }
+        }
+        return $puntos;
     }
 
     /**
