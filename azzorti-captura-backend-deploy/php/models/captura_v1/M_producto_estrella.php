@@ -387,15 +387,50 @@ class M_producto_estrella extends CI_Model {
         return true;
     }
 
-    /** server.py lineas 1095-1101: precio de la otra campaña ya cargada
-     * para el mismo producto (respaldo para archivos viejos VS_CAMPANA_ANTERIOR). */
-    public function precio_otra_campana($competidor, $descripcion_competidor, $campana_actual) {
-        return $this->db->query(
-            'SELECT FIRST 1 prec_comp AS precio_competidor, camp AS campana FROM capt_prod_estr '
-            . 'WHERE comp = ' . $this->lit($competidor) . ' AND desc_comp = ' . $this->lit($descripcion_competidor)
-            . ' AND camp != ' . $this->lit($campana_actual)
-            . ' ORDER BY fact DESC'
-        )->row();
+    /** "C17 2026" / "C-17 2026" -> 202617, para ordenar campañas en el
+     * tiempo (el texto no ordena bien: "C9" > "C17"). null si no se entiende. */
+    private function orden_campana($campana) {
+        if (preg_match('/C\s*-?\s*(\d{1,2})\D+(\d{4})/i', (string) $campana, $m)) {
+            return (int) $m[2] * 100 + (int) $m[1];
+        }
+        return null;
+    }
+
+    /** Precios de todas las campañas, agrupados por producto (competidor +
+     * descripción), para comparar cada fila contra sus campañas anteriores. */
+    private function historial_por_producto() {
+        $filas = $this->db->query(
+            'SELECT comp, desc_comp, camp, prec_comp, prec_azzo FROM capt_prod_estr'
+        )->result_array();
+        $hist = [];
+        foreach ($filas as $f) {
+            $orden = $this->orden_campana($f['camp']);
+            if ($orden === null) {
+                continue;
+            }
+            $hist[$f['comp'] . '|' . $f['desc_comp']][] = [
+                'orden' => $orden,
+                'campana' => $f['camp'],
+                'precio_competidor' => $f['prec_comp'] !== null ? round((float) $f['prec_comp'], 2) : null,
+                'precio_azzorti' => $f['prec_azzo'] !== null ? round((float) $f['prec_azzo'], 2) : null,
+            ];
+        }
+        foreach ($hist as &$lista) {
+            usort($lista, function ($a, $b) { return $a['orden'] - $b['orden']; });
+        }
+        unset($lista);
+        return $hist;
+    }
+
+    /** Ultima campaña ANTERIOR a $orden con dato en $campo, o null. */
+    private function ultimo_anterior(array $historial, $orden, $campo) {
+        $encontrado = null;
+        foreach ($historial as $h) {
+            if ($orden !== null && $h['orden'] < $orden && $h[$campo] !== null) {
+                $encontrado = $h;
+            }
+        }
+        return $encontrado;
     }
 
     /** server.py lineas 1048-1114. */
@@ -412,6 +447,7 @@ class M_producto_estrella extends CI_Model {
         $sql .= ' ORDER BY comp, desc_comp';
         $filas = $this->db->query($sql)->result_array();
 
+        $historial = $this->historial_por_producto();
         $resultado = [];
         foreach ($filas as $r) {
             $r['foto_url'] = !empty($r['foto_competidor'])
@@ -431,30 +467,58 @@ class M_producto_estrella extends CI_Model {
                 $r['precio_azzorti'] = round((float) $r['precio_azzorti'], 2);
             }
 
-            if ($r['precio_competidor'] !== null && !empty($r['precio_azzorti'])) {
-                $delta = ($r['precio_azzorti'] - $r['precio_competidor']) / $r['precio_azzorti'] * 100;
-                $r['delta_pct'] = round($delta, 2);
-                $r['precio_campana_anterior'] = null;
-                $r['comparacion'] = $r['modo'] === 'HOMOLOGO_FIJO'
-                    ? 'vs Azzorti (' . ($r['azzorti_referente'] ?? '') . ')'
-                    : 'vs campaña anterior (' . ($r['campana_azzorti'] ?? '') . ', ' . ($r['azzorti_referente'] ?? '') . ')';
-            } elseif ($r['modo'] === 'HOMOLOGO_FIJO') {
-                $r['delta_pct'] = null;
-                $r['precio_campana_anterior'] = null;
-                $r['comparacion'] = 'vs Azzorti (' . ($r['azzorti_referente'] ?? '') . ') — falta precio';
+            // Comparacion (pedido de Mercadeo 2026-11-18):
+            //  1. Con homologo Azzorti y los dos precios de esta campaña:
+            //     contra Azzorti, como siempre.
+            //  2. Homologo Azzorti sin precio en esta campaña (no salio en el
+            //     catalogo): contra el ULTIMO precio Azzorti conocido, y se
+            //     dice de que campaña es.
+            //  3. Sin homologo (VS_CAMPANA_ANTERIOR), o sin ningun precio
+            //     Azzorti: contra el precio del MISMO producto del competidor
+            //     en su campaña anterior.
+            $hist = $historial[$r['competidor'] . '|' . $r['descripcion_competidor']] ?? [];
+            $orden = $this->orden_campana($r['campana']);
+            $r['historial'] = array_values(array_map(function ($h) {
+                return ['campana' => $h['campana'], 'precio_competidor' => $h['precio_competidor'], 'precio_azzorti' => $h['precio_azzorti']];
+            }, array_filter($hist, function ($h) use ($orden) { return $orden === null || $h['orden'] <= $orden; })));
+            $ant_comp = $this->ultimo_anterior($hist, $orden, 'precio_competidor');
+            $ant_azzo = $this->ultimo_anterior($hist, $orden, 'precio_azzorti');
+            $r['delta_pct'] = null;
+            $r['tipo_comparacion'] = null;
+            $r['precio_campana_anterior'] = null;
+            $r['precio_azzorti_ultimo'] = null;
+            $r['campana_azzorti_ultimo'] = null;
+            $pc = $r['precio_competidor'];
+            $ref = $r['azzorti_referente'] ?? '';
+
+            if ($r['modo'] === 'HOMOLOGO_FIJO' && $pc !== null && !empty($r['precio_azzorti'])) {
+                $r['delta_pct'] = round(($r['precio_azzorti'] - $pc) / $r['precio_azzorti'] * 100, 2);
+                $r['tipo_comparacion'] = 'azzorti';
+                $r['comparacion'] = 'vs Azzorti (' . $ref . ')';
+            } elseif ($r['modo'] === 'HOMOLOGO_FIJO' && $pc !== null && $ant_azzo && $ant_azzo['precio_azzorti'] > 0) {
+                $pa = $ant_azzo['precio_azzorti'];
+                $r['delta_pct'] = round(($pa - $pc) / $pa * 100, 2);
+                $r['tipo_comparacion'] = 'azzorti_ultimo';
+                $r['precio_azzorti_ultimo'] = $pa;
+                $r['campana_azzorti_ultimo'] = $ant_azzo['campana'];
+                $r['comparacion'] = 'vs Azzorti (' . $ref . ') — último precio conocido, ' . $ant_azzo['campana'];
+            } elseif ($pc !== null && $ant_comp && $ant_comp['precio_competidor'] > 0) {
+                $pant = $ant_comp['precio_competidor'];
+                $r['delta_pct'] = round(($pc - $pant) / $pant * 100, 2);
+                $r['tipo_comparacion'] = 'campana_anterior';
+                $r['precio_campana_anterior'] = $pant;
+                $r['campana_anterior'] = $ant_comp['campana'];
+                $r['comparacion'] = 'vs su precio en ' . $ant_comp['campana'] . ' (Bs ' . $pant . ')';
+            } elseif ($r['modo'] !== 'HOMOLOGO_FIJO' && $pc !== null && !empty($r['precio_azzorti'])) {
+                // Archivos viejos: el Excel traia el precio anterior en la
+                // columna de Azzorti.
+                $r['delta_pct'] = round(($r['precio_azzorti'] - $pc) / $r['precio_azzorti'] * 100, 2);
+                $r['tipo_comparacion'] = 'excel';
+                $r['comparacion'] = 'vs campaña anterior (' . ($r['campana_azzorti'] ?? '') . ', ' . $ref . ')';
             } else {
-                $anterior = $this->precio_otra_campana($r['competidor'], $r['descripcion_competidor'], $r['campana']);
-                $r['precio_campana_anterior'] = ($anterior && $anterior->precio_competidor !== null)
-                    ? round((float) $anterior->precio_competidor, 2) : null;
-                $r['campana_anterior'] = $anterior ? $anterior->campana : $r['campana_anterior'];
-                if ($anterior && $anterior->precio_competidor && $r['precio_competidor'] !== null) {
-                    $delta = ($r['precio_competidor'] - $anterior->precio_competidor) / $anterior->precio_competidor * 100;
-                    $r['delta_pct'] = round($delta, 2);
-                    $r['comparacion'] = 'vs campaña anterior (Bs ' . $anterior->precio_competidor . ')';
-                } else {
-                    $r['delta_pct'] = null;
-                    $r['comparacion'] = 'vs campaña anterior — sin dato previo o precio actual pendiente';
-                }
+                $r['comparacion'] = $r['modo'] === 'HOMOLOGO_FIJO'
+                    ? 'vs Azzorti (' . $ref . ') — falta precio'
+                    : 'vs campaña anterior — sin dato previo o precio actual pendiente';
             }
             $r['alerta'] = ($r['delta_pct'] !== null) && (abs($r['delta_pct']) > $umbral);
             $resultado[] = $r;

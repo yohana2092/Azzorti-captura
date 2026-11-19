@@ -1791,10 +1791,8 @@
     });
     tbody.innerHTML = '';
     lista.forEach(function(p){
-      const claseVar = (p.delta_pct == null) ? 'pending' : (p.delta_pct >= 0 ? 'up' : 'down');
-      const variacionHtml = (p.delta_pct == null)
-        ? '<span class="variation pending">—</span>'
-        : '<span class="variation ' + claseVar + '">' + p.delta_pct.toFixed(2) + '%</span>';
+      const celdasComp = _celdasComparacionEstrella(p);
+      const variacionHtml = celdasComp.variacion;
       const fotoHtml = p.foto_url
         ? '<img src="' + p.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
           (p.competidor + ' · ' + p.descripcion_competidor).replace(/'/g,"") + '\')" ' +
@@ -1807,9 +1805,7 @@
         : '<div style="width:40px;height:40px;border-radius:6px;background:var(--paper);"></div>';
       const campanaAzzortiTxt = p.campana_azzorti || p.campana_anterior || '—';
       const referenteTxt = p.azzorti_referente || '—';
-      const precioAzzortiTxt = p.precio_azzorti != null
-        ? 'Bs ' + p.precio_azzorti.toFixed(2)
-        : (p.precio_campana_anterior != null ? 'Bs ' + p.precio_campana_anterior.toFixed(2) : '—');
+      const precioAzzortiTxt = celdasComp.precioAzzorti;
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td>' + fotoHtml + '</td>' +
@@ -1828,6 +1824,31 @@
     if(!lista.length){
       tbody.innerHTML = '<tr><td colspan="11" style="color:var(--muted);font-size:12px;padding:16px;">Sin datos para esta combinación de filtros.</td></tr>';
     }
+  }
+
+  // Precio Azzorti + Variación de un producto estrella, según contra qué se
+  // compara (ver M_producto_estrella::listar): Azzorti de la campaña, último
+  // precio Azzorti conocido, o el mismo producto en su campaña anterior.
+  function _celdasComparacionEstrella(p){
+    const fmt = function(v){ return 'Bs ' + Number(v).toFixed(2); };
+    const nota = function(t){ return '<div style="font-size:10.5px;color:var(--muted);font-weight:400;white-space:nowrap;">' + t + '</div>'; };
+    let precioAzzorti = '—';
+    if (p.precio_azzorti != null && p.tipo_comparacion !== 'excel') precioAzzorti = fmt(p.precio_azzorti);
+    else if (p.precio_azzorti_ultimo != null) precioAzzorti = fmt(p.precio_azzorti_ultimo) + nota('último conocido · ' + p.campana_azzorti_ultimo);
+    else if (p.tipo_comparacion === 'excel' && p.precio_azzorti != null) precioAzzorti = fmt(p.precio_azzorti);
+    // Servidor sin esta mejora todavía (no manda tipo_comparacion).
+    else if (p.tipo_comparacion === undefined && p.precio_campana_anterior != null) precioAzzorti = fmt(p.precio_campana_anterior);
+    let variacion = '<span class="variation pending">—</span>';
+    if (p.delta_pct != null){
+      const clase = p.delta_pct >= 0 ? 'up' : 'down';
+      variacion = '<span class="variation ' + clase + '">' + (p.delta_pct > 0 ? '+' : '') + p.delta_pct.toFixed(2) + '%</span>';
+      if (p.tipo_comparacion === 'campana_anterior'){
+        variacion += nota('vs su precio en ' + p.campana_anterior + ' (' + fmt(p.precio_campana_anterior) + ')');
+      } else if (p.tipo_comparacion === 'azzorti_ultimo'){
+        variacion += nota('vs Azzorti de ' + p.campana_azzorti_ultimo);
+      }
+    }
+    return { precioAzzorti: precioAzzorti, variacion: variacion };
   }
 
   function _pintarProductosEstrella(){
@@ -1853,10 +1874,8 @@
     if(!tbody) return;
     tbody.innerHTML = '';
     lista.forEach(function(p){
-      const claseVar = (p.delta_pct == null) ? 'pending' : (p.delta_pct >= 0 ? 'up' : 'down');
-      const variacionHtml = (p.delta_pct == null)
-        ? '<span class="variation pending">—</span>'
-        : '<span class="variation ' + claseVar + '">' + p.delta_pct.toFixed(2) + '%</span>';
+      const celdasComp = _celdasComparacionEstrella(p);
+      const variacionHtml = celdasComp.variacion;
       const fotoHtml = p.foto_url
         ? '<img src="' + p.foto_url + '" class="foto-preview-trigger" onclick="abrirVistaPrevia(this.src, \'' +
           (p.competidor + ' · ' + p.descripcion_competidor).replace(/'/g,"") + '\')" ' +
@@ -1876,9 +1895,7 @@
       // Precio Azzorti: solo si es un precio real (homólogo fijo). Sin
       // homólogo, el archivo solo trae el % (columna Variación) — no se
       // inventa un precio despejándolo de ese %.
-      const precioAzzortiTxt = p.precio_azzorti != null
-        ? 'Bs ' + p.precio_azzorti.toFixed(2)
-        : (p.precio_campana_anterior != null ? 'Bs ' + p.precio_campana_anterior.toFixed(2) : '—');
+      const precioAzzortiTxt = celdasComp.precioAzzorti;
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td>' + fotoHtml + '</td>' +
