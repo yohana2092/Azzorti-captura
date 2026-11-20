@@ -410,6 +410,12 @@ class Texto_util {
         $n = count($datos['text']);
         for ($i = 0; $i < $n; $i++) {
             $limpio = $this->limpiar_palabra($datos['text'][$i]);
+            // El OCR del servidor (tesseract 3.04) pega el numero del
+            // producto a la referencia: "1.Ref.R6817" -> "1REFR6817" (caso
+            // real, C-10 pag. 34, 31 paginas sin productos). Se quita ese
+            // numero delante (1-2 digitos, o "A"/"L"/"LO" mal leidos por
+            // 4/1) antes de exigir que el patron empiece al principio.
+            $limpio = preg_replace('/^(?:\d{1,2}|LO|[AL])(?=RE[FI])/', '', $limpio);
             // Antes exigia que TODO el token limpio fuera exactamente el
             // patron de referencia ($m[0] === $limpio) - caso real que se
             // perdia: "Ref.R4874" leido por el OCR como "Ref.R487lo" (el
