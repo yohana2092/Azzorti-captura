@@ -1916,9 +1916,9 @@
 
   // ===== Busqueda automatica de precios en catalogos (piloto) =====
   var _listaEstrellaVisible = []; // lo que muestra la tabla con los filtros actuales
-  // Piloto solo en el backend local hasta validarlo (2026-11-17): en el
-  // dashboard oficial no se muestra ni el boton ni la columna.
-  const PILOTO_ESTRELLA = BACKEND_URL.indexOf('http://localhost') === 0;
+  // Piloto de busqueda de precios en catalogos: validado en local
+  // (2026-11-17/19) y publicado para la operacion el 2026-11-20.
+  const PILOTO_ESTRELLA = true;
   document.addEventListener('DOMContentLoaded', function(){
     if(PILOTO_ESTRELLA) return;
     const btn = document.getElementById('btn-buscar-precios');
