@@ -29,7 +29,8 @@ class Texto_util {
     // _texto_mezclado. "RE[FI]" (no solo "REF") tolera que el OCR lea
     // "Ref." como "ReÍ." (confusion real f/i en esta fuente, confirmada
     // en produccion) cuando el token queda pegado en uno solo.
-    const REF_RE = '/RE[FI][.\-]?\s*R?(\d{3,})/';
+    // "R?M?": el C-18 trae tambien referencias "Ref.RM1188" (moda).
+    const REF_RE = '/RE[FI][.\-]?\s*R?M?(\d{3,})/';
 
     // server.py linea 2041. Dos tolerancias sobre el original, ambas
     // confirmadas en produccion:
@@ -443,7 +444,7 @@ class Texto_util {
                     $siguiente = $this->limpiar_palabra($datos['text'][$j]);
                     // Misma tolerancia que arriba, para "Ref." y el
                     // numero en tokens separados.
-                    if (preg_match('/^R?(\d{3,})[A-Z]{0,2}$/', $siguiente, $m2)) {
+                    if (preg_match('/^R?M?(\d{3,})[A-Z]{0,2}$/', $siguiente, $m2)) {
                         // Se ancla en la posicion de "Ref." (token $i), no
                         // en la del numero (token $j): el numero suele
                         // quedar en el extremo derecho de la etiqueta del
