@@ -1188,14 +1188,47 @@
   // el endpoint de siempre recibe id_subida/partes/nombre_archivo en vez
   // del archivo - el backend los vuelve a unir (Archivo_util).
   const TAMANO_PARTE = 3 * 1024 * 1024;
+  const TAMANO_PARTE_CHICA = 1024 * 1024; // respaldo para redes que cortan envíos grandes
+  const MAX_PARTES = 80;                   // igual que Archivo_util::MAX_PARTES
 
+  // Caso real (2026-11-23): "sin conexión" en la parte 1 desde la PC de la
+  // operación, con el servidor andando. Dos causas típicas: el PDF está en
+  // OneDrive/Teams sin descargar (el navegador no lo puede leer y fetch
+  // falla igual que sin internet), o la red corta envíos de varios MB.
+  // Por eso: se lee cada parte ANTES de enviarla (error claro si no se
+  // puede), y si la primera parte no pasa por red se reintenta todo con
+  // partes de 1 MB.
   async function agregarArchivoPorPartes(form, archivo, onAvance){
-    const total = Math.max(1, Math.ceil(archivo.size / TAMANO_PARTE));
+    let idSubida, total;
+    try {
+      ({idSubida, total} = await _subirPartes(archivo, TAMANO_PARTE, onAvance));
+    } catch(e){
+      const totalChico = Math.ceil(archivo.size / TAMANO_PARTE_CHICA);
+      if(!e.esRedPrimeraParte || totalChico > MAX_PARTES) throw e;
+      ({idSubida, total} = await _subirPartes(archivo, TAMANO_PARTE_CHICA, onAvance));
+    }
+    form.append('id_subida', idSubida);
+    form.append('partes', total);
+    form.append('nombre_archivo', archivo.name);
+  }
+
+  async function _subirPartes(archivo, tamano, onAvance){
+    const total = Math.max(1, Math.ceil(archivo.size / tamano));
+    if(total > MAX_PARTES){
+      throw new Error('El archivo pesa ' + Math.round(archivo.size / 1048576) + ' MB y el máximo es ' +
+        Math.round(MAX_PARTES * tamano / 1048576) + ' MB. Pídale a Mercadeo una versión más liviana del PDF.');
+    }
     const idSubida = 's' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     for(let i = 0; i < total; i++){
-      const parte = archivo.slice(i * TAMANO_PARTE, (i + 1) * TAMANO_PARTE);
-      let ok = false, ultimoError = '';
-      for(let intento = 1; intento <= 3 && !ok; intento++){
+      let parte;
+      try {
+        parte = new Blob([await archivo.slice(i * tamano, (i + 1) * tamano).arrayBuffer()]);
+      } catch(e){
+        throw new Error('No se pudo leer el archivo en este computador. Si está en OneDrive o Teams, ' +
+          'descárguelo primero (o cópielo al Escritorio) y vuelva a elegirlo.');
+      }
+      let ok = false, ultimoError = '', fueRed = false;
+      for(let intento = 1; intento <= 4 && !ok; intento++){
         if(onAvance) onAvance(i + 1, total);
         const f = new FormData();
         f.append('id_subida', idSubida);
@@ -1207,14 +1240,18 @@
           if(resp.ok){ ok = true; break; }
           const data = await resp.json().catch(() => ({}));
           ultimoError = data.message || ('error ' + resp.status);
-        } catch(e){ ultimoError = 'sin conexión'; }
+          fueRed = false;
+        } catch(e){ ultimoError = 'sin conexión con el servidor'; fueRed = true; }
         await new Promise(r => setTimeout(r, 2000 * intento));
       }
-      if(!ok) throw new Error('No se pudo subir la parte ' + (i + 1) + ' de ' + total + ' (' + ultimoError + ').');
+      if(!ok){
+        const err = new Error('No se pudo subir la parte ' + (i + 1) + ' de ' + total + ' (' + ultimoError + ').' +
+          (fueRed ? ' Revise su internet o pruebe desde otra red (por ejemplo, datos del celular).' : ''));
+        err.esRedPrimeraParte = fueRed && i === 0;
+        throw err;
+      }
     }
-    form.append('id_subida', idSubida);
-    form.append('partes', total);
-    form.append('nombre_archivo', archivo.name);
+    return {idSubida: idSubida, total: total};
   }
 
   // ====== Pendiente 6: Competencia (repositorio de catálogos) ======
