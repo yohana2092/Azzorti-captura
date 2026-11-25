@@ -1294,14 +1294,21 @@
       const resp = await fetch(BACKEND_URL + '/catalogos', {cache: 'no-store'});
       if(!resp.ok) return;
       const lista = await resp.json();
+      // Se agrupa sin distinguir mayúsculas ("AZZORTI" y "Azzorti" son el
+      // mismo grupo, igual que en el servidor). Se muestra el primer nombre
+      // escrito, salvo Azzorti que siempre se ve como "Azzorti".
       const porCompetidor = {};
+      const nombreGrupo = {};
       lista.forEach(function(cat){
-        (porCompetidor[cat.competidor] = porCompetidor[cat.competidor] || []).push(cat);
+        const clave = String(cat.competidor || '').trim().toLowerCase();
+        if(!nombreGrupo[clave]) nombreGrupo[clave] = clave === 'azzorti' ? 'Azzorti' : String(cat.competidor || '').trim();
+        (porCompetidor[clave] = porCompetidor[clave] || []).push(cat);
       });
       const cont = document.getElementById('comp-por-competidor');
       cont.innerHTML = '';
-      Object.keys(porCompetidor).sort().forEach(function(competidor){
-        const catalogos = porCompetidor[competidor];
+      Object.keys(porCompetidor).sort().forEach(function(clave){
+        const catalogos = porCompetidor[clave];
+        const competidor = nombreGrupo[clave];
         const panel = document.createElement('div');
         panel.className = 'panel';
         const esAzzorti = competidor.toLowerCase() === 'azzorti';
@@ -1429,6 +1436,13 @@
       const resp = await fetch(BACKEND_URL + '/catalogos/productos_resumen/' + catalogoId, {cache: 'no-store'});
       if(!resp.ok) return;
       const data = await resp.json();
+      if(_indexando[catalogoId]) return; // no pisar el avance en pantalla
+      const avance = _avanceIndexado(catalogoId);
+      if(avance){
+        cont.textContent = 'Indexado incompleto: quedó en la página ' + (avance.desde + 1) + ' de ' + avance.total +
+          '. Toque "Indexar productos" para continuar desde ahí.';
+        return;
+      }
       cont.textContent = data.total_productos
         ? data.total_productos + ' productos indexados (' + data.con_precio + ' con precio legible)'
         : 'Todavía no indexado — sin esto, Venta Directa no tiene con qué homologar en la app.';
@@ -1443,42 +1457,84 @@
   // solo en el fondo). Bajado de 15 a 10 al subir el DPI del OCR de 150
   // a 200 (Ocr_helper::DPI) - cada página pesa más y tarda más, así que
   // se achica la tanda para mantener un tiempo similar por request.
-  const PAGINAS_POR_TANDA = 10;
+  // 2026-11-25: en producción 2 páginas ya tardan ~45 s, así que 10 por
+  // tanda se arriesga al 504. Con 2 por tanda (lo mismo que el script que
+  // se usó para indexar C-10 y C-18) + reintentos + "continuar donde
+  // quedó", la operación puede indexar sola un catálogo de 200+ páginas.
+  const PAGINAS_POR_TANDA = 2;
+  const _indexando = {};
+
+  function _avanceIndexado(catalogoId){
+    try {
+      const v = JSON.parse(localStorage.getItem('indexado_cat_' + catalogoId) || 'null');
+      return v && v.desde > 0 && v.desde < v.total ? v : null;
+    } catch(e){ return null; }
+  }
+  function _guardarAvanceIndexado(catalogoId, desde, total){
+    try {
+      if(desde === null) localStorage.removeItem('indexado_cat_' + catalogoId);
+      else localStorage.setItem('indexado_cat_' + catalogoId, JSON.stringify({desde: desde, total: total}));
+    } catch(e){ /* sin almacenamiento: solo se pierde el "continuar" */ }
+  }
+  function _avisoSalirIndexando(ev){
+    ev.preventDefault();
+    ev.returnValue = '';
+  }
 
   async function indexarProductos(catalogoId, btnEl){
     const cont = document.getElementById('productos-cat-' + catalogoId);
     btnEl.disabled = true;
     const textoOriginal = btnEl.textContent;
     btnEl.textContent = 'Indexando…';
+    _indexando[catalogoId] = true;
+    window.addEventListener('beforeunload', _avisoSalirIndexando);
+    const previo = _avanceIndexado(catalogoId);
+    let desde = previo ? previo.desde : 0;
+    let numPaginas = previo ? previo.total : null;
     try {
-      let desde = 0;
-      let numPaginas = null;
       while (numPaginas === null || desde < numPaginas) {
         const hasta = desde + PAGINAS_POR_TANDA - 1;
-        if(cont) {
-          cont.textContent = numPaginas
-            ? 'Indexando página ' + (desde + 1) + ' a ' + Math.min(hasta + 1, numPaginas) + ' de ' + numPaginas + '…'
-            : 'Indexando página ' + (desde + 1) + ' a ' + (hasta + 1) + '…';
+        const tope = numPaginas ? Math.min(hasta + 1, numPaginas) : hasta + 1;
+        let data = null, ultimoError = '';
+        for(let intento = 1; intento <= 4 && !data; intento++){
+          if(cont) cont.textContent = '⏳ Indexando página ' + (desde + 1) + ' a ' + tope +
+            (numPaginas ? ' de ' + numPaginas : '') +
+            (intento > 1 ? ' (reintento ' + (intento - 1) + ')' : '') +
+            '… No cierre ni recargue esta pestaña hasta que termine.';
+          try {
+            const resp = await fetch(
+              BACKEND_URL + '/catalogos/indexar_productos/' + catalogoId
+                + '?desde=' + desde + '&hasta=' + hasta,
+              {method: 'POST'}
+            );
+            const cuerpo = await resp.json().catch(function(){ return null; });
+            if(resp.ok && cuerpo){ data = cuerpo; break; }
+            ultimoError = (cuerpo && (cuerpo.message || cuerpo.detail)) || ('error ' + resp.status);
+            // Error del pedido (4xx): reintentar no lo arregla.
+            if(resp.status >= 400 && resp.status < 500) break;
+          } catch(e){
+            ultimoError = 'sin conexión con el servidor';
+          }
+          await new Promise(function(r){ setTimeout(r, 5000 * intento); });
         }
-        const resp = await fetch(
-          BACKEND_URL + '/catalogos/indexar_productos/' + catalogoId
-            + '?desde=' + desde + '&hasta=' + hasta,
-          {method: 'POST'}
-        );
-        const data = await resp.json();
-        if(!resp.ok){
-          if(cont) cont.textContent = (data.message || data.detail || 'No se pudo indexar el catálogo.')
-            + ' (se guardó lo indexado hasta la página ' + desde + ').';
+        if(!data){
+          if(numPaginas) _guardarAvanceIndexado(catalogoId, desde, numPaginas);
+          if(cont) cont.textContent = 'Se detuvo en la página ' + (desde + 1) +
+            (numPaginas ? ' de ' + numPaginas : '') + ' (' + ultimoError + '). ' +
+            'Lo anterior quedó guardado: toque "Indexar productos" de nuevo para continuar desde ahí.';
           return;
         }
         numPaginas = data.num_paginas;
         desde = data.pagina_hasta + 1;
         if(data.completo) break;
+        _guardarAvanceIndexado(catalogoId, desde, numPaginas);
       }
+      _guardarAvanceIndexado(catalogoId, null);
+      delete _indexando[catalogoId];
       await _pintarEstadoIndexado(catalogoId);
-    } catch(e) {
-      if(cont) cont.textContent = 'Sin conexión con el backend (se guardó lo indexado hasta el corte).';
     } finally {
+      delete _indexando[catalogoId];
+      window.removeEventListener('beforeunload', _avisoSalirIndexando);
       btnEl.disabled = false;
       btnEl.textContent = textoOriginal;
     }
