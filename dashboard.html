@@ -932,9 +932,13 @@
     fetch(BACKEND_URL + '/catalogos', {cache: 'no-store'})
       .then(function(r){ return r.ok ? r.json() : []; })
       .then(function(lista){
+        const primeraVez = _catalogosAzzorti === null;
         _catalogosAzzorti = (lista || []).filter(function(c){
           return String(c.competidor || '').trim().toLowerCase() === 'azzorti' && /\.pdf($|\?)/i.test(c.archivo_url || '');
         });
+        // La tabla solo se re-pinta cuando cambian los datos: sin esto el
+        // botón 📖 no aparecería hasta la próxima captura nueva.
+        if(primeraVez && _catalogosAzzorti.length) sincronizarDashboard(true);
       })
       .catch(function(){ _catalogosAzzortiEn = 0; });
   }
@@ -951,10 +955,36 @@
     const clave = _claveCampana(captura.campana, captura.creada_en);
     const cat = _catalogosAzzorti.find(function(c){ return _claveCampana(c.campana, c.subido_en) === clave; })
       || _catalogosAzzorti.slice().sort(function(a, b){ return Number(b.id) - Number(a.id); })[0];
-    return '<a href="' + cat.archivo_url + '#page=' + h.pagina_catalogo + '" target="_blank" rel="noopener" ' +
+    const urlPdf = cat.archivo_url + '#page=' + h.pagina_catalogo;
+    const enlace = '<a href="' + urlPdf + '" target="_blank" rel="noopener" ' +
       'title="Abrir el catálogo Azzorti ' + _textoAtributo(cat.campana) + ' en la página del producto elegido" ' +
       'style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:6px;' +
       'border:1px solid var(--line);background:#fff;margin-right:8px;font-size:17px;text-decoration:none;flex:none;">📖</a>';
+    // Si el producto se mostró antes como candidato, el servidor ya dejó
+    // publicado su recorte ({catálogo}_{página}_{código}.png) junto a la
+    // página completa: se intenta mostrar esa foto, y si no existe queda
+    // el botón 📖 que abre el PDF.
+    const base = String(cat.archivo_url).replace(/catalogos_competidor\/[^\/]*$/, 'catalogo_paginas/');
+    if(base === cat.archivo_url) return enlace;
+    const prefijo = base + cat.id + '_' + h.pagina_catalogo + '_';
+    const recorte = prefijo + encodeURIComponent(h.azzorti_sku) + '.png';
+    const completa = prefijo + 'completa.png';
+    const etiqueta = _textoAtributo('Catálogo Azzorti ' + cat.campana + ' · Ref. ' + h.azzorti_sku + ' · pág. ' + h.pagina_catalogo);
+    return '<span style="display:inline-flex;flex:none;">' +
+      '<img src="' + recorte + '" class="foto-preview-trigger" title="Producto Azzorti elegido (clic para ver la página)" ' +
+        'onclick="abrirVistaPrevia(\'' + completa + '\', \'' + etiqueta + '\')" ' +
+        'onerror="_respaldoVerEnCatalogo(this, \'' + urlPdf + '\')" ' +
+        'style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px;">' +
+      '</span>';
+  }
+
+  function _respaldoVerEnCatalogo(img, urlPdf){
+    const a = document.createElement('a');
+    a.href = urlPdf; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '📖';
+    a.title = 'Abrir el catálogo Azzorti en la página del producto elegido';
+    a.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:6px;' +
+      'border:1px solid var(--line);background:#fff;margin-right:8px;font-size:17px;text-decoration:none;flex:none;';
+    img.replaceWith(a);
   }
 
   // Elegir (o cambiar) el producto Azzorti equivalente desde el dashboard.
